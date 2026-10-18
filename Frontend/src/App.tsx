@@ -1,122 +1,122 @@
-import { useState } from "react";
-import heroImg from "./assets/hero.png";
-import reactLogo from "./assets/react.svg";
-import viteLogo from "./assets/vite.svg";
+import { useEffect, useState, useCallback } from "react";
 import "./App.css";
+import { Navbar, VideoScreen, LoginModal } from "./components";
+import { initPlayer, clearSession } from "./service/service";
+import { useAppDispatch, useAppSelector } from "./store/hooks";
+import { fetchUser, login, logout } from "./store/player";
 
 function App() {
-  const [count, setCount] = useState(0);
+    const dispatch = useAppDispatch();
+    const { userData, isLoggedin, isCheckingSession, error } = useAppSelector(
+        (state) => state.auth
+    );
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+    const [isCameraActive, setIsCameraActive] = useState(false);
+    const [actionError, setActionError] = useState<string | null>(null);
 
-      <div className="ticks"></div>
+    // Initial session check on mount via getSessionDetails service thunk
+    useEffect(() => {
+        dispatch(fetchUser());
+    }, [dispatch]);
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+    // Function to initiate user login via service
+    const handleInitiateUser = useCallback(
+        async (customNickname?: string) => {
+            setActionError(null);
+            try {
+                const res = await initPlayer(customNickname);
+                if (res.success && res.profile) {
+                    dispatch(login(res.profile));
+                }
+            } catch (err: unknown) {
+                const message =
+                    err instanceof Error
+                        ? err.message
+                        : "Unable to connect to server. Please refresh your page.";
+                setActionError(message);
+            }
+        },
+        [dispatch]
+    );
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  );
+    // Function to clear user session
+    const handleLogout = useCallback(async () => {
+        try {
+            await clearSession();
+            dispatch(logout());
+        } catch (err: unknown) {
+            console.error("Logout failed:", err);
+            dispatch(logout());
+        }
+    }, [dispatch]);
+
+    const handleRefreshPage = () => {
+        window.location.reload();
+    };
+
+    return (
+        <div className="cheiron-app-root">
+            {/* Minimalist Top Navigation */}
+            <Navbar
+                userData={userData}
+                isLoggedin={isLoggedin}
+                onOpenAuthModal={() => setIsAuthModalOpen(true)}
+                isCameraActive={isCameraActive}
+            />
+
+            {/* Error Banner when server connection fails */}
+            {(actionError || (error && !isLoggedin && !isCheckingSession)) && (
+                <div className="minimal-error-banner" role="alert">
+                    <span className="error-icon">✕</span>
+                    <span className="error-text">
+                        {actionError || error || "Unable to connect to server. Please refresh your page."}
+                    </span>
+                    <button
+                        type="button"
+                        onClick={handleRefreshPage}
+                        className="btn-minimal btn-minimal-secondary btn-small"
+                    >
+                        Refresh Page
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleInitiateUser()}
+                        className="btn-minimal btn-minimal-primary btn-small"
+                    >
+                        Retry Log In
+                    </button>
+                </div>
+            )}
+
+            {/* Main Stage */}
+            <div className="app-stage-wrapper">
+                {isCheckingSession && !userData ? (
+                    <div className="minimal-page-loader">
+                        <div className="minimal-spinner" />
+                        <span className="loader-label">Connecting to server...</span>
+                    </div>
+                ) : (
+                    <VideoScreen
+                        isLoggedin={isLoggedin}
+                        userNickname={userData?.nickname}
+                        onEnsureLoggedIn={() => handleInitiateUser()}
+                        onCameraActiveChange={setIsCameraActive}
+                    />
+                )}
+            </div>
+
+            {/* Minimalist Guest Session / Profile Modal */}
+            <LoginModal
+                isOpen={isAuthModalOpen}
+                onClose={() => setIsAuthModalOpen(false)}
+                userData={userData}
+                isLoggedin={isLoggedin}
+                onInitiateLogin={handleInitiateUser}
+                onLogout={handleLogout}
+            />
+        </div>
+    );
 }
 
 export default App;
