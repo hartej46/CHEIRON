@@ -1,12 +1,15 @@
-import { FastifyRequest, FastifyReply } from 'fastify'
+import fastify from "../app";
+import { FastifyError, FastifyRequest, FastifyReply } from "fastify";
 
-const errorHandler = (error: any, req: FastifyRequest, res: FastifyReply) => {
-    const statusCode = error.statusCode || 500;
-
-    return res.status(statusCode).send({
-        success: false,
-        message: error.message || "Something went wrong",
-    });
-};
-
-export default errorHandler;
+fastify.setErrorHandler((error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
+    request.log.error({ err: error }, 'unhandled error')
+    const statusCode =
+        typeof error.statusCode === "number" && error.statusCode >= 400
+        ? error.statusCode
+        : 500;
+    reply.status(500).send({
+        statusCode: statusCode,
+        error: 'Internal Server Error',
+        message: 'Internal Server Error'
+    })
+})
