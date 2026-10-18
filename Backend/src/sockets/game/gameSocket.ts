@@ -71,3 +71,35 @@ export function startNextRound(roomId : string, io_server : Server){
     },5000)
 
 }
+
+export async function submitCoordinates(
+    roomId : string,
+    socketId : string,
+    coordinates : number[],
+    io_server : Server,
+){
+
+    const room = activeRooms.get(roomId);
+
+    if(!room) return;
+
+    if(room.player_1.id === socketId && !room.player_1.coordinates){
+        room.player_1.coordinates = coordinates;
+    }else if(room.player_2.id === socketId && !room.player_2.coordinates){
+        room.player_2.coordinates = coordinates;
+    }
+
+    if(room.player_1.coordinates && room.player_2.coordinates){
+        room.status = "evaluation"; 
+
+        if(room.roundTimeout){
+            clearTimeout(room.roundTimeout);
+        }
+
+        await evaluateRound(room, io_server);
+    }
+}
+
+export async function evaluateRound(room : RoomState, io_server : Server){
+    // Here we have to write the python script to evaluate the round and update the scores accordingly. For now, let's just simulate the evaluation.
+}
