@@ -1,39 +1,47 @@
 import os
-import cv2
 import csv
+import urllib.request
 import mediapipe as mp
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
 
-# 1. Initialize MediaPipe Hands in static image mode
-mp_hands = mp.solutions.hands
-hands = mp_hands.Hands(
-    static_image_mode=True,
-    max_num_hands=1,
-    min_detection_confidence=0.5
+# 1. Download the required model bundle if it doesn't exist
+MODEL_PATH = "hand_landmarker.task"
+if not os.path.exists(MODEL_PATH):
+    print("Downloading MediaPipe model bundle...")
+    url = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+    urllib.request.urlretrieve(url, MODEL_PATH)
+
+# 2. Initialize the modern MediaPipe Tasks HandLandmarker
+base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
+options = vision.HandLandmarkerOptions(
+    base_options=base_options,
+    num_hands=1,
+    min_hand_detection_confidence=0.5
 )
+detector = vision.HandLandmarker.create_from_options(options)
 
-# Define your input directories and the label for each
-# Adjust these paths to match where you extracted your downloaded dataset
+# Adjust these paths to match where your dataset is extracted
 DATASET_PATHS = {
-    "rock": "./dataset/rock",
-    "paper": "./dataset/paper",
-    "scissors": "./dataset/scissors"
+    "rock": "./Engine/data/rock_paper_scissors/rps/rock",
+    "paper": "./Engine/data/rock_paper_scissors/rps/paper",
+    "scissors": "./Engine/data/rock_paper_scissors/rps/scissors"
 }
 
-OUTPUT_CSV = "hand_coordinates_dataset.csv"
+OUTPUT_CSV = "./Engine/data/train_hand_coordinates_dataset.csv"
 
 def process_images():
     total_processed = 0
     total_skipped = 0
 
-    # 2. Open the CSV file for writing
+    # Open the CSV file for writing
     with open(OUTPUT_CSV, mode='w', newline='') as file:
         writer = csv.writer(file)
         
-        # Create headers: 'label', 'x0', 'y0', 'z0', 'x1', 'y1', 'z1' ... up to z20
+        # Create headers: 'label', 'x0', 'y0', 'z0' ... up to z20
         headers = ["label"] + [f"{axis}{i}" for i in range(21) for axis in ('x', 'y', 'z')]
         writer.writerow(headers)
 
-        # 3. Iterate through each class folder
         for label, folder_path in DATASET_PATHS.items():
             if not os.path.exists(folder_path):
                 print(f"Directory not found: {folder_path}")
@@ -45,36 +53,32 @@ def process_images():
 
                 filepath = os.path.join(folder_path, filename)
                 
-                # Load image with OpenCV
-                image = cv2.imread(filepath)
-                if image is None:
+                try:
+                    # 3. Load image directly using the new MediaPipe Image class
+                    mp_image = mp.Image.create_from_file(filepath)
+                except Exception as e:
+                    print(f"Could not read {filepath}: {e}")
                     continue
 
-                # MediaPipe requires RGB format; OpenCV loads as BGR
-                image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                # 4. Process the image
+                detection_result = detector.detect(mp_image)
 
-                # Process the image
-                results = hands.process(image_rgb)
+                # 5. Extract and flatten if a hand is found
+                if detection_result.hand_landmarks:
+                  hand_landmarks = detection_result.hand_landmarks[0]
 
-                # 4. Extract and flatten if a hand is found
-                if results.multi_hand_landmarks:
-                    # Grab the first detected hand
-                    hand_landmarks = results.multi_hand_landmarks[0]
-                    
-                    row = [label]
-                    for landmark in hand_landmarks.landmark:
-                        row.extend([landmark.x, landmark.y, landmark.z])
-                    
-                    writer.writerow(row)
-                    total_processed += 1
+                  row = [label]
+                  for landmark in hand_landmarks:
+                    row.extend([landmark.x, landmark.y, landmark.z])
+
+                  writer.writerow(row)
+                  total_processed += 1
                 else:
-                    # If MediaPipe cannot confidently see a hand, discard the image
-                    total_skipped += 1
+                  total_skipped += 1
 
-    hands.close()
-    print(f"Extraction complete! Successfully processed {total_processed} images.")
-    print(f"Skipped {total_skipped} images where no clear hand was detected.")
-    print(f"Data saved to {OUTPUT_CSV}")
+                print(f"Processed: {total_processed}, Skipped: {total_skipped}")
 
 if __name__ == "__main__":
     process_images()
+    detector.close() # <--- Add this line to manually close the model
+    
