@@ -52,6 +52,28 @@ io_server.on("connection", (socket) => {
             waitingQueue.splice(queueIndex, 1);
         }
     });
+
+    // WebRTC signaling events
+    socket.on("webrtc_offer", ({roomId, sdp}) => {
+
+        fastify.log.info(`Received WebRTC sdp from ${socket.id} for room ${roomId}`);
+        socket.to(roomId).emit("webrtc_offer", { sdp, senderId: socket.id });
+
+    });
+
+    socket.on("webrtc_answer", ({roomId, sdp}) => {
+
+        fastify.log.info(`Received WebRTC answer from ${socket.id} for room ${roomId}`);
+        socket.to(roomId).emit("webrtc_answer", { sdp, senderId: socket.id });
+
+    });
+
+    socket.on("webrtc_ice_candidate", ({roomId, candidate}) => {
+
+        fastify.log.info(`Received ICE candidate from ${socket.id} for room ${roomId}`);
+        socket.to(roomId).emit("webrtc_ice_candidate", { candidate, senderId: socket.id });
+
+    });
 });
 
 // Handling Shutdown signals
