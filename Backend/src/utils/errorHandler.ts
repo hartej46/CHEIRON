@@ -1,7 +1,6 @@
-import fastify from "../app";
 import { FastifyError, FastifyRequest, FastifyReply } from "fastify";
 
-fastify.setErrorHandler((error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
+const errorHandler =(error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
     request.log.error({ err: error }, 'unhandled error')
     const statusCode =
         typeof error.statusCode === "number" && error.statusCode >= 400
@@ -12,4 +11,6 @@ fastify.setErrorHandler((error: FastifyError, request: FastifyRequest, reply: Fa
         error: 'Internal Server Error',
         message: 'Internal Server Error'
     })
-})
+}
+
+export default errorHandler;
