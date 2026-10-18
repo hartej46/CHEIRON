@@ -17,11 +17,11 @@ const io_server = new SocketIOServer(fastify.server, {
 // listen for socket connections
 io_server.on("connection" , (socket) => {
     fastify.log.info(`Socket connected: ${socket.id}`);
-})
 
-io_server.on("disconnect" , (socket) => {
-    fastify.log.info(`Socket disconnected: ${socket.id}`);
-})
+    socket.on("disconnect" , () => {
+        fastify.log.info(`Socket disconnected: ${socket.id}`);
+    });
+});
 
 // Handling Shutdown signals
 const shutdown = async () => {
@@ -39,3 +39,5 @@ const start = async () => {
         process.exit(1);
     }
 }
+
+start();
