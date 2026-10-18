@@ -1,89 +1,101 @@
-import {Server,Socket} from "socket.io";
-import {
-    createGameRoom, 
-    startNextRound, 
-    submitCoordinates, 
-    activeRooms, 
-    socketToRoom
-} from "./gameSocket";
+import { Server } from "socket.io";
 
-const waitingQueue: string[] = [];
+export interface PlayerState {
+    id: string;
+    score: number;
+    coordinates: number[] | null;
+}
 
-export default function registerGameSockets(io_server: Server) {
+export interface RoomState {
+    roomId: string;
+    player_1: PlayerState;
+    player_2: PlayerState;
+    round: number;
+    status: "waiting" | "countdown" | "in_progress" | "evaluation" | "finished";
+    roundTimeout?: NodeJS.Timeout;
+}
 
-    io_server.on("connection", (socket) => {
+export const activeRooms = new Map<string, RoomState>();
+export const socketToRoom = new Map<string, string>(); // We use this accidental close ups
 
-        socket.on("find_match", () => {
-        if (waitingQueue.includes(socket.id) || socketToRoom.has(socket.id)) return;
+export function createGameRoom(
+    roomId: string,
+    player_1_id: string,
+    player_2_id: string,
+    io_server: Server
+) {
+    const room: RoomState = {
+        roomId,
+        player_1: {
+            id: player_1_id,
+            score: 0,
+            coordinates: null,
+        },
+        player_2: {
+            id: player_2_id,
+            score: 0,
+            coordinates: null,
+        },
+        round: 1,
+        status: "waiting",
+    };
 
-        if (waitingQueue.length > 0) {
-            const opponentId = waitingQueue.shift();
-            const roomId = `room_${Date.now()}`;
+    activeRooms.set(roomId, room);
+    socketToRoom.set(player_1_id, roomId);
+    socketToRoom.set(player_2_id, roomId);
 
-            socket.join(roomId);
+    io_server.to(roomId).emit("match_found", { roomId });
+}
 
-            const opponentSocket = io_server.sockets.sockets.get(opponentId!);
+export function startNextRound(roomId: string, io_server: Server) {
+    const room = activeRooms.get(roomId);
+    if (!room) return;
 
-            if (opponentSocket) {
-                opponentSocket.join(roomId);
-            }
+    room.round += 1;
+    room.status = "countdown";
 
-            io_server.to(roomId).emit("match_found", { roomId });
-        } else {
-            waitingQueue.push(socket.id);
-            socket.emit("waiting_for_opponent");
+    room.player_1.coordinates = null;
+    room.player_2.coordinates = null;
+
+    io_server.to(roomId).emit("round_start", { round: room.round, durationMs: 3000 });
+
+    // safety timeout
+
+    room.roundTimeout = setTimeout(() => {
+        if (room.status !== "evaluation") {
+            io_server.to(roomId).emit("round_error", { message: "Retrying round" });
+            startNextRound(roomId, io_server);
         }
-    });
+    }, 5000);
+}
 
-    socket.on("disconnect", () => {
+export async function submitCoordinates(
+    roomId: string,
+    socketId: string,
+    coordinates: number[],
+    io_server: Server
+) {
+    const room = activeRooms.get(roomId);
 
-        const queueIndex = waitingQueue.indexOf(socket.id);
-        if (queueIndex !== -1) {
-            waitingQueue.splice(queueIndex, 1);
+    if (!room) return;
+
+    if (room.player_1.id === socketId && !room.player_1.coordinates) {
+        room.player_1.coordinates = coordinates;
+    } else if (room.player_2.id === socketId && !room.player_2.coordinates) {
+        room.player_2.coordinates = coordinates;
+    }
+
+    if (room.player_1.coordinates && room.player_2.coordinates) {
+        room.status = "evaluation";
+
+        if (room.roundTimeout) {
+            clearTimeout(room.roundTimeout);
         }
 
-        const roomId = socketToRoom.get(socket.id);
-        if(roomId){
-            io_server.to(roomId).emit("opponent_disconnected");
-            const room = activeRooms.get(roomId);
+        await evaluateRound(room, io_server);
+    }
+}
 
-            if(room){
-            
-            if(room.roundTimeout) {
-                clearTimeout(room.roundTimeout);
-            }
-            socketToRoom.delete(room.player_1.id);
-            socketToRoom.delete(room.player_2.id);
-            activeRooms.delete(roomId);
-
-            }
-        }
-    });
-
-    // WebRTC signaling events
-    socket.on("webrtc_offer", ({ roomId, sdp }) => {
-        // fastify.log.info(`Received WebRTC sdp from ${socket.id} for room ${roomId}`);
-        socket.to(roomId).emit("webrtc_offer", { sdp });
-    });
-
-    socket.on("webrtc_answer", ({ roomId, sdp }) => {
-        // fastify.log.info(`Received WebRTC answer from ${socket.id} for room ${roomId}`);
-        socket.to(roomId).emit("webrtc_answer", { sdp });
-    });
-
-    socket.on("webrtc_ice_candidate", ({ roomId, candidate }) => {
-        // fastify.log.info(`Received ICE candidate from ${socket.id} for room ${roomId}`);
-        socket.to(roomId).emit("webrtc_ice_candidate", { candidate });
-    });
-
-    socket.on("submit_coordinates", ({ roomId, coordinates }) => {
-        submitCoordinates(roomId, socket.id, coordinates, io_server);
-    });
-
-    socket.on("client_ready", ({ roomId }) => {
-      startNextRound(roomId, io_server);
-    });
-
-});
-
+export async function evaluateRound(room: RoomState, io_server: Server) {
+    // Here we have to write the python script to evaluate the round and update the scores accordingly. For now, let's just simulate the evaluation.
 }
