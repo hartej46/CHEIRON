@@ -1,6 +1,6 @@
 import Fastify from "fastify";
-import cors, { autoConfig as CorsAutoConfig} from "./plugins/external/cors.plugin.ts";
-import env , { autoConfig as EnvAutoConfig } from "./plugins/external/env.plugin.ts";
+import cors, { autoConfig as CorsAutoConfig } from "./plugins/external/cors.plugin.ts";
+import env, { autoConfig as EnvAutoConfig } from "./plugins/external/env.plugin.ts";
 
 const fastify = Fastify({
     logger: {
