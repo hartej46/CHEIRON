@@ -11,6 +11,7 @@ export interface GuestProfile {
 export interface SessionResponse {
     success: boolean;
     profile: GuestProfile;
+    message?: string;
 }
 
 interface ApiErrorResponse {
@@ -18,67 +19,60 @@ interface ApiErrorResponse {
 }
 
 /**
- *
- * @param userData
- * @returns { SessionResponse } on successfull conncection
+ * Initiates player session with the backend.
+ * Throws an error directing the user to refresh their page if connection fails.
  */
+export const initPlayer = async (userData?: string | { nickname?: string }): Promise<SessionResponse> => {
+    const nickname = typeof userData === "string" ? userData : userData?.nickname;
+    const payload = nickname ? { nickname: nickname.trim() } : {};
 
-export const initPlayer = async (userData: string) => {
     try {
-        const response = await apiClient.post<SessionResponse>("/session/init", userData || {});
-        return response.data;
-    } catch (error: unknown) {
-        const fallbackMessage = "Something went wrong";
-        if (error instanceof AxiosError) {
-            return (
-                (error.response?.data as ApiErrorResponse)?.message ||
-                error.message ||
-                fallbackMessage
-            );
+        const response = await apiClient.post<SessionResponse>("/session/init", payload);
+        if (response.data && response.data.profile) {
+            return response.data;
         }
-        return fallbackMessage;
+        throw new Error("Unable to connect to server. Please refresh your page.");
+    } catch (error: unknown) {
+        let msg = "Unable to connect to server. Please refresh your page.";
+        if (error instanceof AxiosError) {
+            msg = (error.response?.data as ApiErrorResponse)?.message || msg;
+        }
+        throw new Error(msg, { cause: error });
     }
 };
 
 /**
- *
- * @returns { SessionResponse } on successfull conncection
+ * Fetches the current session details from /session/me.
+ * Throws an error directing the user to refresh their page if connection fails.
  */
-
-export const getSessionDetails = async () => {
+export const getSessionDetails = async (): Promise<SessionResponse> => {
     try {
         const response = await apiClient.get<SessionResponse>("/session/me");
-        return response.data;
-    } catch (error: unknown) {
-        const fallbackMessage = "Something went wrong";
-        if (error instanceof AxiosError) {
-            return (
-                (error.response?.data as ApiErrorResponse)?.message ||
-                error.message ||
-                fallbackMessage
-            );
+        if (response.data && response.data.profile) {
+            return response.data;
         }
-        return fallbackMessage;
+        throw new Error("Unable to connect to server. Please refresh your page.");
+    } catch (error: unknown) {
+        let msg = "Unable to connect to server. Please refresh your page.";
+        if (error instanceof AxiosError) {
+            msg = (error.response?.data as ApiErrorResponse)?.message || msg;
+        }
+        throw new Error(msg, { cause: error });
     }
 };
 
 /**
- * Clears the HttpOnly cookie and calls deletePlayer from your RAM userMap.
+ * Clears the session on backend.
  */
-
-export const clearSession = async () => {
+export const clearSession = async (): Promise<{ success: boolean; message?: string }> => {
     try {
         const response = await apiClient.post("/session/clear");
-        return response.data;
+        return response.data || { success: true };
     } catch (error: unknown) {
-        const fallbackMessage = "Something went wrong";
+        let msg = "Unable to clear session.";
         if (error instanceof AxiosError) {
-            return (
-                (error.response?.data as ApiErrorResponse)?.message ||
-                error.message ||
-                fallbackMessage
-            );
+            msg = (error.response?.data as ApiErrorResponse)?.message || msg;
         }
-        return fallbackMessage;
+        throw new Error(msg, { cause: error });
     }
 };

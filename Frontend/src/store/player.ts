@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
-import { getSessionDetails } from "../service/service";
+import { getSessionDetails, clearSession } from "../service/service";
 import { AxiosError } from "axios";
 
 interface ApiErrorResponse {
@@ -30,18 +30,30 @@ export const fetchUser = createAsyncThunk<PlayerProfile, void, { rejectValue: st
     "user/me",
     async (_, { rejectWithValue }) => {
         try {
-            const response = await getSessionDetails() as SessionApiResponse;
-            return response.profile;
+            const response = await getSessionDetails();
+            if (response && response.profile) {
+                return response.profile;
+            }
+            return rejectWithValue("Unable to connect to server. Please refresh your page.");
         } catch (error: unknown) {
             if (error instanceof AxiosError) {
                 const message =
                     (error.response?.data as ApiErrorResponse)?.message ||
                     error.message ||
-                    "User fetch failed";
+                    "Unable to connect to server. Please refresh your page.";
                 return rejectWithValue(message);
             }
-            return rejectWithValue(error instanceof Error ? error.message : "User fetch failed");
+            return rejectWithValue(
+                error instanceof Error ? error.message : "Unable to connect to server. Please refresh your page."
+            );
         }
+    }
+);
+
+export const logoutUser = createAsyncThunk<void, void>(
+    "user/logout",
+    async () => {
+        await clearSession();
     }
 );
 
@@ -90,7 +102,13 @@ const playerSlice = createSlice({
                 state.isLoggedin = false;
                 state.userData = null;
                 state.isCheckingSession = false;
-                state.error = action.payload || action.error.message || "User fetch failed";
+                state.error = action.payload || action.error.message || "Unable to connect to server. Please refresh your page.";
+            })
+            .addCase(logoutUser.fulfilled, (state) => {
+                state.isLoggedin = false;
+                state.userData = null;
+                state.isCheckingSession = false;
+                state.error = null;
             });
     },
 });
