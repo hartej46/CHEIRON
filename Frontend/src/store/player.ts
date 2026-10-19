@@ -44,18 +44,17 @@ export const fetchUser = createAsyncThunk<PlayerProfile, void, { rejectValue: st
                 return rejectWithValue(message);
             }
             return rejectWithValue(
-                error instanceof Error ? error.message : "Unable to connect to server. Please refresh your page."
+                error instanceof Error
+                    ? error.message
+                    : "Unable to connect to server. Please refresh your page."
             );
         }
     }
 );
 
-export const logoutUser = createAsyncThunk<void, void>(
-    "user/logout",
-    async () => {
-        await clearSession();
-    }
-);
+export const logoutUser = createAsyncThunk<void, void>("user/logout", async () => {
+    await clearSession();
+});
 
 const initialState: PlayerState = {
     isLoggedin: false,
@@ -102,7 +101,10 @@ const playerSlice = createSlice({
                 state.isLoggedin = false;
                 state.userData = null;
                 state.isCheckingSession = false;
-                state.error = action.payload || action.error.message || "Unable to connect to server. Please refresh your page.";
+                state.error =
+                    action.payload ||
+                    action.error.message ||
+                    "Unable to connect to server. Please refresh your page.";
             })
             .addCase(logoutUser.fulfilled, (state) => {
                 state.isLoggedin = false;

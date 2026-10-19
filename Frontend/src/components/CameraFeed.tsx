@@ -63,7 +63,8 @@ export const CameraFeed: React.FC<CameraFeedProps> = ({
                                 <span className="empty-icon">⚠</span>
                                 <p className="empty-title">Camera Permission Denied</p>
                                 <span className="empty-sub">
-                                    {errorMessage || "Check your browser settings to grant camera access."}
+                                    {errorMessage ||
+                                        "Check your browser settings to grant camera access."}
                                 </span>
                                 <button
                                     type="button"

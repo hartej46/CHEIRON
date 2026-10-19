@@ -22,7 +22,9 @@ interface ApiErrorResponse {
  * Initiates player session with the backend.
  * Throws an error directing the user to refresh their page if connection fails.
  */
-export const initPlayer = async (userData?: string | { nickname?: string }): Promise<SessionResponse> => {
+export const initPlayer = async (
+    userData?: string | { nickname?: string }
+): Promise<SessionResponse> => {
     const nickname = typeof userData === "string" ? userData : userData?.nickname;
     const payload = nickname ? { nickname: nickname.trim() } : {};
 

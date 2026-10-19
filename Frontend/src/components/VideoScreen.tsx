@@ -173,8 +173,7 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
 
         if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
         searchTimeoutRef.current = setTimeout(() => {
-            const randomPartner =
-                STRANGER_NAMES[Math.floor(Math.random() * STRANGER_NAMES.length)];
+            const randomPartner = STRANGER_NAMES[Math.floor(Math.random() * STRANGER_NAMES.length)];
             setPartnerName(randomPartner);
             setStatus("connected");
             addSystemMessage("You're now chatting with a random stranger. Say hi!");
@@ -191,8 +190,7 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
         addSystemMessage("Connecting to a new partner...");
 
         searchTimeoutRef.current = setTimeout(() => {
-            const randomPartner =
-                STRANGER_NAMES[Math.floor(Math.random() * STRANGER_NAMES.length)];
+            const randomPartner = STRANGER_NAMES[Math.floor(Math.random() * STRANGER_NAMES.length)];
             setPartnerName(randomPartner);
             setStatus("connected");
             addSystemMessage("You're now chatting with a random stranger. Say hi!");
@@ -289,11 +287,7 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
             />
 
             {/* Omegle-style Text Chat and System Log */}
-            <ChatBox
-                messages={messages}
-                status={status}
-                onSendMessage={handleSendMessage}
-            />
+            <ChatBox messages={messages} status={status} onSendMessage={handleSendMessage} />
         </main>
     );
 };
