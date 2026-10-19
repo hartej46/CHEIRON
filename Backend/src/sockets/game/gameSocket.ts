@@ -11,6 +11,15 @@ const waitingQueue: string[] = [];
 
 export default function registerGameSockets(io_server: Server) {
     io_server.on("connection", (socket) => {
+
+        const rawCookie = socket.handshake.headers.cookie;
+        if (!rawCookie) {
+            socket.disconnect();
+            return;
+        }
+
+        console.log(`Player connected: ${rawCookie}`);
+
         socket.on("find_match", () => {
             if (waitingQueue.includes(socket.id) || socketToRoom.has(socket.id)) return;
 
