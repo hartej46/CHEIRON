@@ -3,6 +3,7 @@ import CameraFeed from "./CameraFeed";
 import RemoteScreen, { type MatchStatus } from "./RemoteScreen";
 import ControlBar from "./ControlBar";
 import ChatBox, { type ChatMessage } from "./ChatBox";
+import { io } from "socket.io-client";
 
 interface VideoScreenProps {
     onEnsureLoggedIn: () => Promise<void>;
@@ -85,6 +86,11 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
             // Pass the user's nickname from your state, or a fallback
             body: JSON.stringify({ nickname: userNickname || "Player" }), 
             credentials: "include", // CRITICAL: This saves the JWT cookie from Fastify
+            });
+
+            // On your frontend
+            const socket = io("http://localhost:3000", {
+                withCredentials: true // <-- Sends the cookie back to Fastify
             });
 
             if (!response.ok) {
