@@ -7,14 +7,19 @@ import { UserSession } from "../types/user.types";
 const userMap = new Map<string, UserSession>();
 
 /**
- * @param id 
- * @param intiatedAt 
- * @param expiresAt 
- * @returns {UserSession} this retuens UserSession on successfully adding new User
- * Added player to Ram of server  
- */
-export const addNewPlayer = (id: string, intiatedAt: number, expiresAt: number): UserSession=> {
-    if(id.trim()) throw new AppError("Id not found", 404);
+* Adds a new player session to the server’s in-memory storage.
+* @param id - The unique identifier of the session.
+* @param initiatedAt - The timestamp when the session was initiated.
+* @param expiresAt - The timestamp when the session expires.
+* @returns The created UserSession object.
+*/
+export const addNewPlayer = (
+    id: string,
+    nickname: string,
+    intiatedAt: number,
+    expiresAt: number
+): UserSession => {
+    if (id.trim()) throw new AppError("Id not found", 404);
 
     const expireTimeInMs = expiresAt - Date.now();
     if (expireTimeInMs <= 0) {
@@ -22,30 +27,30 @@ export const addNewPlayer = (id: string, intiatedAt: number, expiresAt: number):
     }
 
     const existingPlayer = userMap.get(id);
-    if(existingPlayer){
-      clearTimeout(existingPlayer.expiryTimer);
+    if (existingPlayer) {
+        clearTimeout(existingPlayer.expiryTimer);
     }
 
     //Stores the id for setTimeout, used to delete when neccessary
-  const expiryTimer = setTimeout(() => {
-    const existingPlayer = userMap.get(id);
-    if (existingPlayer) userMap.delete(id);
-  }, expireTimeInMs);
+    const expiryTimer = setTimeout(() => {
+        const existingPlayer = userMap.get(id);
+        if (existingPlayer) userMap.delete(id);
+    }, expireTimeInMs);
 
-  const newUser: UserSession = {
-    id: id,
-    initiatedAt: intiatedAt,
-    expiresAt: expiresAt,
-    expiryTimer: expiryTimer
-  }
+    const newUser: UserSession = {
+        id: id,
+        nickname: nickname,
+        initiatedAt: intiatedAt,
+        expiresAt: expiresAt,
+        expiryTimer: expiryTimer,
+    };
 
-  userMap.set(id, newUser);
-  return newUser;
-}
+    userMap.set(id, newUser);
+    return newUser;
+};
 
 /**
- * 
- * @param id 
+ * @param id - The unique identifier of the session.
  * deletes user details from memory / ram by javascript runtime
  */
 export const deleteUser = (id: string) => {
@@ -54,21 +59,22 @@ export const deleteUser = (id: string) => {
 
     clearTimeout(existingPlayer.expiryTimer);
     return userMap.delete(id);
-}
+};
 
 /**
- * @param id 
- * @returns {UserSession | undefined} on successfully fetching or undefined
- * This function by default checks expiry for userData
- */
-export const getUserDetails = (id: string): UserSession | undefined=> {
+* Retrieves a user’s session by ID.
+* Checks whether the session has expired before returning it.
+* @param id - The unique identifier of the session.
+* @returns The UserSession if found and valid; otherwise, undefined.
+*/
+export const getUserDetails = (id: string): UserSession | undefined => {
     const existingPlayer = userMap.get(id);
     if (!existingPlayer) return undefined;
 
     if (Date.now() > existingPlayer.expiresAt) {
         deleteUser(id);
         return undefined;
-    };
+    }
 
     return existingPlayer;
-}
+};
