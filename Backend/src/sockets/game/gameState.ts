@@ -36,7 +36,7 @@ export function createGameRoom(
             score: 0,
             coordinates: null,
         },
-        round: 1,
+        round: 0,
         status: "waiting",
     };
 

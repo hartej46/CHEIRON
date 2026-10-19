@@ -93,9 +93,9 @@ export default function registerGameSockets(io_server: Server) {
         socket.on("submit_coordinates", ({ roomId, coordinates }) => {
             submitCoordinates(roomId, socket.id, coordinates, io_server);
         });
-
+        // TODO: Both the users can send this incrementing rounds twice
         socket.on("client_ready", ({ roomId }) => {
-            startNextRound(roomId, io_server);
+            startNextRound(roomId, io_server); 
         });
     });
 }
