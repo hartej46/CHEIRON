@@ -4,6 +4,7 @@ import env, { autoConfig as EnvAutoConfig } from "./plugins/external/env.plugin.
 import errorHandler from "./utils/errorHandler.ts";
 import { ZodTypeProvider, validatorCompiler, serializerCompiler } from "@fastify/type-provider-zod";
 import cookie from "@fastify/cookie";
+import routes from "./routes/routes.ts";
 
 const fastify = Fastify({
     logger: {
@@ -17,11 +18,13 @@ fastify.setSerializerCompiler(serializerCompiler);
 fastify.register(env, EnvAutoConfig);
 fastify.register(cors, CorsAutoConfig);
 fastify.register(cookie);
+fastify.register(routes);
 
 fastify.after(() => {
     fastify.log.level = fastify.config.LOG_LEVEL;
 });
 fastify.setErrorHandler(errorHandler);
 export const envConfig = fastify.config;
+export const getEnvConfig = () => fastify.config;
 
 export default fastify;

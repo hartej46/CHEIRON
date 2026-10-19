@@ -1,11 +1,6 @@
-import Fastify from "fastify";
 import { Server as SocketIOServer } from "socket.io";
 import registerGameSockets from "./sockets/game/gameSocket";
-
-// Intiate Fastify server
-const fastify = Fastify({
-    logger: true,
-});
+import fastify from "./app.ts";
 
 // Intiate Socket.IO server
 const io_server = new SocketIOServer(fastify.server, {
@@ -26,7 +21,10 @@ const shutdown = async () => {
 
 const start = async () => {
     try {
-        await fastify.listen({ port: 3000, host: "0.0.0.0" });
+        await fastify.listen({
+            port: fastify.config.PORT,
+            host: "0.0.0.0",
+        });
     } catch (error) {
         fastify.log.error(error);
         process.exit(1);
