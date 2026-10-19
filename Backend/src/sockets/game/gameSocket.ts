@@ -6,10 +6,14 @@ import {
     activeRooms,
     socketToRoom,
 } from "./gameState";
+import { verifySocketToken } from "../../middleware/socketauth.middleware";
 
 const waitingQueue: string[] = [];
 
 export default function registerGameSockets(io_server: Server) {
+
+    io_server.use(verifySocketToken);
+
     io_server.on("connection", (socket) => {
 
         const rawCookie = socket.handshake.headers.cookie;
