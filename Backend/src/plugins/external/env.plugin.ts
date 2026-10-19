@@ -7,6 +7,7 @@ declare module "fastify" {
             LOG_LEVEL: string;
             JWT_TOKEN_SECERT: string;
             JWT_TOKEN_EXPIRY: string;
+            PLAYER_DETAILS_DELETE_TIME: number;
         };
     }
 }
@@ -28,8 +29,11 @@ const envSchema = {
         },
         JWT_TOKEN_EXPIRY: {
             type: "string",
-            default: '1d',
-        }
+            default: "1d",
+        },
+        PLAYER_DETAILS_DELETE_TIME: {
+            type: "number",
+        },
     },
 };
 
