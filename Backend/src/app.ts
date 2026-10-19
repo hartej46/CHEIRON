@@ -16,5 +16,6 @@ fastify.after(() => {
     fastify.log.level = fastify.config.LOG_LEVEL;
 });
 fastify.setErrorHandler(errorHandler);
+export const envConfig = fastify.config;
 
 export default fastify;
