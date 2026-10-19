@@ -1,11 +1,5 @@
 import AppError from "../utils/error";
-
-interface UserSession {
-    id: string;
-    initiatedAt: number;
-    expiresAt: number;
-    expiryTimer: ReturnType<typeof setTimeout>;      //id for setTimeout for specific user
-}
+import { UserSession } from "../types/user.types";
 
 /**
  * Uses javascript's in built memory / ram for storing user data
@@ -13,14 +7,13 @@ interface UserSession {
 const userMap = new Map<string, UserSession>();
 
 /**
- * 
  * @param id 
  * @param intiatedAt 
  * @param expiresAt 
  * @returns {UserSession} this retuens UserSession on successfully adding new User
  * Added player to Ram of server  
  */
-const addNewPlayer = (id: string, intiatedAt: number, expiresAt: number): UserSession=> {
+export const addNewPlayer = (id: string, intiatedAt: number, expiresAt: number): UserSession=> {
     if(id.trim()) throw new AppError("Id not found", 404);
 
     const expireTimeInMs = expiresAt - Date.now();
@@ -55,7 +48,7 @@ const addNewPlayer = (id: string, intiatedAt: number, expiresAt: number): UserSe
  * @param id 
  * deletes user details from memory / ram by javascript runtime
  */
-const deleteUser = (id: string) => {
+export const deleteUser = (id: string) => {
     const existingPlayer = userMap.get(id);
     if (!existingPlayer) return false;
 
@@ -68,7 +61,7 @@ const deleteUser = (id: string) => {
  * @returns {UserSession | undefined} on successfully fetching or undefined
  * This function by default checks expiry for userData
  */
-const getUserDetails = (id: string): UserSession | undefined=> {
+export const getUserDetails = (id: string): UserSession | undefined=> {
     const existingPlayer = userMap.get(id);
     if (!existingPlayer) return undefined;
 

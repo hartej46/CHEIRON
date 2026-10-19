@@ -5,9 +5,9 @@ class AppError extends Error {
         this.status = status;
         (
             Error as ErrorConstructor & {
-                captureStackTrace(target: object, constructor?: Function): void;
+                captureStackTrace(target: object, constructor?: Function): void;   //Added type for Error as ErrorConstructor which can have captureStackTrace method.
             }
-        ).captureStackTrace(this, this.constructor);
+        ).captureStackTrace(this, this.constructor); 
     }
 }
 
