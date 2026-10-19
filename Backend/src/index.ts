@@ -5,9 +5,10 @@ import fastify from "./app.ts";
 // Intiate Socket.IO server
 const io_server = new SocketIOServer(fastify.server, {
     cors: {
-        origin: "*",
-        methods: ["GET", "POST"],
-    },
+    origin: process.env.FRONTEND_URL,
+    methods: ["GET", "POST"],
+    credentials: true,
+}
 });
 
 registerGameSockets(io_server);
