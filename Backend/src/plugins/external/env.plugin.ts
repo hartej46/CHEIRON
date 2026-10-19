@@ -5,6 +5,8 @@ declare module "fastify" {
         config: {
             PORT: number;
             LOG_LEVEL: string;
+            JWT_TOKEN_SECERT: string;
+            JWT_TOKEN_EXPIRY: string;
         };
     }
 }
@@ -21,6 +23,13 @@ const envSchema = {
             type: "string",
             default: "debug",
         },
+        JWT_TOKEN_SECERT: {
+            type: "string",
+        },
+        JWT_TOKEN_EXPIRY: {
+            type: "string",
+            default: '1d',
+        }
     },
 };
 
