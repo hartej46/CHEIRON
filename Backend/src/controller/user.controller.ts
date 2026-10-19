@@ -33,7 +33,7 @@ const initPlayer = async (request: FastifyRequest, reply: FastifyReply) => {
 const getPlayerDetails = async (request: AuthFastifyRequest, reply: FastifyReply) => {
     const user = request.user;
 
-    return reply.status(201).send(user);
+    return reply.status(200).send(user);
 };
 
 const deletePlayer = async (request: AuthFastifyRequest, reply: FastifyReply) => {
@@ -41,9 +41,9 @@ const deletePlayer = async (request: AuthFastifyRequest, reply: FastifyReply) =>
     const isDeleted = deleteUser(user?.id);
 
     if (!isDeleted)
-        reply.status(400).send({
+        return reply.status(404).send({
             success: false,
-            message: "User doesn't exists",
+            message: "User doesn't exist",
         });
 
     return reply.status(200).send({
