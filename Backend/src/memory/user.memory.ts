@@ -7,12 +7,12 @@ import { UserSession } from "../types/user.types";
 const userMap = new Map<string, UserSession>();
 
 /**
-* Adds a new player session to the server’s in-memory storage.
-* @param id - The unique identifier of the session.
-* @param initiatedAt - The timestamp when the session was initiated.
-* @param expiresAt - The timestamp when the session expires.
-* @returns The created UserSession object.
-*/
+ * Adds a new player session to the server’s in-memory storage.
+ * @param id - The unique identifier of the session.
+ * @param initiatedAt - The timestamp when the session was initiated.
+ * @param expiresAt - The timestamp when the session expires.
+ * @returns The created UserSession object.
+ */
 export const addNewPlayer = (
     id: string,
     nickname: string,
@@ -62,11 +62,11 @@ export const deleteUser = (id: string) => {
 };
 
 /**
-* Retrieves a user’s session by ID.
-* Checks whether the session has expired before returning it.
-* @param id - The unique identifier of the session.
-* @returns The UserSession if found and valid; otherwise, undefined.
-*/
+ * Retrieves a user’s session by ID.
+ * Checks whether the session has expired before returning it.
+ * @param id - The unique identifier of the session.
+ * @returns The UserSession if found and valid; otherwise, undefined.
+ */
 export const getUserDetails = (id: string): UserSession | undefined => {
     const existingPlayer = userMap.get(id);
     if (!existingPlayer) return undefined;
