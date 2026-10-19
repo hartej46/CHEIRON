@@ -25,7 +25,7 @@ const initPlayer = async (request: FastifyRequest, reply: FastifyReply) => {
 
     reply.setCookie("jwtToken", token, jwtTokenOptions);
     return reply.status(201).send({
-        sucess: true,
+        success: true,
         message: "Player added successfully",
     });
 };

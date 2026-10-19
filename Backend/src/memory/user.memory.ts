@@ -19,7 +19,7 @@ export const addNewPlayer = (
     intiatedAt: number,
     expiresAt: number
 ): UserSession => {
-    if (id.trim()) throw new AppError("Id not found", 404);
+    if (!id.trim()) throw new AppError("Id not found", 404);
 
     const expireTimeInMs = expiresAt - Date.now();
     if (expireTimeInMs <= 0) {

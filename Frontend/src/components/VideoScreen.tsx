@@ -79,6 +79,18 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
                 audio: true,
             });
 
+            const response = await fetch("http://localhost:3000/api/session", { // Update with your actual route path
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            // Pass the user's nickname from your state, or a fallback
+            body: JSON.stringify({ nickname: userNickname || "Player" }), 
+            credentials: "include", // CRITICAL: This saves the JWT cookie from Fastify
+            });
+
+            if (!response.ok) {
+            throw new Error("Camera started, but failed to connect to game server.");
+            }
+
             setLocalStream(stream);
             setIsCameraActive(true);
             setPermissionStatus("granted");
@@ -93,7 +105,7 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
                     : "Unable to access camera. Please allow permissions in your browser.";
             setErrorMessage(msg);
         }
-    }, []);
+    }, [userNickname]);
 
     // Stop camera & clean up tracks
     const handleStopCamera = useCallback(() => {
