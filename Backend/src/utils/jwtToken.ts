@@ -8,12 +8,23 @@ import { envConfig } from "../app.ts";
  * @returns The generated JWT token.
  */
 export const generateToken = (userDetails: UserSession) => {
-    const token = jwt.sign(
-        userDetails,
-        envConfig.JWT_TOKEN_SECERT,
-        {
+    const token = jwt.sign(userDetails, envConfig.JWT_TOKEN_SECERT, {
         expiresIn: userDetails.expiresAt,
-        });
+    });
 
     return token;
+};
+
+/**
+ *
+ * @param token - JWT token from user
+ * @returns The decode payload or null
+ */
+export const verifyToken = (token: string): UserSession | null => {
+    try {
+        const userDetails = jwt.verify(token, envConfig.JWT_TOKEN_SECERT);
+        return userDetails as UserSession;
+    } catch (error: unknown) {
+        return null;
+    }
 };
