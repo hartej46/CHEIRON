@@ -1,3 +1,5 @@
+import { FastifyRequest } from "fastify";
+
 /**
  * Type for userdetail stored in memory map
  */
@@ -7,4 +9,8 @@ export interface UserSession {
     initiatedAt: number;
     expiresAt: number;
     expiryTimer: ReturnType<typeof setTimeout>; //id for setTimeout for specific user
+}
+
+export interface AuthFastifyRequest extends FastifyRequest {
+    user?: UserSession;
 }
