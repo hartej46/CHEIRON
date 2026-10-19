@@ -37,6 +37,12 @@ export default function registerGameSockets(io_server: Server) {
 
                 if (opponentSocket) {
                     opponentSocket.join(roomId);
+                    createGameRoom(
+                        roomId,
+                        opponentSocket.id,
+                        socket.id,
+                        io_server
+                    );
                 }
 
                 io_server.to(roomId).emit("match_found", { roomId });
