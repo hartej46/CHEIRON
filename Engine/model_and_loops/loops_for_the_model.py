@@ -8,8 +8,7 @@ def training_loop(
     train_loader : torch.utils.data.DataLoader,
     val_loader : torch.utils.data.DataLoader):
 
-    model.eval()
+    model.train()
 
-    for 
     
     
