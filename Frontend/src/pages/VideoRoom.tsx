@@ -18,6 +18,12 @@ export function VideoRoom() {
         };
     }, []);
 
+    useEffect(() => {
+        if (videoRef.current) {
+            videoRef.current.srcObject = cameraEnabled ? streamRef.current : null;
+        }
+    }, [cameraEnabled]);
+
     const enableCamera = async () => {
         setMediaError(null);
 
@@ -30,10 +36,6 @@ export function VideoRoom() {
             streamRef.current = stream;
             setHasStream(true);
 
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-            }
-
             setCameraEnabled(true);
             setAudioEnabled(stream.getAudioTracks().some((track) => track.enabled));
             // TODO: Publish the local stream to the WebRTC peer connection.
@@ -45,11 +47,11 @@ export function VideoRoom() {
     };
 
     const disableCamera = () => {
-        streamRef.current?.getVideoTracks().forEach((track) => track.stop());
-        if (videoRef.current) {
-            videoRef.current.srcObject = null;
-        }
+        streamRef.current?.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+        setHasStream(false);
         setCameraEnabled(false);
+        setAudioEnabled(false);
         // TODO: Notify the backend that the local video track is unavailable.
     };
 
