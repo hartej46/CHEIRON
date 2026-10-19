@@ -3,7 +3,11 @@ class AppError extends Error {
     constructor(message: string, status: number) {
         super(message);
         this.status = status;
-        Error.captureStackTrace(this, this.constructor);
+        (
+            Error as ErrorConstructor & {
+                captureStackTrace(target: object, constructor?: Function): void;
+            }
+        ).captureStackTrace(this, this.constructor);
     }
 }
 
