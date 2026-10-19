@@ -93,9 +93,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                             autoComplete="off"
                             maxLength={24}
                         />
-                        <span className="form-hint">
-                            Displayed to partners when connected.
-                        </span>
+                        <span className="form-hint">Displayed to partners when connected.</span>
                     </div>
 
                     {isLoggedin && userData && (
@@ -144,8 +142,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                                 {loading
                                     ? "Connecting..."
                                     : isLoggedin
-                                    ? "Save Changes"
-                                    : "Initiate Session"}
+                                      ? "Save Changes"
+                                      : "Initiate Session"}
                             </button>
                         </div>
                     </div>

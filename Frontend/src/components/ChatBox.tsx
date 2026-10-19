@@ -14,11 +14,7 @@ interface ChatBoxProps {
     onSendMessage: (text: string) => void;
 }
 
-export const ChatBox: React.FC<ChatBoxProps> = ({
-    messages,
-    status,
-    onSendMessage,
-}) => {
+export const ChatBox: React.FC<ChatBoxProps> = ({ messages, status, onSendMessage }) => {
     const [inputValue, setInputValue] = useState("");
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
 

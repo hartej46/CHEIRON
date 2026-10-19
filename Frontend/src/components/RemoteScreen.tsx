@@ -35,12 +35,7 @@ export const RemoteScreen: React.FC<RemoteScreenProps> = ({
         <div className="camera-feed-card">
             <div className="video-viewport remote-viewport">
                 {status === "connected" && remoteStream ? (
-                    <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        className="video-element"
-                    />
+                    <video ref={videoRef} autoPlay playsInline className="video-element" />
                 ) : (
                     <div className="video-empty-state remote-empty">
                         {status === "searching" ? (
@@ -125,7 +120,9 @@ export const RemoteScreen: React.FC<RemoteScreenProps> = ({
                 {/* Badge header */}
                 <div className="video-badge-bar top-left">
                     <span className="feed-tag">
-                        {status === "connected" ? `STRANGER (${partnerName || "Peer"})` : "STRANGER (REMOTE)"}
+                        {status === "connected"
+                            ? `STRANGER (${partnerName || "Peer"})`
+                            : "STRANGER (REMOTE)"}
                     </span>
                     {status === "connected" && (
                         <span className="live-pill">

@@ -70,7 +70,9 @@ function App() {
                 <div className="minimal-error-banner" role="alert">
                     <span className="error-icon">✕</span>
                     <span className="error-text">
-                        {actionError || error || "Unable to connect to server. Please refresh your page."}
+                        {actionError ||
+                            error ||
+                            "Unable to connect to server. Please refresh your page."}
                     </span>
                     <button
                         type="button"
