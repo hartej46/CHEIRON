@@ -230,12 +230,11 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
                 audio: true,
             });
 
-            const response = await fetch("http://localhost:3000/api/session", { // Update with your actual route path
+            const response = await fetch("http://localhost:3000/session/init", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            // Pass the user's nickname from your state, or a fallback
-            body: JSON.stringify({ nickname: userNickname || "Player" }), 
-            credentials: "include", // CRITICAL: This saves the JWT cookie from Fastify
+            body: JSON.stringify({ nickname: userNickname || "Player" }),
+            credentials: "include",
             });
 
             if (!response.ok) {

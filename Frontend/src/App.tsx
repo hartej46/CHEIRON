@@ -11,13 +11,28 @@ import {
     NicknameContext,
     useNickname,
 } from "./context/NicknameContext";
+import { initPlayer } from "./service/service";
+import { VideoScreen } from "./components/VideoScreen";
 import { LandingPage } from "./pages/LandingPage";
-import { VideoRoom } from "./pages/VideoRoom";
 
 function RoomRoute() {
     const { nickname } = useNickname();
+    const [isLoggedin, setIsLoggedin] = useState(false);
 
-    return nickname ? <VideoRoom /> : <Navigate to="/" replace />;
+    if (!nickname) return <Navigate to="/" replace />;
+
+    const ensureLoggedIn = async () => {
+        await initPlayer(nickname);
+        setIsLoggedin(true);
+    };
+
+    return (
+        <VideoScreen
+            onEnsureLoggedIn={ensureLoggedIn}
+            isLoggedin={isLoggedin}
+            userNickname={nickname}
+        />
+    );
 }
 
 function AppRoutes() {
