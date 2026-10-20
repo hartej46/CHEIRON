@@ -28,6 +28,7 @@ export function VideoRoom() {
     const [mediaError, setMediaError] = useState<string | null>(null);
     const [connectionStatus, setConnectionStatus] = useState("Waiting for connection...");
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+    const [opponentNickname, setOpponentNickname] = useState<string | null>(null);
 
     useEffect(() => {
         return () => {
@@ -45,9 +46,14 @@ export function VideoRoom() {
 
     useEffect(() => {
         if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = remoteStreamRef.current;
+            remoteVideoRef.current.srcObject = remoteStream;
+            if (remoteStream) {
+                void remoteVideoRef.current.play().catch(() => {
+                    setConnectionStatus("Click the page to allow remote video playback.");
+                });
+            }
         }
-    }, [connectionStatus]);
+    }, [remoteStream]);
 
     useEffect(() => {
         if (!streamRef.current || socketRef.current) return;
@@ -73,10 +79,15 @@ export function VideoRoom() {
                         connection.addTrack(track, streamRef.current!);
                     });
                     connection.ontrack = (event) => {
-                        remoteStreamRef.current = event.streams[0] || null;
+                        const incomingStream =
+                            event.streams[0] || new MediaStream([event.track]);
+                        remoteStreamRef.current = incomingStream;
                         setRemoteStream(remoteStreamRef.current);
-                        if (remoteVideoRef.current) {
-                            remoteVideoRef.current.srcObject = remoteStreamRef.current;
+                        setConnectionStatus("Connected to opponent.");
+                    };
+                    connection.onconnectionstatechange = () => {
+                        if (connection.connectionState === "failed") {
+                            setConnectionStatus("WebRTC connection failed.");
                         }
                     };
                     connection.onicecandidate = (event) => {
@@ -100,46 +111,95 @@ export function VideoRoom() {
                 socket.on("waiting_for_opponent", () => {
                     setConnectionStatus("Waiting for an opponent...");
                 });
-                socket.on("match_found", async ({ roomId, initiator }) => {
+                socket.on("match_found", async ({
+                    roomId,
+                    initiator,
+                    opponentNickname: matchedOpponentNickname,
+                }: {
+                    roomId: string;
+                    initiator: boolean;
+                    opponentNickname?: string;
+                }) => {
                     roomIdRef.current = roomId;
+                    setOpponentNickname(matchedOpponentNickname || "Opponent");
                     setConnectionStatus("Connecting to opponent...");
                     const connection = setupPeerConnection();
                     if (!initiator) return;
 
-                    const offer = await connection.createOffer();
-                    await connection.setLocalDescription(offer);
-                    socket.emit("webrtc_offer", { roomId, sdp: offer });
+                    try {
+                        const offer = await connection.createOffer();
+                        await connection.setLocalDescription(offer);
+                        socket.emit("webrtc_offer", {
+                            roomId,
+                            sdp: connection.localDescription,
+                        });
+                    } catch (error) {
+                        console.error("Failed to create WebRTC offer.", error);
+                        setConnectionStatus("Unable to create video offer.");
+                    }
                 });
-                socket.on("webrtc_offer", async ({ roomId, sdp }) => {
+                socket.on("webrtc_offer", async ({
+                    roomId,
+                    sdp,
+                }: {
+                    roomId: string;
+                    sdp: RTCSessionDescriptionInit;
+                }) => {
                     roomIdRef.current = roomId;
                     const connection = setupPeerConnection();
-                    await connection.setRemoteDescription(sdp);
-                    for (const candidate of pendingCandidatesRef.current) {
-                        await connection.addIceCandidate(candidate);
+                    try {
+                        await connection.setRemoteDescription(sdp);
+                        for (const candidate of pendingCandidatesRef.current) {
+                            await connection.addIceCandidate(candidate);
+                        }
+                        pendingCandidatesRef.current = [];
+                        const answer = await connection.createAnswer();
+                        await connection.setLocalDescription(answer);
+                        socket.emit("webrtc_answer", {
+                            roomId,
+                            sdp: connection.localDescription,
+                        });
+                    } catch (error) {
+                        console.error("Failed to handle WebRTC offer.", error);
+                        setConnectionStatus("Unable to accept video offer.");
                     }
-                    pendingCandidatesRef.current = [];
-                    const answer = await connection.createAnswer();
-                    await connection.setLocalDescription(answer);
-                    socket.emit("webrtc_answer", { roomId, sdp: answer });
                 });
-                socket.on("webrtc_answer", async ({ sdp }) => {
+                socket.on("webrtc_answer", async ({
+                    sdp,
+                }: {
+                    sdp: RTCSessionDescriptionInit;
+                }) => {
                     if (!peerConnectionRef.current) return;
-                    await peerConnectionRef.current.setRemoteDescription(sdp);
-                    for (const candidate of pendingCandidatesRef.current) {
-                        await peerConnectionRef.current.addIceCandidate(candidate);
+                    try {
+                        await peerConnectionRef.current.setRemoteDescription(sdp);
+                        for (const candidate of pendingCandidatesRef.current) {
+                            await peerConnectionRef.current.addIceCandidate(candidate);
+                        }
+                        pendingCandidatesRef.current = [];
+                    } catch (error) {
+                        console.error("Failed to handle WebRTC answer.", error);
+                        setConnectionStatus("Unable to complete video connection.");
                     }
-                    pendingCandidatesRef.current = [];
                 });
-                socket.on("webrtc_ice_candidate", async ({ candidate }) => {
+                socket.on("webrtc_ice_candidate", async ({
+                    candidate,
+                }: {
+                    candidate: RTCIceCandidateInit;
+                }) => {
                     if (!peerConnectionRef.current?.remoteDescription) {
                         pendingCandidatesRef.current.push(candidate);
                         return;
                     }
-                    await peerConnectionRef.current.addIceCandidate(candidate);
+                    try {
+                        await peerConnectionRef.current.addIceCandidate(candidate);
+                    } catch (error) {
+                        console.error("Failed to add ICE candidate.", error);
+                    }
                 });
                 socket.on("opponent_disconnected", () => {
                     remoteStreamRef.current = null;
                     setRemoteStream(null);
+                    setOpponentNickname(null);
                     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
                     peerConnectionRef.current?.close();
                     peerConnectionRef.current = null;
@@ -195,6 +255,7 @@ export function VideoRoom() {
         socketRef.current = null;
         remoteStreamRef.current = null;
         setRemoteStream(null);
+        setOpponentNickname(null);
         if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
         setConnectionStatus("Waiting for connection...");
     };
@@ -237,6 +298,7 @@ export function VideoRoom() {
                             <span>{connectionStatus}</span>
                         )}
                     </div>
+                    <p className="participant-name">{opponentNickname || "Stranger"}</p>
                 </article>
 
                 <article className="video-panel">

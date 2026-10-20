@@ -40,13 +40,20 @@ export default function registerGameSockets(io_server: Server) {
                     createGameRoom(
                         roomId,
                         opponentSocket.id,
-                        socket.id,
-                        io_server
+                        socket.id
                     );
                 }
 
-                opponentSocket?.emit("match_found", { roomId, initiator: true });
-                socket.emit("match_found", { roomId, initiator: false });
+                opponentSocket?.emit("match_found", {
+                    roomId,
+                    initiator: true,
+                    opponentNickname: socket.data.nickname,
+                });
+                socket.emit("match_found", {
+                    roomId,
+                    initiator: false,
+                    opponentNickname: opponentSocket?.data.nickname,
+                });
             } else {
                 waitingQueue.push(socket.id);
                 socket.emit("waiting_for_opponent");

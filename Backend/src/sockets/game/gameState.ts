@@ -21,8 +21,7 @@ export const socketToRoom = new Map<string, string>(); // We use this accidental
 export function createGameRoom(
     roomId: string,
     player_1_id: string,
-    player_2_id: string,
-    io_server: Server
+    player_2_id: string
 ) {
     const room: RoomState = {
         roomId,
@@ -43,8 +42,6 @@ export function createGameRoom(
     activeRooms.set(roomId, room);
     socketToRoom.set(player_1_id, roomId);
     socketToRoom.set(player_2_id, roomId);
-
-    io_server.to(roomId).emit("match_found", { roomId });
 }
 
 export function startNextRound(roomId: string, io_server: Server) {
