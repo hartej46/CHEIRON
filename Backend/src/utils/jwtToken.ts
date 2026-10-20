@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
-import { UserSession } from "../types/user.types.ts";
-import { getEnvConfig } from "../app.ts";
+import type { UserSession } from "../types/user.types.ts";
+import { envConfig } from "../app.ts";
 
 /**
  * Generates a JWT access token for the user.
@@ -15,7 +15,7 @@ export const generateToken = (userDetails: UserSession) => {
             initiatedAt: userDetails.initiatedAt,
             expiresAt: userDetails.expiresAt,
         },
-        getEnvConfig().JWT_TOKEN_SECERT,
+        envConfig.JWT_TOKEN_SECERT,
         {
             expiresIn: Math.max(1, Math.floor((userDetails.expiresAt - Date.now()) / 1000)),
         }
@@ -31,7 +31,7 @@ export const generateToken = (userDetails: UserSession) => {
  */
 export const verifyToken = (token: string): UserSession | null => {
     try {
-        const userDetails = jwt.verify(token, getEnvConfig().JWT_TOKEN_SECERT);
+        const userDetails = jwt.verify(token, envConfig.JWT_TOKEN_SECERT);
         return userDetails as UserSession;
     } catch (error: unknown) {
         return null;

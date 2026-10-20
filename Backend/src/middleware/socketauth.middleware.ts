@@ -1,7 +1,7 @@
 import {Socket} from "socket.io";
 // import { parse } from "cookie"; This shit aint working
 import jwt from "jsonwebtoken";
-import AppError from "../utils/error";
+import AppError from "../utils/error.ts";
 
 interface JwtPayload {
     id: string;

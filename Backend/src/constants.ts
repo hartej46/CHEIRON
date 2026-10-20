@@ -1,4 +1,4 @@
-import { CookieSerializeOptions } from "@fastify/cookie";
+import type { CookieSerializeOptions } from "@fastify/cookie";
 
 /**
  * cookie option for jwt token

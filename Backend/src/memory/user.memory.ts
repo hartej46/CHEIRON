@@ -1,5 +1,5 @@
-import AppError from "../utils/error";
-import { UserSession } from "../types/user.types";
+import AppError from "../utils/error.ts";
+import type { UserSession } from "../types/user.types.ts";
 
 /**
  * Uses javascript's in built memory / ram for storing user data

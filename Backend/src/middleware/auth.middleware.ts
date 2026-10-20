@@ -1,8 +1,8 @@
-import { FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyReply } from "fastify";
 import { verifyToken } from "../utils/jwtToken.ts";
 import AppError from "../utils/error.ts";
 import { getUserDetails } from "../memory/user.memory.ts";
-import { AuthFastifyRequest } from "../types/user.types.ts";
+import type { AuthFastifyRequest } from "../types/user.types.ts";
 
 export async function authMiddleware(request: AuthFastifyRequest, reply: FastifyReply) {
     const signedToken = request.cookies.jwtToken;

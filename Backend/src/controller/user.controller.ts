@@ -1,12 +1,12 @@
 import { addNewPlayer, deleteUser } from "../memory/user.memory.ts";
-import { FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyReply, FastifyRequest } from "fastify";
 import { InitSessionBodySchema } from "../schema/user.schema.ts";
 import AppError from "../utils/error.ts";
 import { randomUUID } from "crypto";
-import { getEnvConfig } from "../app.ts";
+import { envConfig } from "../app.ts";
 import { generateToken } from "../utils/jwtToken.ts";
 import { jwtTokenOptions } from "../constants.ts";
-import { AuthFastifyRequest } from "../types/user.types.ts";
+import type { AuthFastifyRequest } from "../types/user.types.ts";
 
 export const initPlayer = async (request: FastifyRequest, reply: FastifyReply) => {
     const result = InitSessionBodySchema.safeParse(request.body);
@@ -17,7 +17,7 @@ export const initPlayer = async (request: FastifyRequest, reply: FastifyReply) =
     const id = randomUUID();
     const nickname = result.data.nickname || "Harry Putter";
     const intiatedAt = Date.now();
-    const expiresAt = intiatedAt + getEnvConfig().PLAYER_DETAILS_DELETE_TIME;
+    const expiresAt = intiatedAt + envConfig.PLAYER_DETAILS_DELETE_TIME;
 
     const newPlayer = addNewPlayer(id, nickname, intiatedAt, expiresAt);
 

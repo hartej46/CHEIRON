@@ -1,4 +1,4 @@
-import { FastifyError, FastifyRequest, FastifyReply } from "fastify";
+import type { FastifyError, FastifyRequest, FastifyReply } from "fastify";
 
 const errorHandler = (error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
     request.log.error({ err: error }, "unhandled error");
