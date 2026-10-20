@@ -1,5 +1,5 @@
 import { Server as SocketIOServer } from "socket.io";
-import registerGameSockets from "./sockets/game/gameSocket";
+import registerGameSockets from "./sockets/game/gameSocket.ts";
 import fastify from "./app.ts";
 
 // Intiate Socket.IO server
@@ -22,6 +22,7 @@ const shutdown = async () => {
 
 const start = async () => {
     try {
+        await fastify.ready();
         await fastify.listen({
             port: fastify.config.PORT,
             host: "0.0.0.0",

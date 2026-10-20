@@ -5,8 +5,8 @@ import {
     submitCoordinates,
     activeRooms,
     socketToRoom,
-} from "./gameState";
-import { verifySocketToken } from "../../middleware/socketauth.middleware";
+} from "./gameState.ts";
+import { verifySocketToken } from "../../middleware/socketauth.middleware.ts";
 
 const waitingQueue: string[] = [];
 
