@@ -35,6 +35,8 @@ def training_loop(
         running_loss /= len(train_loader)
         training_losses.append(running_loss)
 
+        print(f"Epoch {epoch+1}/{epochs}, Loss: {running_loss:.4f}")
+
     return training_losses
 
 
