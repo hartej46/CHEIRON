@@ -1,32 +1,22 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { io, type Socket } from "socket.io-client";
 import CameraFeed from "./CameraFeed";
 import RemoteScreen, { type MatchStatus } from "./RemoteScreen";
 import ControlBar from "./ControlBar";
 import ChatBox, { type ChatMessage } from "./ChatBox";
 
+const ICE_SERVERS: RTCConfiguration = {
+    iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+    ],
+};
 interface VideoScreenProps {
     onEnsureLoggedIn: () => Promise<void>;
     isLoggedin: boolean;
     userNickname?: string;
     onCameraActiveChange?: (active: boolean) => void;
 }
-
-const STRANGER_NAMES = [
-    "Stranger_Tokyo",
-    "Stranger_Berlin",
-    "Stranger_Oslo",
-    "Stranger_London",
-    "Stranger_Kyoto",
-    "Stranger_Zurich",
-];
-
-const SIMULATED_STRANGER_REPLIES = [
-    "Hey! How is it going?",
-    "Hello from the other side of the world!",
-    "Hi there! Love the clean minimalist interface here.",
-    "Hey! What are you building today?",
-    "Greetings! Nice to meet you.",
-];
 
 export const VideoScreen: React.FC<VideoScreenProps> = ({
     onEnsureLoggedIn,
@@ -47,18 +37,179 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
     // Matching State
     const [status, setStatus] = useState<MatchStatus>("idle");
     const [partnerName, setPartnerName] = useState<string | undefined>(undefined);
-    const [remoteStream] = useState<MediaStream | null>(null);
+    const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
 
     // Chat Messages
     const [messages, setMessages] = useState<ChatMessage[]>([]);
 
-    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const replyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const socketRef = useRef<Socket | null>(null);
+    const roomIdRef = useRef<string | null>(null);
 
     // Update parent about camera state
     useEffect(() => {
         onCameraActiveChange?.(isCameraActive);
     }, [isCameraActive, onCameraActiveChange]);
+
+    useEffect(() => {
+        if (!localStream) return;
+
+        const socket = io("http://localhost:3000", {
+            withCredentials: true,
+        });
+        let peerConnection: RTCPeerConnection | null = null;
+        let pendingCandidates: RTCIceCandidateInit[] = [];
+
+        socketRef.current = socket;
+
+        const closePeerConnection = () => {
+            peerConnection?.close();
+            peerConnection = null;
+            pendingCandidates = [];
+        };
+
+        const setupPeerConnection = () => {
+            if (peerConnection) return peerConnection;
+
+            const connection = new RTCPeerConnection(ICE_SERVERS);
+            peerConnection = connection;
+
+            localStream.getTracks().forEach((track) => {
+                connection.addTrack(track, localStream);
+            });
+
+            connection.ontrack = (event) => {
+                const [stream] = event.streams;
+                if (stream) setRemoteStream(stream);
+            };
+
+            connection.onicecandidate = (event) => {
+                if (event.candidate && roomIdRef.current) {
+                    socket.emit("webrtc_ice_candidate", {
+                        roomId: roomIdRef.current,
+                        candidate: event.candidate.toJSON(),
+                    });
+                }
+            };
+
+            return connection;
+        };
+
+        const handleMatchFound = async ({
+            roomId,
+            initiator,
+        }: {
+            roomId: string;
+            initiator: boolean;
+        }) => {
+            roomIdRef.current = roomId;
+            setStatus("connected");
+            setPartnerName("Stranger");
+
+            const connection = setupPeerConnection();
+            if (!initiator) return;
+
+            try {
+                const offer = await connection.createOffer();
+                await connection.setLocalDescription(offer);
+                socket.emit("webrtc_offer", {
+                    roomId,
+                    sdp: offer,
+                });
+            } catch (error) {
+                console.error("Failed to create WebRTC offer.", error);
+            }
+        };
+
+        const handleOffer = async ({
+            roomId,
+            sdp,
+        }: {
+            roomId: string;
+            sdp: RTCSessionDescriptionInit;
+        }) => {
+            roomIdRef.current = roomId;
+            const connection = setupPeerConnection();
+
+            try {
+                await connection.setRemoteDescription(new RTCSessionDescription(sdp));
+                for (const candidate of pendingCandidates) {
+                    await connection.addIceCandidate(candidate);
+                }
+                pendingCandidates = [];
+
+                const answer = await connection.createAnswer();
+                await connection.setLocalDescription(answer);
+                socket.emit("webrtc_answer", {
+                    roomId,
+                    sdp: answer,
+                });
+            } catch (error) {
+                console.error("Failed to handle WebRTC offer.", error);
+            }
+        };
+
+        const handleAnswer = async ({
+            sdp,
+        }: {
+            sdp: RTCSessionDescriptionInit;
+        }) => {
+            if (!peerConnection) return;
+
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
+                for (const candidate of pendingCandidates) {
+                    await peerConnection.addIceCandidate(candidate);
+                }
+                pendingCandidates = [];
+            } catch (error) {
+                console.error("Failed to handle WebRTC answer.", error);
+            }
+        };
+
+        const handleIceCandidate = async ({
+            candidate,
+        }: {
+            candidate: RTCIceCandidateInit;
+        }) => {
+            if (!peerConnection || !peerConnection.remoteDescription) {
+                pendingCandidates.push(candidate);
+                return;
+            }
+
+            try {
+                await peerConnection.addIceCandidate(candidate);
+            } catch (error) {
+                console.error("Failed to add WebRTC ICE candidate.", error);
+            }
+        };
+
+        const handleOpponentDisconnected = () => {
+            setRemoteStream(null);
+            setPartnerName(undefined);
+            setStatus("disconnected");
+            closePeerConnection();
+        };
+
+        socket.on("match_found", handleMatchFound);
+        socket.on("webrtc_offer", handleOffer);
+        socket.on("webrtc_answer", handleAnswer);
+        socket.on("webrtc_ice_candidate", handleIceCandidate);
+        socket.on("opponent_disconnected", handleOpponentDisconnected);
+        socket.emit("find_match");
+        setStatus("searching");
+
+        return () => {
+            socket.off("match_found", handleMatchFound);
+            socket.off("webrtc_offer", handleOffer);
+            socket.off("webrtc_answer", handleAnswer);
+            socket.off("webrtc_ice_candidate", handleIceCandidate);
+            socket.off("opponent_disconnected", handleOpponentDisconnected);
+            closePeerConnection();
+            socket.disconnect();
+            if (socketRef.current === socket) socketRef.current = null;
+            if (roomIdRef.current) roomIdRef.current = null;
+        };
+    }, [localStream]);
 
     // Request browser camera & microphone access
     const handleStartCamera = useCallback(async () => {
@@ -123,8 +274,6 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
             if (localStream) {
                 localStream.getTracks().forEach((track) => track.stop());
             }
-            if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-            if (replyTimeoutRef.current) clearTimeout(replyTimeoutRef.current);
         };
     }, [localStream]);
 
@@ -182,40 +331,21 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
 
         setStatus("searching");
         addSystemMessage("Looking for someone you can chat with...");
-
-        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-        searchTimeoutRef.current = setTimeout(() => {
-            const randomPartner = STRANGER_NAMES[Math.floor(Math.random() * STRANGER_NAMES.length)];
-            setPartnerName(randomPartner);
-            setStatus("connected");
-            addSystemMessage("You're now chatting with a random stranger. Say hi!");
-        }, 1500);
     };
 
     // Skip to next partner
     const handleNext = () => {
-        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-        if (replyTimeoutRef.current) clearTimeout(replyTimeoutRef.current);
-
         setStatus("searching");
         setPartnerName(undefined);
         addSystemMessage("Connecting to a new partner...");
-
-        searchTimeoutRef.current = setTimeout(() => {
-            const randomPartner = STRANGER_NAMES[Math.floor(Math.random() * STRANGER_NAMES.length)];
-            setPartnerName(randomPartner);
-            setStatus("connected");
-            addSystemMessage("You're now chatting with a random stranger. Say hi!");
-        }, 1200);
+        socketRef.current?.emit("find_match");
     };
 
     // Stop/Leave chat
     const handleStop = () => {
-        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-        if (replyTimeoutRef.current) clearTimeout(replyTimeoutRef.current);
-
         setStatus("idle");
         setPartnerName(undefined);
+        setRemoteStream(null);
         addSystemMessage("You have ended the connection.");
     };
 
@@ -228,26 +358,6 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
             timestamp: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, userMsg]);
-
-        // Stranger auto-reply simulation
-        if (status === "connected") {
-            if (replyTimeoutRef.current) clearTimeout(replyTimeoutRef.current);
-            replyTimeoutRef.current = setTimeout(() => {
-                const randomReply =
-                    SIMULATED_STRANGER_REPLIES[
-                        Math.floor(Math.random() * SIMULATED_STRANGER_REPLIES.length)
-                    ];
-                setMessages((prev) => [
-                    ...prev,
-                    {
-                        id: `rep_${Date.now()}`,
-                        sender: "stranger",
-                        text: randomReply,
-                        timestamp: new Date().toISOString(),
-                    },
-                ]);
-            }, 1000);
-        }
     };
 
     return (

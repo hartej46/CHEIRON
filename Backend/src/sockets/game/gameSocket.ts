@@ -45,7 +45,8 @@ export default function registerGameSockets(io_server: Server) {
                     );
                 }
 
-                io_server.to(roomId).emit("match_found", { roomId });
+                opponentSocket?.emit("match_found", { roomId, initiator: true });
+                socket.emit("match_found", { roomId, initiator: false });
             } else {
                 waitingQueue.push(socket.id);
                 socket.emit("waiting_for_opponent");
