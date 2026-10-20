@@ -7,12 +7,16 @@ const errorHandler = (error: FastifyError, request: FastifyRequest, reply: Fasti
         typeof error.statusCode === "number" && error.statusCode >= 400
             ? error.statusCode
             : typeof errorWithStatus.status === "number" && errorWithStatus.status >= 400
-                ? errorWithStatus.status
+                ? (errorWithStatus.status as number)
                 : 500;
+    const isClientError = statusCode >= 400 && statusCode < 500;
+    const message = isClientError ? error.message : "Internal Server Error";
+    const errorName = isClientError ? error.name || "Bad Request" : "Internal Server Error";
+
     reply.status(statusCode).send({
         statusCode: statusCode,
-        error: "Internal Server Error",
-        message: "Internal Server Error",
+        error: errorName,
+        message: message,
     });
 };
 
