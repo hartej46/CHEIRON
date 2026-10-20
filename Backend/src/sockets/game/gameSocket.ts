@@ -78,17 +78,17 @@ export default function registerGameSockets(io_server: Server) {
         // WebRTC signaling events
         socket.on("webrtc_offer", ({ roomId, sdp }) => {
             // fastify.log.info(`Received WebRTC sdp from ${socket.id} for room ${roomId}`);
-            socket.to(roomId).emit("webrtc_offer", { sdp });
+            socket.to(roomId).emit("webrtc_offer", { roomId, sdp });
         });
 
         socket.on("webrtc_answer", ({ roomId, sdp }) => {
             // fastify.log.info(`Received WebRTC answer from ${socket.id} for room ${roomId}`);
-            socket.to(roomId).emit("webrtc_answer", { sdp });
+            socket.to(roomId).emit("webrtc_answer", { roomId, sdp });
         });
 
         socket.on("webrtc_ice_candidate", ({ roomId, candidate }) => {
             // fastify.log.info(`Received ICE candidate from ${socket.id} for room ${roomId}`);
-            socket.to(roomId).emit("webrtc_ice_candidate", { candidate });
+            socket.to(roomId).emit("webrtc_ice_candidate", { roomId, candidate });
         });
 
         socket.on("submit_coordinates", ({ roomId, coordinates }) => {
