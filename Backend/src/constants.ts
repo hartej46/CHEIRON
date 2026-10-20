@@ -5,6 +5,7 @@ import type { CookieSerializeOptions } from "@fastify/cookie";
  */
 export const jwtTokenOptions: CookieSerializeOptions = {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
+    path: "/",
 };

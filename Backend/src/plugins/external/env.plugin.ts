@@ -8,6 +8,7 @@ declare module "fastify" {
             JWT_TOKEN_SECERT: string;
             JWT_TOKEN_EXPIRY: string;
             PLAYER_DETAILS_DELETE_TIME: number;
+            FRONTEND_URL: string;
         };
     }
 }
@@ -33,6 +34,10 @@ const envSchema = {
         },
         PLAYER_DETAILS_DELETE_TIME: {
             type: "number",
+        },
+        FRONTEND_URL: {
+            type: "string",
+            default: "http://localhost:5173",
         },
     },
 };

@@ -23,7 +23,7 @@ export const verifySocketToken = (socket: Socket, next: (err?: Error) => void) =
             return next(new AppError("JWT token not found in cookie",401));
         }
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
+        const decoded = jwt.verify(token, process.env.JWT_TOKEN_SECERT!) as JwtPayload;
 
         socket.data.playerId = decoded.id;
         socket.data.nickname = decoded.nickname;

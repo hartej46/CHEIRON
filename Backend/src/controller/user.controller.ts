@@ -55,13 +55,14 @@ export const deletePlayer = async (request: AuthFastifyRequest, reply: FastifyRe
     const user = request.user!;
     const isDeleted = deleteUser(user?.id);
 
+    reply.clearCookie("jwtToken", jwtTokenOptions);
+
     if (!isDeleted)
         return reply.status(404).send({
             success: false,
             message: "User doesn't exist",
         });
 
-    reply.clearCookie("jwtToken", jwtTokenOptions);
     return reply.status(200).send({
         success: true,
         message: "successfully deleted user",
