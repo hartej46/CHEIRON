@@ -26,7 +26,13 @@ export const initPlayer = async (
     userData?: string | { nickname?: string }
 ): Promise<SessionResponse> => {
     const nickname = typeof userData === "string" ? userData : userData?.nickname;
-    const payload = nickname ? { nickname: nickname.trim() } : {};
+    const trimmed = nickname ? nickname.trim() : undefined;
+
+    if (trimmed !== undefined && trimmed.length <= 2) {
+        throw new Error("Username must be greater than 2 characters.");
+    }
+
+    const payload = trimmed ? { nickname: trimmed } : {};
 
     try {
         const response = await apiClient.post<SessionResponse>("/session/init", payload);

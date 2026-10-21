@@ -20,6 +20,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 }) => {
     const [customNickname, setCustomNickname] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [validationError, setValidationError] = useState<string | null>(null);
 
     if (!isOpen) return null;
 
@@ -27,11 +28,20 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        const trimmed = currentNickname.trim();
+        if (trimmed && trimmed.length <= 2) {
+            setValidationError("Username must be greater than 2 characters.");
+            return;
+        }
+
         setLoading(true);
+        setValidationError(null);
         try {
-            await onInitiateLogin(currentNickname.trim() || undefined);
+            await onInitiateLogin(trimmed || undefined);
             setCustomNickname(null);
             onClose();
+        } catch (err) {
+            setValidationError(err instanceof Error ? err.message : "Failed to initiate session.");
         } finally {
             setLoading(false);
         }
@@ -87,12 +97,22 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                             id="nickname-input"
                             type="text"
                             value={currentNickname}
-                            onChange={(e) => setCustomNickname(e.target.value)}
+                            onChange={(e) => {
+                                setCustomNickname(e.target.value);
+                                setValidationError(null);
+                            }}
                             placeholder="e.g. Satoshi or Stranger_42"
                             className="form-input"
                             autoComplete="off"
                             maxLength={24}
+                            aria-invalid={Boolean(validationError)}
+                            aria-describedby={validationError ? "nickname-modal-error" : undefined}
                         />
+                        {validationError && (
+                            <p id="nickname-modal-error" className="form-error" role="alert">
+                                {validationError}
+                            </p>
+                        )}
                         <span className="form-hint">Displayed to partners when connected.</span>
                     </div>
 

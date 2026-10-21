@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { initPlayer } from "../service/service";
 
 interface LandingPageProps {
     onStart: (nickname: string) => void;
@@ -7,18 +8,37 @@ interface LandingPageProps {
 
 export function LandingPage({ onStart }: LandingPageProps) {
     const [nickname, setNickname] = useState("");
-    const [showError, setShowError] = useState(false);
+    const [validationError, setValidationError] = useState<string | null>(null);
+    const [apiError, setApiError] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         const trimmedNickname = nickname.trim();
 
         if (!trimmedNickname) {
-            setShowError(true);
+            setValidationError("Please enter a username to continue.");
             return;
         }
 
-        onStart(trimmedNickname);
+        if (trimmedNickname.length <= 2) {
+            setValidationError("Username must be greater than 2 characters.");
+            return;
+        }
+
+        try {
+            setIsSubmitting(true);
+            setApiError(null);
+            setValidationError(null);
+            await initPlayer(trimmedNickname);
+            onStart(trimmedNickname);
+        } catch (error) {
+            setApiError(
+                error instanceof Error ? error.message : "Unable to connect to server."
+            );
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -39,21 +59,33 @@ export function LandingPage({ onStart }: LandingPageProps) {
                         value={nickname}
                         onChange={(event) => {
                             setNickname(event.target.value);
-                            setShowError(false);
+                            setValidationError(null);
+                            setApiError(null);
                         }}
                         placeholder="Enter your nickname"
                         autoComplete="nickname"
                         autoFocus
-                        aria-invalid={showError}
-                        aria-describedby={showError ? "nickname-error" : undefined}
+                        aria-invalid={Boolean(validationError)}
+                        aria-describedby={
+                            validationError
+                                ? "nickname-error"
+                                : apiError
+                                  ? "nickname-api-error"
+                                  : undefined
+                        }
                     />
-                    {showError && (
+                    {validationError && (
                         <p id="nickname-error" className="form-error" role="alert">
-                            Please enter a nickname to continue.
+                            {validationError}
                         </p>
                     )}
-                    <button type="submit" className="primary-button">
-                        Start
+                    {apiError && (
+                        <p id="nickname-api-error" className="form-error" role="alert">
+                            {apiError}
+                        </p>
+                    )}
+                    <button type="submit" className="primary-button" disabled={isSubmitting}>
+                        {isSubmitting ? "Starting..." : "Start"}
                     </button>
                 </form>
             </section>

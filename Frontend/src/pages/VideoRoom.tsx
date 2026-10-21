@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { io, type Socket } from "socket.io-client";
 import { useNickname } from "../context/NicknameContext";
-import { initPlayer } from "../service/service";
+import { initPlayer, getSessionDetails, clearSession } from "../service/service";
+import { config } from "../config/Config";
 
 const ICE_SERVERS: RTCConfiguration = {
     iceServers: [
@@ -12,8 +13,18 @@ const ICE_SERVERS: RTCConfiguration = {
 };
 
 export function VideoRoom() {
-    const { nickname } = useNickname();
+    const { nickname, setNickname } = useNickname();
     const navigate = useNavigate();
+
+    const handleLeaveRoom = async () => {
+        try {
+            await clearSession();
+        } catch {
+            // Ignore error when clearing session
+        }
+        setNickname("");
+        navigate("/");
+    };
     const videoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
@@ -62,10 +73,14 @@ export function VideoRoom() {
 
         const startMatchmaking = async () => {
             try {
-                await initPlayer(nickname);
+                try {
+                    await getSessionDetails();
+                } catch {
+                    await initPlayer(nickname);
+                }
                 if (cancelled) return;
-
-                const socket = io("http://localhost:3000", {
+                
+                const socket = io(config.apiURL, {
                     withCredentials: true,
                 });
                 socketRef.current = socket;
@@ -279,7 +294,7 @@ export function VideoRoom() {
                 <button
                     type="button"
                     className="text-button"
-                    onClick={() => navigate("/")}
+                    onClick={handleLeaveRoom}
                 >
                     Leave room
                 </button>
