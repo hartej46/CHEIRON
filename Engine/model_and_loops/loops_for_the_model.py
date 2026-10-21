@@ -6,7 +6,8 @@ def training_loop(
     optimizer : torch.optim.Optimizer,
     loss_fn : nn.Module,
     train_loader : torch.utils.data.DataLoader,
-    epochs : int = 10):
+    epochs : int = 10,
+    device : torch.device = None):
 
     model.train()
 
@@ -18,8 +19,8 @@ def training_loop(
 
         for X,y in train_loader:
 
-            X = X.to(model.device)
-            y = y.to(model.device)
+            X = X.to(device)
+            y = y.to(device)
 
             y_pred = model(X)
 
