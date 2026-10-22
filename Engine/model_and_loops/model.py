@@ -16,13 +16,10 @@ class RPSModel(nn.Module):
             
         )
 
-
-
     def forward(self, x):
 
         x = self.block(x)
         return x    
-
 
 if __name__ == "__main__":
 
