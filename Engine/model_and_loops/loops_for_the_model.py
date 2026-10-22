@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+import tqdm.auto as tqdm
 
 def training_loop(
     model: nn.Module,
@@ -18,7 +19,7 @@ def training_loop(
     correct = 0
     total = 0
 
-    for X, y in train_loader:
+    for X, y in tqdm.tqdm(train_loader, desc="Training"):
         X = X.to(device)
         y = y.to(device)
 
@@ -108,15 +109,11 @@ def train_and_validate(
             device=device
         )
 
-    # print(
-    #     f"Validation Loss: {val_loss:.4f}, "
-    #     f"Validation Accuracy: {val_acc * 100:.2f}%"
-    # )
+        history["train_loss"].append(train_loss)
+        history["train_acc"].append(train_acc)
+        history["val_loss"].append(val_loss)
+        history["val_acc"].append(val_acc)
 
-    history["train_loss"].append(train_loss)
-    history["train_acc"].append(train_acc)
-    history["val_loss"].append(val_loss)
-    history["val_acc"].append(val_acc)
 
     return history
 
