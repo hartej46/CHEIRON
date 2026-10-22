@@ -9,13 +9,19 @@ def training_loop(
     epochs : int = 10,
     device : torch.device = None):
 
+    if device is None:
+        device = torch.device(
+            "mps" if torch.backends.mps.is_available() else "cpu"
+        )
     model.train()
 
     training_losses = []
+    training_accuracies = []
 
     for epoch in range(epochs):
-
         running_loss = 0.0
+        correct = 0
+        total = 0
 
         for X,y in train_loader:
 
@@ -32,15 +38,17 @@ def training_loop(
             loss.backward()
 
             optimizer.step()
+            predictions = y_pred.argmax(dim=1)
+            correct += (predictions == y).sum().item()
+            total += y.size(0)
+        epoch_loss = running_loss / len(train_loader)
+        epoch_accuracy = correct / total
+        training_losses.append(epoch_loss)
+        training_accuracies.append(epoch_accuracy)
 
-        running_loss /= len(train_loader)
-        training_losses.append(running_loss)
-
-        print(f"Epoch {epoch+1}/{epochs}, Loss: {running_loss:.4f}")
-
-    return training_losses
-
-
-
-    
-    
+        print(
+            f"Epoch {epoch + 1}/{epochs}, "
+            f"Loss: {epoch_loss:.4f}, "
+            f"Accuracy: {epoch_accuracy * 100:.2f}%"
+        )
+    return training_losses, training_accuracies
