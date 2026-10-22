@@ -6,7 +6,7 @@ def training_loop(
     optimizer : torch.optim.Optimizer,
     loss_fn : nn.Module,
     train_loader : torch.utils.data.DataLoader,
-    epochs : int = 10,
+    epochs : int = 1,
     device : torch.device = None):
 
     if device is None:
@@ -88,3 +88,41 @@ def validation_loop(
         val_accuracy = correct / total
 
     return val_loss, val_accuracy
+
+def train_and_validate(
+        model : nn.Module,
+        optimizer : torch.optim.Optimizer,
+        loss_fn : nn.Module,
+        train_loader : torch.utils.data.DataLoader,
+        val_loader : torch.utils.data.DataLoader,
+        epochs : int = 5,
+        device : torch.device = None):
+
+    training_losses = []
+    training_accuracies = []
+    val_loss = []
+    val_accuracy = []
+
+    for epoch in range(epochs):
+
+        training_losses, training_accuracies = training_loop(
+            model=model,
+            optimizer=optimizer,
+            loss_fn=loss_fn,
+            train_loader=train_loader,
+            device=device
+        )
+
+        val_loss, val_accuracy = validation_loop(
+            model=model,
+            loss_fn=loss_fn,
+            val_loader=val_loader,
+            device=device
+        )
+
+    print(
+        f"Validation Loss: {val_loss:.4f}, "
+        f"Validation Accuracy: {val_accuracy * 100:.2f}%"
+    )
+
+    return training_losses, training_accuracies, val_loss, val_accuracy
