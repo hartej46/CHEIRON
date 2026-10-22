@@ -52,3 +52,39 @@ def training_loop(
             f"Accuracy: {epoch_accuracy * 100:.2f}%"
         )
     return training_losses, training_accuracies
+
+def validation_loop(
+        model : nn.Module,
+        loss_fn : nn.Module,
+        val_loader : torch.utils.data.DataLoader,
+        device : torch.device = None):
+
+    if device is None:
+        device = torch.device(
+            "mps" if torch.backends.mps.is_available() else "cpu"
+        )
+
+    model.eval()
+    with torch.inference_mode():
+
+        val_loss = 0.0
+        correct = 0
+        total = 0
+
+        for X,y in val_loader:
+
+            X = X.to(device)
+            y = y.to(device)
+
+            y_pred = model(X)
+            loss = loss_fn(y_pred, y)
+            val_loss += loss.item()
+
+            predictions = y_pred.argmax(dim=1)
+            correct += (predictions == y).sum().item()
+            total += y.size(0)
+
+        val_loss /= len(val_loader)
+        val_accuracy = correct / total
+
+    return val_loss, val_accuracy
