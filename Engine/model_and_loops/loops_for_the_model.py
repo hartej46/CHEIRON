@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-import tqdm.auto as tqdm
+from tqdm import tqdm
 
 def training_loop(
     model: nn.Module,
@@ -19,7 +19,7 @@ def training_loop(
     correct = 0
     total = 0
 
-    for X, y in tqdm.tqdm(train_loader, desc="Training"):
+    for X, y in tqdm(train_loader):
         X = X.to(device)
         y = y.to(device)
 
@@ -92,7 +92,7 @@ def train_and_validate(
         "val_acc": []
     }
 
-    for epoch in range(epochs):
+    for epoch in tqdm(range(epochs), desc="Epochs"):
 
         train_loss, train_acc = training_loop(
             model=model,
@@ -119,23 +119,24 @@ def train_and_validate(
 
 import matplotlib.pyplot as plt
 
+
 def plot_history(history: dict):
     epochs = range(1, len(history["train_loss"]) + 1)
 
     fig, axs = plt.subplots(1, 2, figsize=(12, 5))
 
-    # Plot Training and Validation Loss
-    axs[0].plot(epochs, history["train_loss"], label="Train Loss", marker='o')
-    axs[0].plot(epochs, history["val_loss"], label="Validation Loss", marker='o')
+    # Plot Training and Validation Loss (removed marker='o')
+    axs[0].plot(epochs, history["train_loss"], label="Train Loss")
+    axs[0].plot(epochs, history["val_loss"], label="Validation Loss")
     axs[0].set_title("Training and Validation Loss")
     axs[0].set_xlabel("Epochs")
     axs[0].set_ylabel("Loss")
     axs[0].legend()
     axs[0].grid(True)
 
-    # Plot Training and Validation Accuracy
-    axs[1].plot(epochs, history["train_acc"], label="Train Accuracy", marker='o')
-    axs[1].plot(epochs, history["val_acc"], label="Validation Accuracy", marker='o')
+    # Plot Training and Validation Accuracy (removed marker='o')
+    axs[1].plot(epochs, history["train_acc"], label="Train Accuracy")
+    axs[1].plot(epochs, history["val_acc"], label="Validation Accuracy")
     axs[1].set_title("Training and Validation Accuracy")
     axs[1].set_xlabel("Epochs")
     axs[1].set_ylabel("Accuracy")
