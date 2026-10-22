@@ -296,10 +296,9 @@ export function VideoRoom() {
 
             socket.on("opponent_disconnected", () => {
                 teardownPeerConnection();
-                // When opponent leaves, cut and return back to original proportions and search again
-                setCallState("searching");
-                setConnectionStatus("Opponent disconnected. Looking for next opponent...");
-                socket.emit("find_match");
+                roomIdRef.current = null;
+                setCallState("stopped");
+                setConnectionStatus("Opponent disconnected. Find a new partner when ready.");
             });
         };
 
@@ -317,6 +316,7 @@ export function VideoRoom() {
     // Cuts the current call, immediately returns back to original proportions, and searches for a new partner
     const handleNext = () => {
         teardownPeerConnection();
+        roomIdRef.current = null;
         setCallState("searching");
         setConnectionStatus("Looking for an opponent...");
 
@@ -329,6 +329,7 @@ export function VideoRoom() {
     // Action: Stop Calling / Matching
     const handleStop = () => {
         teardownPeerConnection();
+        roomIdRef.current = null;
         setCallState("stopped");
         setConnectionStatus("Matchmaking stopped.");
 

@@ -15,6 +15,48 @@ export default function registerGameSockets(io_server: Server) {
     io_server.use(verifySocketToken);
 
     io_server.on("connection", (socket) => {
+        const removeFromWaitingQueue = () => {
+            const queueIndex = waitingQueue.indexOf(socket.id);
+            if (queueIndex !== -1) {
+                waitingQueue.splice(queueIndex, 1);
+            }
+        };
+
+        const cleanupRoom = (notifyOpponent: boolean) => {
+            const roomId = socketToRoom.get(socket.id);
+            if (!roomId) {
+                removeFromWaitingQueue();
+                return;
+            }
+
+            const room = activeRooms.get(roomId);
+            const opponentId = room
+                ? room.player_1.id === socket.id
+                    ? room.player_2.id
+                    : room.player_1.id
+                : undefined;
+            const opponentSocket = opponentId
+                ? io_server.sockets.sockets.get(opponentId)
+                : undefined;
+
+            if (room?.roundTimeout) {
+                clearTimeout(room.roundTimeout);
+            }
+
+            activeRooms.delete(roomId);
+            socketToRoom.delete(socket.id);
+            if (opponentId) {
+                socketToRoom.delete(opponentId);
+            }
+
+            socket.leave(roomId);
+            if (opponentSocket) {
+                opponentSocket.leave(roomId);
+                if (notifyOpponent) {
+                    opponentSocket.emit("opponent_disconnected");
+                }
+            }
+        };
 
         const rawCookie = socket.handshake.headers.cookie;
         if (!rawCookie) {
@@ -27,24 +69,29 @@ export default function registerGameSockets(io_server: Server) {
         socket.on("find_match", () => {
             if (waitingQueue.includes(socket.id) || socketToRoom.has(socket.id)) return;
 
-            if (waitingQueue.length > 0) {
-                const opponentId = waitingQueue.shift();
+            let opponentId: string | undefined;
+            let opponentSocket: Socket | undefined;
+            while (waitingQueue.length > 0) {
+                const queuedSocketId = waitingQueue.shift();
+                const queuedSocket = queuedSocketId
+                    ? io_server.sockets.sockets.get(queuedSocketId)
+                    : undefined;
+                if (queuedSocket?.connected && !socketToRoom.has(queuedSocket.id)) {
+                    opponentId = queuedSocket.id;
+                    opponentSocket = queuedSocket;
+                    break;
+                }
+            }
+
+            if (opponentSocket && opponentId) {
                 const roomId = `room_${Date.now()}`;
 
                 socket.join(roomId);
 
-                const opponentSocket = io_server.sockets.sockets.get(opponentId!);
+                opponentSocket.join(roomId);
+                createGameRoom(roomId, opponentId, socket.id);
 
-                if (opponentSocket) {
-                    opponentSocket.join(roomId);
-                    createGameRoom(
-                        roomId,
-                        opponentSocket.id,
-                        socket.id
-                    );
-                }
-
-                opponentSocket?.emit("match_found", {
+                opponentSocket.emit("match_found", {
                     roomId,
                     initiator: true,
                     opponentNickname: socket.data.nickname,
@@ -61,50 +108,11 @@ export default function registerGameSockets(io_server: Server) {
         });
 
         socket.on("disconnect", () => {
-            const queueIndex = waitingQueue.indexOf(socket.id);
-            if (queueIndex !== -1) {
-                waitingQueue.splice(queueIndex, 1);
-            }
-
-            const roomId = socketToRoom.get(socket.id);
-            if (roomId) {
-                io_server.to(roomId).emit("opponent_disconnected");
-                const room = activeRooms.get(roomId);
-
-                if (room) {
-                    if (room.roundTimeout) {
-                        clearTimeout(room.roundTimeout);
-                    }
-                    socketToRoom.delete(room.player_1.id);
-                    socketToRoom.delete(room.player_2.id);
-                    activeRooms.delete(roomId);
-                }
-            }
+            cleanupRoom(true);
         });
 
         socket.on("leave_room", () => {
-            const queueIndex = waitingQueue.indexOf(socket.id);
-            if (queueIndex !== -1) {
-                waitingQueue.splice(queueIndex, 1);
-            }
-
-            const roomId = socketToRoom.get(socket.id);
-            if (roomId) {
-                socket.to(roomId).emit("opponent_disconnected");
-                socket.leave(roomId);
-                const room = activeRooms.get(roomId);
-
-                if (room) {
-                    if (room.roundTimeout) {
-                        clearTimeout(room.roundTimeout);
-                    }
-                    socketToRoom.delete(room.player_1.id);
-                    socketToRoom.delete(room.player_2.id);
-                    activeRooms.delete(roomId);
-                } else {
-                    socketToRoom.delete(socket.id);
-                }
-            }
+            cleanupRoom(true);
         });
 
         // WebRTC signaling events
