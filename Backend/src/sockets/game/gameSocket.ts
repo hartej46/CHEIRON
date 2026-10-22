@@ -82,6 +82,31 @@ export default function registerGameSockets(io_server: Server) {
             }
         });
 
+        socket.on("leave_room", () => {
+            const queueIndex = waitingQueue.indexOf(socket.id);
+            if (queueIndex !== -1) {
+                waitingQueue.splice(queueIndex, 1);
+            }
+
+            const roomId = socketToRoom.get(socket.id);
+            if (roomId) {
+                socket.to(roomId).emit("opponent_disconnected");
+                socket.leave(roomId);
+                const room = activeRooms.get(roomId);
+
+                if (room) {
+                    if (room.roundTimeout) {
+                        clearTimeout(room.roundTimeout);
+                    }
+                    socketToRoom.delete(room.player_1.id);
+                    socketToRoom.delete(room.player_2.id);
+                    activeRooms.delete(roomId);
+                } else {
+                    socketToRoom.delete(socket.id);
+                }
+            }
+        });
+
         // WebRTC signaling events
         socket.on("webrtc_offer", ({ roomId, sdp }) => {
             // fastify.log.info(`Received WebRTC sdp from ${socket.id} for room ${roomId}`);

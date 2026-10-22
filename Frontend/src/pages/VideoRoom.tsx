@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { io, type Socket } from "socket.io-client";
 import { useNickname } from "../context/NicknameContext";
-import { initPlayer } from "../service/service";
+import { initPlayer, getSessionDetails, clearSession } from "../service/service";
+import { config } from "../config/Config";
 
 const ICE_SERVERS: RTCConfiguration = {
     iceServers: [
@@ -12,38 +13,63 @@ const ICE_SERVERS: RTCConfiguration = {
 };
 
 export function VideoRoom() {
-    const { nickname } = useNickname();
+    const { nickname, setNickname } = useNickname();
     const navigate = useNavigate();
+
+    // Media References
     const videoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
     const remoteStreamRef = useRef<MediaStream | null>(null);
+
+    // WebRTC & Socket References
     const socketRef = useRef<Socket | null>(null);
     const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
     const roomIdRef = useRef<string | null>(null);
     const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
-    const [cameraEnabled, setCameraEnabled] = useState(false);
-    const [audioEnabled, setAudioEnabled] = useState(false);
-    const [hasStream, setHasStream] = useState(false);
+
+    // Media State
+    const [hasMediaPermissions, setHasMediaPermissions] = useState<boolean | null>(null);
     const [mediaError, setMediaError] = useState<string | null>(null);
-    const [connectionStatus, setConnectionStatus] = useState("Waiting for connection...");
+
+    // Call / Match State: 'searching' | 'connected' | 'stopped'
+    const [callState, setCallState] = useState<"searching" | "connected" | "stopped">("searching");
+    const [connectionStatus, setConnectionStatus] = useState("Initializing camera & microphone...");
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
     const [opponentNickname, setOpponentNickname] = useState<string | null>(null);
+    const [callDuration, setCallDuration] = useState(0);
 
+    // Call Duration Timer
     useEffect(() => {
-        return () => {
-            streamRef.current?.getTracks().forEach((track) => track.stop());
-            peerConnectionRef.current?.close();
-            socketRef.current?.disconnect();
-        };
-    }, []);
-
-    useEffect(() => {
-        if (videoRef.current) {
-            videoRef.current.srcObject = cameraEnabled ? streamRef.current : null;
+        let interval: ReturnType<typeof setInterval> | null = null;
+        if (callState === "connected" && remoteStream) {
+            setCallDuration(0);
+            interval = setInterval(() => {
+                setCallDuration((prev) => prev + 1);
+            }, 1000);
+        } else {
+            setCallDuration(0);
         }
-    }, [cameraEnabled]);
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [callState, remoteStream]);
 
+    // Format duration MM:SS
+    const formatDuration = (totalSeconds: number) => {
+        const mins = Math.floor(totalSeconds / 60);
+        const secs = totalSeconds % 60;
+        return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    };
+
+    // Attach local stream to video element
+    useEffect(() => {
+        if (videoRef.current && streamRef.current) {
+            videoRef.current.srcObject = streamRef.current;
+        }
+    }, [hasMediaPermissions]);
+
+    // Attach remote stream to remote video element
     useEffect(() => {
         if (remoteVideoRef.current) {
             remoteVideoRef.current.srcObject = remoteStream;
@@ -55,63 +81,134 @@ export function VideoRoom() {
         }
     }, [remoteStream]);
 
+    // Helper: Teardown PeerConnection
+    const teardownPeerConnection = useCallback(() => {
+        if (peerConnectionRef.current) {
+            peerConnectionRef.current.onicecandidate = null;
+            peerConnectionRef.current.ontrack = null;
+            peerConnectionRef.current.close();
+            peerConnectionRef.current = null;
+        }
+        pendingCandidatesRef.current = [];
+        if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = null;
+        }
+        remoteStreamRef.current = null;
+        setRemoteStream(null);
+        setOpponentNickname(null);
+    }, []);
+
+    // Setup WebRTC PeerConnection
+    const setupPeerConnection = useCallback(() => {
+        if (peerConnectionRef.current) return peerConnectionRef.current;
+
+        const connection = new RTCPeerConnection(ICE_SERVERS);
+        peerConnectionRef.current = connection;
+
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach((track) => {
+                connection.addTrack(track, streamRef.current!);
+            });
+        }
+
+        connection.ontrack = (event) => {
+            const incomingStream = event.streams[0] || new MediaStream([event.track]);
+            remoteStreamRef.current = incomingStream;
+            setRemoteStream(incomingStream);
+            setCallState("connected");
+            setConnectionStatus("Connected to opponent.");
+        };
+
+        connection.onconnectionstatechange = () => {
+            if (connection.connectionState === "failed") {
+                setConnectionStatus("WebRTC connection failed.");
+            }
+        };
+
+        connection.onicecandidate = (event) => {
+            if (event.candidate && roomIdRef.current && socketRef.current) {
+                socketRef.current.emit("webrtc_ice_candidate", {
+                    roomId: roomIdRef.current,
+                    candidate: event.candidate.toJSON(),
+                });
+            }
+        };
+
+        return connection;
+    }, []);
+
+    // 1. Initialize Camera & Mic first. NOTHING starts before mic and camera are active!
+    const initLocalMedia = useCallback(async (): Promise<MediaStream | null> => {
+        setMediaError(null);
+        setConnectionStatus("Accessing camera & microphone...");
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: true,
+            });
+            streamRef.current = stream;
+            setHasMediaPermissions(true);
+
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+            }
+            return stream;
+        } catch (error) {
+            console.error("Failed to acquire camera/mic stream:", error);
+            setHasMediaPermissions(false);
+            setMediaError(
+                "Camera and microphone are required before starting video chat. Please allow permissions."
+            );
+            setConnectionStatus("Camera and microphone permission required.");
+            return null;
+        }
+    }, []);
+
+    // 2. Start Matchmaking lifecycle (only when media is active)
     useEffect(() => {
-        if (!streamRef.current || socketRef.current) return;
+        let isCancelled = false;
 
-        let cancelled = false;
+        const startSessionAndSockets = async () => {
+            // First: acquire camera & mic
+            const stream = await initLocalMedia();
+            if (isCancelled || !stream) {
+                // If camera and mic are not given, NOTHING STARTS!
+                return;
+            }
 
-        const startMatchmaking = async () => {
+            // Ensure player session is ready
             try {
+                await getSessionDetails();
+            } catch {
                 await initPlayer(nickname);
-                if (cancelled) return;
+            }
+            if (isCancelled) return;
 
-                const socket = io("http://localhost:3000", {
-                    withCredentials: true,
-                });
-                socketRef.current = socket;
+            // Connect Socket.IO
+            const socket = io(config.apiURL, {
+                withCredentials: true,
+            });
+            socketRef.current = socket;
 
-                const setupPeerConnection = () => {
-                    if (peerConnectionRef.current) return peerConnectionRef.current;
+            socket.on("connect", () => {
+                setCallState("searching");
+                setConnectionStatus("Looking for an opponent...");
+                socket.emit("find_match");
+            });
 
-                    const connection = new RTCPeerConnection(ICE_SERVERS);
-                    peerConnectionRef.current = connection;
-                    streamRef.current?.getTracks().forEach((track) => {
-                        connection.addTrack(track, streamRef.current!);
-                    });
-                    connection.ontrack = (event) => {
-                        const incomingStream =
-                            event.streams[0] || new MediaStream([event.track]);
-                        remoteStreamRef.current = incomingStream;
-                        setRemoteStream(remoteStreamRef.current);
-                        setConnectionStatus("Connected to opponent.");
-                    };
-                    connection.onconnectionstatechange = () => {
-                        if (connection.connectionState === "failed") {
-                            setConnectionStatus("WebRTC connection failed.");
-                        }
-                    };
-                    connection.onicecandidate = (event) => {
-                        if (event.candidate && roomIdRef.current) {
-                            socket.emit("webrtc_ice_candidate", {
-                                roomId: roomIdRef.current,
-                                candidate: event.candidate.toJSON(),
-                            });
-                        }
-                    };
-                    return connection;
-                };
+            socket.on("connect_error", () => {
+                setConnectionStatus("Unable to connect to the matchmaking server.");
+            });
 
-                socket.on("connect", () => {
-                    setConnectionStatus("Looking for an opponent...");
-                    socket.emit("find_match");
-                });
-                socket.on("connect_error", () => {
-                    setConnectionStatus("Unable to connect to the server.");
-                });
-                socket.on("waiting_for_opponent", () => {
-                    setConnectionStatus("Waiting for an opponent...");
-                });
-                socket.on("match_found", async ({
+            socket.on("waiting_for_opponent", () => {
+                setCallState("searching");
+                setConnectionStatus("Looking for an opponent...");
+            });
+
+            socket.on(
+                "match_found",
+                async ({
                     roomId,
                     initiator,
                     opponentNickname: matchedOpponentNickname,
@@ -121,8 +218,9 @@ export function VideoRoom() {
                     opponentNickname?: string;
                 }) => {
                     roomIdRef.current = roomId;
-                    setOpponentNickname(matchedOpponentNickname || "Opponent");
+                    setOpponentNickname(matchedOpponentNickname || "Stranger");
                     setConnectionStatus("Connecting to opponent...");
+
                     const connection = setupPeerConnection();
                     if (!initiator) return;
 
@@ -134,17 +232,15 @@ export function VideoRoom() {
                             sdp: connection.localDescription,
                         });
                     } catch (error) {
-                        console.error("Failed to create WebRTC offer.", error);
+                        console.error("Failed to create WebRTC offer:", error);
                         setConnectionStatus("Unable to create video offer.");
                     }
-                });
-                socket.on("webrtc_offer", async ({
-                    roomId,
-                    sdp,
-                }: {
-                    roomId: string;
-                    sdp: RTCSessionDescriptionInit;
-                }) => {
+                }
+            );
+
+            socket.on(
+                "webrtc_offer",
+                async ({ roomId, sdp }: { roomId: string; sdp: RTCSessionDescriptionInit }) => {
                     roomIdRef.current = roomId;
                     const connection = setupPeerConnection();
                     try {
@@ -160,15 +256,15 @@ export function VideoRoom() {
                             sdp: connection.localDescription,
                         });
                     } catch (error) {
-                        console.error("Failed to handle WebRTC offer.", error);
+                        console.error("Failed to handle WebRTC offer:", error);
                         setConnectionStatus("Unable to accept video offer.");
                     }
-                });
-                socket.on("webrtc_answer", async ({
-                    sdp,
-                }: {
-                    sdp: RTCSessionDescriptionInit;
-                }) => {
+                }
+            );
+
+            socket.on(
+                "webrtc_answer",
+                async ({ sdp }: { sdp: RTCSessionDescriptionInit }) => {
                     if (!peerConnectionRef.current) return;
                     try {
                         await peerConnectionRef.current.setRemoteDescription(sdp);
@@ -177,15 +273,15 @@ export function VideoRoom() {
                         }
                         pendingCandidatesRef.current = [];
                     } catch (error) {
-                        console.error("Failed to handle WebRTC answer.", error);
+                        console.error("Failed to handle WebRTC answer:", error);
                         setConnectionStatus("Unable to complete video connection.");
                     }
-                });
-                socket.on("webrtc_ice_candidate", async ({
-                    candidate,
-                }: {
-                    candidate: RTCIceCandidateInit;
-                }) => {
+                }
+            );
+
+            socket.on(
+                "webrtc_ice_candidate",
+                async ({ candidate }: { candidate: RTCIceCandidateInit }) => {
                     if (!peerConnectionRef.current?.remoteDescription) {
                         pendingCandidatesRef.current.push(candidate);
                         return;
@@ -193,159 +289,274 @@ export function VideoRoom() {
                     try {
                         await peerConnectionRef.current.addIceCandidate(candidate);
                     } catch (error) {
-                        console.error("Failed to add ICE candidate.", error);
+                        console.error("Failed to add ICE candidate:", error);
                     }
-                });
-                socket.on("opponent_disconnected", () => {
-                    remoteStreamRef.current = null;
-                    setRemoteStream(null);
-                    setOpponentNickname(null);
-                    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
-                    peerConnectionRef.current?.close();
-                    peerConnectionRef.current = null;
-                    setConnectionStatus("Opponent disconnected.");
-                });
-            } catch (error) {
-                console.error("Unable to start matchmaking.", error);
-                setConnectionStatus(
-                    error instanceof Error
-                        ? `Unable to start matchmaking: ${error.message}`
-                        : "Unable to start matchmaking."
-                );
-            }
+                }
+            );
+
+            socket.on("opponent_disconnected", () => {
+                teardownPeerConnection();
+                // When opponent leaves, cut and return back to original proportions and search again
+                setCallState("searching");
+                setConnectionStatus("Opponent disconnected. Looking for next opponent...");
+                socket.emit("find_match");
+            });
         };
 
-        void startMatchmaking();
+        void startSessionAndSockets();
 
         return () => {
-            cancelled = true;
-        };
-    }, [nickname, cameraEnabled]);
-
-    const enableCamera = async () => {
-        setMediaError(null);
-
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: true,
-                audio: true,
-            });
+            isCancelled = true;
             streamRef.current?.getTracks().forEach((track) => track.stop());
-            streamRef.current = stream;
-            setHasStream(true);
+            teardownPeerConnection();
+            socketRef.current?.disconnect();
+        };
+    }, [nickname, initLocalMedia, setupPeerConnection, teardownPeerConnection]);
 
-            setCameraEnabled(true);
-            setAudioEnabled(stream.getAudioTracks().some((track) => track.enabled));
-        } catch {
-            setMediaError(
-                "Camera or microphone access was denied. Check your browser permissions."
-            );
+    // Action: Next Partner
+    // Cuts the current call, immediately returns back to original proportions, and searches for a new partner
+    const handleNext = () => {
+        teardownPeerConnection();
+        setCallState("searching");
+        setConnectionStatus("Looking for an opponent...");
+
+        if (socketRef.current) {
+            socketRef.current.emit("leave_room");
+            socketRef.current.emit("find_match");
         }
     };
 
-    const disableCamera = () => {
-        streamRef.current?.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
-        setHasStream(false);
-        setCameraEnabled(false);
-        setAudioEnabled(false);
-        peerConnectionRef.current?.close();
-        peerConnectionRef.current = null;
-        socketRef.current?.disconnect();
-        socketRef.current = null;
-        remoteStreamRef.current = null;
-        setRemoteStream(null);
-        setOpponentNickname(null);
-        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
-        setConnectionStatus("Waiting for connection...");
+    // Action: Stop Calling / Matching
+    const handleStop = () => {
+        teardownPeerConnection();
+        setCallState("stopped");
+        setConnectionStatus("Matchmaking stopped.");
+
+        if (socketRef.current) {
+            socketRef.current.emit("leave_room");
+        }
     };
 
-    const toggleAudio = () => {
-        const nextAudioEnabled = !audioEnabled;
-        streamRef.current?.getAudioTracks().forEach((track) => {
-            track.enabled = nextAudioEnabled;
-        });
-        setAudioEnabled(nextAudioEnabled);
-        // TODO: Signal the mute state to the remote peer.
+    // Action: Start Searching (after stopped)
+    const handleStartSearching = () => {
+        setCallState("searching");
+        setConnectionStatus("Looking for an opponent...");
+        if (socketRef.current) {
+            socketRef.current.emit("find_match");
+        }
     };
+
+    // Action: Leave Room completely
+    const handleLeaveRoom = async () => {
+        teardownPeerConnection();
+        try {
+            await clearSession();
+        } catch {
+            // ignore
+        }
+        setNickname("");
+        navigate("/");
+    };
+
+    const isConnected = callState === "connected" && remoteStream !== null;
 
     return (
         <main className="room-page">
+            {/* Header */}
             <header className="room-header">
-                <div>
+                <div className="room-title-group">
                     <p className="eyebrow">CHEIRON / VIDEO CHAT</p>
-                    <h1>Video room</h1>
+                    <h1 className="room-heading">
+                        {isConnected ? "In Call" : "Video Room"}
+                    </h1>
                 </div>
-                <button
-                    type="button"
-                    className="text-button"
-                    onClick={() => navigate("/")}
-                >
-                    Leave room
-                </button>
+
+                <div className="room-header-actions">
+                    <button
+                        type="button"
+                        className="text-button leave-button"
+                        onClick={handleLeaveRoom}
+                    >
+                        Leave room
+                    </button>
+                </div>
             </header>
 
-            <section className="video-grid" aria-label="Video feeds">
-                <article className="video-panel">
-                    <div className="video-panel-heading">
-                        <span>01</span>
-                        <h2>Stranger (remote)</h2>
-                    </div>
-                    <div className="video-placeholder remote-placeholder">
-                        {remoteStream ? (
-                            <video ref={remoteVideoRef} autoPlay playsInline />
-                        ) : (
-                            <span>{connectionStatus}</span>
+            {/* If camera & mic are not granted, block everything and show prompt */}
+            {hasMediaPermissions === false && (
+                <div className="permission-barrier-card" role="alert">
+                    <div className="barrier-icon">⚠️</div>
+                    <h2>Camera and Microphone Required</h2>
+                    <p>
+                        Nothing can start until camera and microphone permissions are granted.
+                        Please allow access in your browser to begin matching.
+                    </p>
+                    <button
+                        type="button"
+                        onClick={initLocalMedia}
+                        className="primary-button"
+                    >
+                        Grant Camera & Mic Access
+                    </button>
+                </div>
+            )}
+
+            {/* Video Stage: transitions smoothly between Original Proportions and WhatsApp Calling Setup */}
+            <section
+                className={`video-stage ${isConnected ? "mode-whatsapp" : "mode-original"}`}
+                aria-label="Video Call Stage"
+            >
+                {/* Remote Participant Panel */}
+                <article className="panel-remote">
+                    <div className="panel-header-overlay">
+                        <div className="participant-badge">
+                            <span className={`status-indicator-dot ${isConnected ? "connected" : "pulsing"}`} />
+                            <span className="participant-label">
+                                {isConnected ? opponentNickname || "Stranger" : "Stranger"}
+                            </span>
+                        </div>
+                        {isConnected && (
+                            <div className="call-duration-badge">
+                                ⏱️ {formatDuration(callDuration)}
+                            </div>
                         )}
                     </div>
-                    <p className="participant-name">{opponentNickname || "Stranger"}</p>
-                </article>
 
-                <article className="video-panel">
-                    <div className="video-panel-heading">
-                        <span>02</span>
-                        <h2>You (local)</h2>
-                    </div>
-                    <div className="video-placeholder local-placeholder">
-                        {cameraEnabled ? (
+                    <div className="video-viewport remote-viewport">
+                        {remoteStream ? (
                             <video
-                                ref={videoRef}
+                                ref={remoteVideoRef}
                                 autoPlay
-                                muted
                                 playsInline
-                                aria-label="Your local camera feed"
+                                className="stream-video remote-video"
                             />
                         ) : (
-                            <span>Camera is off</span>
+                            <div className="searching-placeholder">
+                                {callState === "searching" && (
+                                    <div className="radar-spinner" aria-hidden="true">
+                                        <div className="radar-circle circle-1" />
+                                        <div className="radar-circle circle-2" />
+                                        <div className="radar-circle circle-3" />
+                                    </div>
+                                )}
+                                <p className="connection-status-text">{connectionStatus}</p>
+                                {callState === "stopped" && (
+                                    <button
+                                        type="button"
+                                        onClick={handleStartSearching}
+                                        className="primary-button resume-button"
+                                    >
+                                        Find Partner
+                                    </button>
+                                )}
+                            </div>
                         )}
                     </div>
-                    <p className="participant-name">{nickname}</p>
                 </article>
+
+                {/* Local Participant Panel (Transitions from 50% grid panel to WhatsApp floating PiP) */}
+                <article className="panel-local">
+                    <div className="panel-header-overlay local-overlay">
+                        <div className="participant-badge local-badge">
+                            <span className="status-indicator-dot local-dot" />
+                            <span className="participant-label">{nickname} (You)</span>
+                        </div>
+                    </div>
+
+                    <div className="video-viewport local-viewport">
+                        <video
+                            ref={videoRef}
+                            autoPlay
+                            muted
+                            playsInline
+                            className="stream-video local-video active"
+                            aria-label="Your local camera stream"
+                        />
+                    </div>
+                </article>
+
+                {/* WHATSAPP-STYLE FLOATING CONTROL BAR (Visible when Connected) */}
+                {isConnected && (
+                    <div className="whatsapp-floating-control-bar" role="toolbar" aria-label="Call controls">
+                        {/* STOP BUTTON (Red End Call) */}
+                        <button
+                            type="button"
+                            onClick={handleStop}
+                            className="whatsapp-btn btn-danger"
+                            title="Stop / End Call"
+                            aria-label="Stop / End Call"
+                        >
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <rect width="12" height="12" x="6" y="6" rx="2" fill="currentColor" />
+                            </svg>
+                        </button>
+
+                        {/* NEXT BUTTON (Skip to next partner) */}
+                        <button
+                            type="button"
+                            onClick={handleNext}
+                            className="whatsapp-btn btn-next"
+                            title="Next Partner"
+                            aria-label="Next Partner"
+                        >
+                            <span className="next-label">Next</span>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polygon points="5 4 15 12 5 20 5 4" fill="currentColor" />
+                                <line x1="19" x2="19" y1="5" y2="19" />
+                            </svg>
+                        </button>
+                    </div>
+                )}
             </section>
+
+            {/* ORIGINAL PROPORTIONS BOTTOM CONTROLS (Visible when Searching or Stopped) */}
+            {!isConnected && (
+                <footer className="original-controls-bar">
+                    <div className="controls-group-center">
+                        {callState === "searching" ? (
+                            <button
+                                type="button"
+                                onClick={handleStop}
+                                className="control-action-btn btn-stop-search"
+                            >
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                    <rect width="14" height="14" x="5" y="5" rx="2" />
+                                </svg>
+                                Stop
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={handleStartSearching}
+                                className="control-action-btn btn-start-search"
+                            >
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                    <polygon points="5 3 19 12 5 21 5 3" />
+                                </svg>
+                                Find Partner
+                            </button>
+                        )}
+
+                        <button
+                            type="button"
+                            onClick={handleNext}
+                            className="control-action-btn btn-skip-next"
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                <polygon points="5 4 15 12 5 20 5 4" />
+                                <line x1="19" x2="19" y1="5" y2="19" stroke="currentColor" strokeWidth="3" />
+                            </svg>
+                            Next
+                        </button>
+                    </div>
+                </footer>
+            )}
 
             {mediaError && (
                 <p className="media-error" role="alert">
                     {mediaError}
                 </p>
             )}
-
-            <footer className="room-controls">
-                <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={cameraEnabled ? disableCamera : enableCamera}
-                >
-                    {cameraEnabled ? "Disable camera" : "Enable camera"}
-                </button>
-                <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={toggleAudio}
-                    disabled={!hasStream}
-                >
-                    {audioEnabled ? "Mute" : "Unmute"}
-                </button>
-            </footer>
         </main>
     );
 }

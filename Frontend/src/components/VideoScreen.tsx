@@ -4,6 +4,7 @@ import CameraFeed from "./CameraFeed";
 import RemoteScreen, { type MatchStatus } from "./RemoteScreen";
 import ControlBar from "./ControlBar";
 import ChatBox, { type ChatMessage } from "./ChatBox";
+import { config } from "../config/Config";
 
 const ICE_SERVERS: RTCConfiguration = {
     iceServers: [
@@ -53,7 +54,7 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
     useEffect(() => {
         if (!localStream) return;
 
-        const socket = io("http://localhost:3000", {
+        const socket = io(config.apiURL, {
             withCredentials: true,
         });
         let peerConnection: RTCPeerConnection | null = null;
@@ -230,7 +231,7 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
                 audio: true,
             });
 
-            const response = await fetch("http://localhost:3000/session/init", {
+            const response = await fetch(`${config.apiURL}/session/init`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ nickname: userNickname || "Player" }),

@@ -14,11 +14,11 @@
 }
 
 .landing-card {
-    width: min(100%, 440px);
+    width: min(100%, 460px);
 }
 
 .eyebrow {
-    margin: 0 0 20px;
+    margin: 0 0 16px;
     color: #777;
     font-size: 11px;
     font-weight: 700;
@@ -34,22 +34,153 @@ p {
 
 h1 {
     margin-bottom: 12px;
-    font-size: clamp(36px, 7vw, 64px);
+    font-size: clamp(34px, 6vw, 56px);
     font-weight: 500;
-    letter-spacing: -0.06em;
-    line-height: 0.98;
+    letter-spacing: -0.05em;
+    line-height: 1.05;
 }
 
 .landing-copy {
-    color: #777;
-    font-size: 16px;
+    color: #666;
+    font-size: 15px;
     line-height: 1.5;
+    margin-bottom: 24px;
 }
+
+/* ==========================================================================
+   HOMEPAGE MEDIA PERMISSION PREVIEW & PROMPT
+   ========================================================================== */
+
+.permission-card {
+    margin-bottom: 24px;
+}
+
+.permission-prompt-box {
+    border: 1px dashed #d1d5db;
+    border-radius: 12px;
+    padding: 20px 16px;
+    text-align: center;
+    background: #fafafa;
+    transition: all 0.2s ease;
+}
+
+.permission-prompt-box:hover {
+    border-color: #9ca3af;
+    background: #f4f4f5;
+}
+
+.permission-icon-row {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+
+.permission-text {
+    font-size: 13px;
+    color: #555;
+    margin: 0 0 14px;
+    line-height: 1.45;
+}
+
+.permission-button {
+    background: #111;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.permission-button:hover:not(:disabled) {
+    background: #333;
+}
+
+.permission-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.preview-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #000;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.preview-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+}
+
+.preview-badge {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(17, 17, 17, 0.75);
+    backdrop-filter: blur(8px);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.pulse-dot.green {
+    background: #10b981;
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    animation: pulse-green 1.8s infinite;
+}
+
+@keyframes pulse-green {
+    0% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+}
+
+.media-block-error {
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+/* ==========================================================================
+   FORM CONTROLS
+   ========================================================================== */
 
 .nickname-form {
     display: grid;
     gap: 10px;
-    margin-top: 44px;
 }
 
 .nickname-form label {
@@ -57,164 +188,640 @@ h1 {
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
+    color: #333;
 }
 
 .nickname-form input {
     border: 1px solid #d7d7d7;
-    border-radius: 0;
+    border-radius: 8px;
     font: inherit;
-    padding: 15px 14px;
+    padding: 14px 16px;
     outline: none;
+    font-size: 15px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .nickname-form input:focus {
     border-color: #111;
-    box-shadow: 0 0 0 1px #111;
+    box-shadow: 0 0 0 2px rgba(17, 17, 17, 0.1);
 }
 
 .primary-button,
 .secondary-button,
 .text-button {
     border: 1px solid #111;
-    border-radius: 0;
+    border-radius: 8px;
     cursor: pointer;
     font: inherit;
-    transition:
-        background-color 160ms ease,
-        color 160ms ease,
-        opacity 160ms ease;
+    transition: background-color 160ms ease, color 160ms ease, opacity 160ms ease;
 }
 
 .primary-button {
     background: #111;
     color: #fff;
     margin-top: 12px;
-    padding: 15px;
+    padding: 14px;
+    font-weight: 600;
+    font-size: 15px;
 }
 
-.primary-button:hover,
-.secondary-button:hover:not(:disabled) {
-    background: #333;
+.primary-button:hover:not(:disabled) {
+    background: #27272a;
+}
+
+.primary-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .form-error,
 .media-error {
-    color: #a11;
+    color: #dc2626;
     font-size: 13px;
     margin-bottom: 0;
 }
 
+/* ==========================================================================
+   VIDEO ROOM PAGE & HEADER
+   ========================================================================== */
+
 .room-page {
     margin: 0 auto;
     max-width: 1440px;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
 }
 
 .room-header {
-    align-items: flex-start;
+    align-items: center;
     display: flex;
     justify-content: space-between;
-    margin-bottom: 48px;
+    margin-bottom: 24px;
 }
 
-.room-header h1 {
-    font-size: clamp(32px, 5vw, 52px);
+.room-heading {
+    font-size: clamp(26px, 4vw, 42px);
+    margin-bottom: 0;
 }
 
 .text-button {
     background: transparent;
-    border-color: #d7d7d7;
-    padding: 10px 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 9px 15px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #4b5563;
 }
 
 .text-button:hover {
     border-color: #111;
+    color: #111;
 }
 
-.video-grid {
-    display: grid;
-    gap: 16px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+/* Permission Barrier Card inside room if permissions revoked/missing */
+.permission-barrier-card {
+    background: #fff;
+    border: 1px solid #fecaca;
+    border-radius: 16px;
+    padding: 32px 24px;
+    text-align: center;
+    max-width: 500px;
+    margin: 40px auto;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
 }
 
-.video-panel-heading {
-    align-items: baseline;
-    display: flex;
-    gap: 12px;
+.barrier-icon {
+    font-size: 40px;
     margin-bottom: 12px;
 }
 
-.video-panel-heading span {
-    color: #999;
-    font-size: 11px;
+.permission-barrier-card h2 {
+    font-size: 20px;
+    margin-bottom: 8px;
 }
 
-.video-panel-heading h2 {
-    font-size: 12px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+.permission-barrier-card p {
+    color: #666;
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 20px;
 }
 
-.video-placeholder {
-    align-items: center;
-    aspect-ratio: 16 / 10;
-    background: #111;
-    color: #888;
+/* ==========================================================================
+   VIDEO CALL STAGE: TWO MODES
+   MODE 1: .mode-original (Balanced 50/50 Grid during Searching or Stopped)
+   MODE 2: .mode-whatsapp (Full Bleed Remote + Floating PiP Local when Connected)
+   ========================================================================== */
+
+.video-stage {
+    position: relative;
+    width: 100%;
+    min-height: 520px;
+    height: calc(100vh - 190px);
+    max-height: 820px;
+    border-radius: 20px;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* --------------------------------------------------------------------------
+   MODE 1: ORIGINAL BALANCED PROPORTIONS
+   -------------------------------------------------------------------------- */
+.video-stage.mode-original {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    background: transparent;
+}
+
+.video-stage.mode-original .panel-remote,
+.video-stage.mode-original .panel-local {
+    position: relative;
     display: flex;
+    flex-direction: column;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #0d0e12;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.video-stage.mode-original .video-viewport {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+    align-items: center;
     justify-content: center;
+    background: #000;
+}
+
+.video-stage.mode-original .stream-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.video-stage.mode-original .local-video {
+    transform: scaleX(-1);
+}
+
+/* Panel Header Overlays */
+.panel-header-overlay {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    right: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 5;
+    pointer-events: none;
+}
+
+.participant-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(15, 17, 23, 0.7);
+    backdrop-filter: blur(10px);
+    padding: 6px 14px;
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.status-indicator-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.status-indicator-dot.pulsing {
+    background: #f59e0b;
+    animation: pulse-amber 1.8s infinite;
+}
+
+.status-indicator-dot.connected {
+    background: #10b981;
+    animation: pulse-green 1.8s infinite;
+}
+
+.status-indicator-dot.local-dot {
+    background: #3b82f6;
+}
+
+@keyframes pulse-amber {
+    0% {
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+    }
+}
+
+.call-duration-badge {
+    background: rgba(15, 17, 23, 0.7);
+    backdrop-filter: blur(10px);
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #fff;
+    font-size: 13px;
+    font-family: monospace;
+    font-weight: 600;
+}
+
+/* Radar Searching Placeholder */
+.searching-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+    color: #9ca3af;
+}
+
+.radar-spinner {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    margin-bottom: 24px;
+}
+
+.radar-circle {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    animation: radar-wave 2.4s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+}
+
+.radar-circle.circle-2 {
+    animation-delay: -0.8s;
+}
+
+.radar-circle.circle-3 {
+    animation-delay: -1.6s;
+}
+
+@keyframes radar-wave {
+    0% {
+        transform: scale(0.2);
+        opacity: 0.9;
+        border-color: #60a5fa;
+    }
+    100% {
+        transform: scale(1.6);
+        opacity: 0;
+        border-color: #3b82f6;
+    }
+}
+
+.connection-status-text {
+    font-size: 15px;
+    color: #d1d5db;
+    margin: 0;
+    font-weight: 500;
+}
+
+.resume-button {
+    margin-top: 16px;
+    background: #2563eb;
+    border-color: #2563eb;
+    padding: 10px 20px;
+    font-size: 14px;
+}
+
+.camera-off-placeholder {
+    color: #6b7280;
+    font-size: 14px;
+}
+
+/* --------------------------------------------------------------------------
+   MODE 2: WHATSAPP-STYLE CALLING SETUP (Connected State)
+   -------------------------------------------------------------------------- */
+.video-stage.mode-whatsapp {
+    display: block;
+    background: #000;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Remote Video fills entire stage */
+.video-stage.mode-whatsapp .panel-remote {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    border-radius: 20px;
     overflow: hidden;
 }
 
-.video-placeholder video {
+.video-stage.mode-whatsapp .panel-remote .video-viewport {
+    width: 100%;
+    height: 100%;
+}
+
+.video-stage.mode-whatsapp .panel-remote video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Local Video becomes WhatsApp-style floating Picture-in-Picture (PiP) */
+.video-stage.mode-whatsapp .panel-local {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    width: 180px;
+    height: 250px;
+    border-radius: 16px;
+    overflow: hidden;
+    z-index: 15;
+    background: #111;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(12px);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.video-stage.mode-whatsapp .panel-local:hover {
+    transform: scale(1.02);
+    border-color: rgba(255, 255, 255, 0.45);
+}
+
+.video-stage.mode-whatsapp .panel-local .local-overlay {
+    top: 8px;
+    left: 8px;
+    right: 8px;
+}
+
+.video-stage.mode-whatsapp .panel-local .local-badge {
+    font-size: 11px;
+    padding: 3px 8px;
+}
+
+.video-stage.mode-whatsapp .panel-local video {
+    width: 100%;
     height: 100%;
     object-fit: cover;
     transform: scaleX(-1);
-    width: 100%;
 }
 
-.participant-name {
-    border-bottom: 1px solid #e5e5e5;
-    font-size: 14px;
-    margin: 0;
-    padding: 14px 0;
-}
+/* ==========================================================================
+   WHATSAPP-STYLE FLOATING BOTTOM CONTROLS
+   ========================================================================== */
 
-.media-error {
-    margin-top: 20px;
-}
-
-.room-controls {
+.whatsapp-floating-control-bar {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
-    gap: 10px;
+    align-items: center;
+    gap: 16px;
+    background: rgba(22, 24, 30, 0.85);
+    backdrop-filter: blur(20px);
+    padding: 10px 20px;
+    border-radius: 50px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    z-index: 25;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+    animation: slideUpBar 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUpBar {
+    from {
+        opacity: 0;
+        transform: translate(-50%, 20px);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+}
+
+.whatsapp-btn {
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
-    margin-top: 40px;
+    transition: all 0.18s ease;
+    outline: none;
 }
 
-.secondary-button {
-    background: #fff;
-    padding: 12px 18px;
+/* Neutral Circular Buttons (Mute / Camera) */
+.whatsapp-btn.btn-neutral {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.secondary-button:disabled {
-    cursor: not-allowed;
-    opacity: 0.45;
+.whatsapp-btn.btn-neutral:hover {
+    background: rgba(255, 255, 255, 0.24);
+    transform: scale(1.06);
 }
 
-@media (max-width: 700px) {
+/* Warning Circular Buttons (When Muted or Camera Off) */
+.whatsapp-btn.btn-warning {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #ef4444;
+    color: #fff;
+}
+
+.whatsapp-btn.btn-warning:hover {
+    background: #dc2626;
+    transform: scale(1.06);
+}
+
+/* WhatsApp Red Hang-Up / STOP Button */
+.whatsapp-btn.btn-danger {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #ef4444;
+    color: #fff;
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.45);
+}
+
+.whatsapp-btn.btn-danger:hover {
+    background: #dc2626;
+    transform: scale(1.08);
+    box-shadow: 0 8px 25px rgba(220, 38, 38, 0.6);
+}
+
+/* WhatsApp NEXT Button */
+.whatsapp-btn.btn-next {
+    background: #10b981;
+    color: #fff;
+    height: 48px;
+    padding: 0 20px;
+    border-radius: 28px;
+    font-size: 15px;
+    font-weight: 700;
+    gap: 8px;
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+.whatsapp-btn.btn-next:hover {
+    background: #059669;
+    transform: scale(1.05);
+    box-shadow: 0 8px 25px rgba(5, 150, 105, 0.55);
+}
+
+.next-label {
+    letter-spacing: 0.02em;
+}
+
+/* ==========================================================================
+   ORIGINAL PROPORTIONS BOTTOM CONTROLS (Searching / Idle State)
+   ========================================================================== */
+
+.original-controls-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 24px;
+    padding: 8px 4px;
+}
+
+.controls-group-center {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.control-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.16s ease;
+}
+
+.btn-stop-search {
+    background: #ef4444;
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);
+}
+
+.btn-stop-search:hover {
+    background: #dc2626;
+    transform: translateY(-1px);
+}
+
+.btn-start-search {
+    background: #10b981;
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+}
+
+.btn-start-search:hover {
+    background: #059669;
+    transform: translateY(-1px);
+}
+
+.btn-skip-next {
+    background: #111;
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+.btn-skip-next:hover {
+    background: #27272a;
+    transform: translateY(-1px);
+}
+
+/* ==========================================================================
+   RESPONSIVE DESIGN (Tablets & Mobile)
+   ========================================================================== */
+
+@media (max-width: 820px) {
     .landing-page,
     .room-page {
-        padding: 24px 16px;
+        padding: 20px 14px;
     }
 
     .room-header {
-        margin-bottom: 32px;
+        margin-bottom: 16px;
     }
 
-    .video-grid {
+    .video-stage {
+        height: calc(100vh - 200px);
+        min-height: 460px;
+    }
+
+    .video-stage.mode-original {
         grid-template-columns: 1fr;
+        grid-template-rows: 1fr 1fr;
     }
 
-    .room-controls {
-        align-items: stretch;
+    .video-stage.mode-whatsapp .panel-local {
+        width: 120px;
+        height: 165px;
+        top: 14px;
+        right: 14px;
+        border-radius: 12px;
+    }
+
+    .whatsapp-floating-control-bar {
+        bottom: 14px;
+        padding: 8px 14px;
+        gap: 12px;
+    }
+
+    .whatsapp-btn.btn-neutral,
+    .whatsapp-btn.btn-warning {
+        width: 42px;
+        height: 42px;
+    }
+
+    .whatsapp-btn.btn-danger {
+        width: 48px;
+        height: 48px;
+    }
+
+    .whatsapp-btn.btn-next {
+        height: 42px;
+        padding: 0 16px;
+        font-size: 14px;
+    }
+
+    .original-controls-bar {
         flex-direction: column;
+        gap: 14px;
+        align-items: stretch;
+    }
+
+    .controls-group-left,
+    .controls-group-right {
+        justify-content: stretch;
+    }
+
+    .control-action-btn,
+    .toggle-icon-btn {
+        flex: 1;
+        justify-content: center;
     }
 }
