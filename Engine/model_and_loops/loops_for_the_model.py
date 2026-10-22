@@ -119,3 +119,31 @@ def train_and_validate(
     history["val_acc"].append(val_acc)
 
     return history
+
+import matplotlib.pyplot as plt
+
+def plot_history(history: dict):
+    epochs = range(1, len(history["train_loss"]) + 1)
+
+    fig, axs = plt.subplots(1, 2, figsize=(12, 5))
+
+    # Plot Training and Validation Loss
+    axs[0].plot(epochs, history["train_loss"], label="Train Loss", marker='o')
+    axs[0].plot(epochs, history["val_loss"], label="Validation Loss", marker='o')
+    axs[0].set_title("Training and Validation Loss")
+    axs[0].set_xlabel("Epochs")
+    axs[0].set_ylabel("Loss")
+    axs[0].legend()
+    axs[0].grid(True)
+
+    # Plot Training and Validation Accuracy
+    axs[1].plot(epochs, history["train_acc"], label="Train Accuracy", marker='o')
+    axs[1].plot(epochs, history["val_acc"], label="Validation Accuracy", marker='o')
+    axs[1].set_title("Training and Validation Accuracy")
+    axs[1].set_xlabel("Epochs")
+    axs[1].set_ylabel("Accuracy")
+    axs[1].legend()
+    axs[1].grid(True)
+
+    plt.tight_layout()
+    plt.show()
