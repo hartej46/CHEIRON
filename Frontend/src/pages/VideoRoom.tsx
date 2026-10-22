@@ -38,6 +38,10 @@ export function VideoRoom() {
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
     const [opponentNickname, setOpponentNickname] = useState<string | null>(null);
     const [callDuration, setCallDuration] = useState(0);
+    const [gamePhase, setGamePhase] = useState<
+        "waiting" | "countdown" | "action" | "reveal"
+    >("waiting");
+    const [timer, setTimer] = useState(0);
 
     // Call Duration Timer
     useEffect(() => {
@@ -54,6 +58,37 @@ export function VideoRoom() {
             if (interval) clearInterval(interval);
         };
     }, [callState, remoteStream]);
+
+    // Start the game loop once the remote WebRTC stream is available.
+    useEffect(() => {
+        if (remoteStream && gamePhase === "waiting") {
+            setGamePhase("countdown");
+            setTimer(5);
+        }
+    }, [remoteStream, gamePhase]);
+
+    // Run the countdown and blind action phases with one cancellable interval.
+    useEffect(() => {
+        if (gamePhase !== "countdown" && gamePhase !== "action") return;
+
+        const interval = setInterval(() => {
+            setTimer((currentTimer) => {
+                if (currentTimer <= 1) {
+                    if (gamePhase === "countdown") {
+                        setGamePhase("action");
+                        return 7;
+                    }
+
+                    setGamePhase("reveal");
+                    return 0;
+                }
+
+                return currentTimer - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [gamePhase]);
 
     // Format duration MM:SS
     const formatDuration = (totalSeconds: number) => {
@@ -96,6 +131,8 @@ export function VideoRoom() {
         remoteStreamRef.current = null;
         setRemoteStream(null);
         setOpponentNickname(null);
+        setGamePhase("waiting");
+        setTimer(0);
     }, []);
 
     // Setup WebRTC PeerConnection
@@ -425,12 +462,26 @@ export function VideoRoom() {
 
                     <div className="video-viewport remote-viewport">
                         {remoteStream ? (
-                            <video
-                                ref={remoteVideoRef}
-                                autoPlay
-                                playsInline
-                                className="stream-video remote-video"
-                            />
+                            <>
+                                <video
+                                    ref={remoteVideoRef}
+                                    autoPlay
+                                    playsInline
+                                    className={`stream-video remote-video ${
+                                        gamePhase === "action" ? "remote-video-hidden" : ""
+                                    }`}
+                                />
+                                {gamePhase === "action" && (
+                                    <div className="action-phase-overlay" aria-label="Action phase">
+                                        <span>Action</span>
+                                    </div>
+                                )}
+                                {(gamePhase === "countdown" || gamePhase === "action") && (
+                                    <div className="game-timer-overlay" aria-live="polite">
+                                        {timer}
+                                    </div>
+                                )}
+                            </>
                         ) : (
                             <div className="searching-placeholder">
                                 {callState === "searching" && (

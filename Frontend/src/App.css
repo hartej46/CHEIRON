@@ -493,6 +493,51 @@ h1 {
     font-weight: 500;
 }
 
+.remote-viewport {
+    position: relative;
+}
+
+.remote-video-hidden {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.action-phase-overlay {
+    align-items: center;
+    background: #111;
+    color: #fff;
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    position: absolute;
+    z-index: 2;
+}
+
+.action-phase-overlay span {
+    color: #888;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.game-timer-overlay {
+    align-items: center;
+    background: rgba(17, 17, 17, 0.8);
+    border-radius: 999px;
+    color: #fff;
+    display: flex;
+    font-size: 42px;
+    font-weight: 600;
+    height: 84px;
+    justify-content: center;
+    left: 50%;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 84px;
+    z-index: 3;
+}
+
 .resume-button {
     margin-top: 16px;
     background: #2563eb;
