@@ -39,6 +39,10 @@ const envSchema = {
             type: "string",
             default: "http://localhost:5173",
         },
+        ML_SERVICE_URL: {
+            type: "string",
+            default: "http://localhost:8000",
+        },
     },
 };
 

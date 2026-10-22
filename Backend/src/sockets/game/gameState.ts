@@ -1,4 +1,6 @@
 import { Server } from "socket.io";
+import { envConfig } from "../../app";
+import AppError from "../../utils/error";
 
 export interface PlayerState {
     id: string;
@@ -95,4 +97,86 @@ export async function submitCoordinates(
 
 export async function evaluateRound(room: RoomState, io_server: Server) {
     // Here we have to write the python script to evaluate the round and update the scores accordingly. For now, let's just simulate the evaluation.
+
+    try{
+
+        const[p1_respones, p2_response] = await Promise.all([
+            fetch(`${(envConfig as any).ML_SERVICE_URL}/predict`, {
+                method: "POST",
+                headers : {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({coordinates: room.player_1.coordinates})
+            }),
+
+            fetch(`${(envConfig as any).ML_SERVICE_URL}/predict`, {
+                method: "POST",
+                headers : {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({coordinates: room.player_2.coordinates})
+            })
+        ]);
+
+        if(!p1_respones.ok || !p2_response.ok) {
+                throw new AppError("Model server error",502);
+            }
+        
+        const p1_result = await p1_respones.json();
+        const p2_result = await p2_response.json();
+
+        const p1_move = p1_result.prediction;
+        const p2_move = p2_result.prediction;
+
+        // Calculating the winner based on the predictions
+
+        let roundResult = "Draw"
+
+        // Handle cases where players camera did not detect 
+
+        if(p1_move === "None" && p2_move !== "None") {
+            roundResult = "Player 2 Wins";
+            // TODO: here we can update the score of player 2 if we want score system
+        }
+
+        else if(p2_move === "None" && p1_move !== "None") {
+            roundResult = "Player 1 Wins";
+            // TODO: here we can update the score of player 1 if we want score system
+        }
+
+        else if (p1_move !== "None" && p2_move !== "None") {
+            // Standard game logic
+            if (
+                (p1_move === "Rock" && p2_move === "Scissors") ||
+                (p1_move === "Paper" && p2_move === "Rock") ||
+                (p1_move === "Scissors" && p2_move === "Paper")
+            ) {
+                roundResult = "player_1_wins";
+                // room.player_1.score += 1;
+            } else if (
+                (p2_move === "Rock" && p1_move === "Scissors") ||
+                (p2_move === "Paper" && p1_move === "Rock") ||
+                (p2_move === "Scissors" && p1_move === "Paper")
+            ) {
+                roundResult = "player_2_wins";
+                // room.player_2.score += 1;
+            }
+        }
+
+        io_server.to(room.roomId).emit(
+            "roundResults",
+            {
+                p1_move,
+                p2_move,
+                result: roundResult,
+                // p1_score: room.player_1.score,
+                // p2_score: room.player_2.score,
+            }
+        )
+
+    } catch (error) {
+        console.error("Error during round evaluation:", error);
+        io_server.to(room.roomId).emit("round_error", { message: "Error during round evaluation" });
+        return;
+    }
 }
