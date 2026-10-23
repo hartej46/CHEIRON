@@ -310,9 +310,8 @@ h1 {
 }
 
 /* ==========================================================================
-   VIDEO CALL STAGE: TWO MODES
-   MODE 1: .mode-original (Balanced 50/50 Grid during Searching or Stopped)
-   MODE 2: .mode-whatsapp (Full Bleed Remote + Floating PiP Local when Connected)
+   VIDEO CALL STAGE: 50-50 SIDE-BY-SIDE LAYOUT
+   Left: Opponent (50%) | Right: You (50%)
    ========================================================================== */
 
 .video-stage {
@@ -323,21 +322,15 @@ h1 {
     max-height: 820px;
     border-radius: 20px;
     overflow: hidden;
-    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* --------------------------------------------------------------------------
-   MODE 1: ORIGINAL BALANCED PROPORTIONS
-   -------------------------------------------------------------------------- */
-.video-stage.mode-original {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
     background: transparent;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.video-stage.mode-original .panel-remote,
-.video-stage.mode-original .panel-local {
+.video-stage .panel-remote,
+.video-stage .panel-local {
     position: relative;
     display: flex;
     flex-direction: column;
@@ -348,7 +341,7 @@ h1 {
     transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.video-stage.mode-original .video-viewport {
+.video-stage .video-viewport {
     width: 100%;
     height: 100%;
     position: relative;
@@ -358,13 +351,13 @@ h1 {
     background: #000;
 }
 
-.video-stage.mode-original .stream-video {
+.video-stage .stream-video {
     width: 100%;
     height: 100%;
     object-fit: cover;
 }
 
-.video-stage.mode-original .local-video {
+.video-stage .local-video {
     transform: scaleX(-1);
 }
 
@@ -551,191 +544,8 @@ h1 {
     font-size: 14px;
 }
 
-/* --------------------------------------------------------------------------
-   MODE 2: WHATSAPP-STYLE CALLING SETUP (Connected State)
-   -------------------------------------------------------------------------- */
-.video-stage.mode-whatsapp {
-    display: block;
-    background: #000;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-/* Remote Video fills entire stage */
-.video-stage.mode-whatsapp .panel-remote {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 1;
-    border-radius: 20px;
-    overflow: hidden;
-}
-
-.video-stage.mode-whatsapp .panel-remote .video-viewport {
-    width: 100%;
-    height: 100%;
-}
-
-.video-stage.mode-whatsapp .panel-remote video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-/* Local Video becomes WhatsApp-style floating Picture-in-Picture (PiP) */
-.video-stage.mode-whatsapp .panel-local {
-    position: absolute;
-    top: 24px;
-    right: 24px;
-    width: 180px;
-    height: 250px;
-    border-radius: 16px;
-    overflow: hidden;
-    z-index: 15;
-    background: #111;
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
-    border: 2px solid rgba(255, 255, 255, 0.25);
-    backdrop-filter: blur(12px);
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.video-stage.mode-whatsapp .panel-local:hover {
-    transform: scale(1.02);
-    border-color: rgba(255, 255, 255, 0.45);
-}
-
-.video-stage.mode-whatsapp .panel-local .local-overlay {
-    top: 8px;
-    left: 8px;
-    right: 8px;
-}
-
-.video-stage.mode-whatsapp .panel-local .local-badge {
-    font-size: 11px;
-    padding: 3px 8px;
-}
-
-.video-stage.mode-whatsapp .panel-local video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transform: scaleX(-1);
-}
-
 /* ==========================================================================
-   WHATSAPP-STYLE FLOATING BOTTOM CONTROLS
-   ========================================================================== */
-
-.whatsapp-floating-control-bar {
-    position: absolute;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    background: rgba(22, 24, 30, 0.85);
-    backdrop-filter: blur(20px);
-    padding: 10px 20px;
-    border-radius: 50px;
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    z-index: 25;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
-    animation: slideUpBar 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes slideUpBar {
-    from {
-        opacity: 0;
-        transform: translate(-50%, 20px);
-    }
-    to {
-        opacity: 1;
-        transform: translate(-50%, 0);
-    }
-}
-
-.whatsapp-btn {
-    border: none;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.18s ease;
-    outline: none;
-}
-
-/* Neutral Circular Buttons (Mute / Camera) */
-.whatsapp-btn.btn-neutral {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.14);
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.whatsapp-btn.btn-neutral:hover {
-    background: rgba(255, 255, 255, 0.24);
-    transform: scale(1.06);
-}
-
-/* Warning Circular Buttons (When Muted or Camera Off) */
-.whatsapp-btn.btn-warning {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: #ef4444;
-    color: #fff;
-}
-
-.whatsapp-btn.btn-warning:hover {
-    background: #dc2626;
-    transform: scale(1.06);
-}
-
-/* WhatsApp Red Hang-Up / STOP Button */
-.whatsapp-btn.btn-danger {
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: #ef4444;
-    color: #fff;
-    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.45);
-}
-
-.whatsapp-btn.btn-danger:hover {
-    background: #dc2626;
-    transform: scale(1.08);
-    box-shadow: 0 8px 25px rgba(220, 38, 38, 0.6);
-}
-
-/* WhatsApp NEXT Button */
-.whatsapp-btn.btn-next {
-    background: #10b981;
-    color: #fff;
-    height: 48px;
-    padding: 0 20px;
-    border-radius: 28px;
-    font-size: 15px;
-    font-weight: 700;
-    gap: 8px;
-    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
-}
-
-.whatsapp-btn.btn-next:hover {
-    background: #059669;
-    transform: scale(1.05);
-    box-shadow: 0 8px 25px rgba(5, 150, 105, 0.55);
-}
-
-.next-label {
-    letter-spacing: 0.02em;
-}
-
-/* ==========================================================================
-   ORIGINAL PROPORTIONS BOTTOM CONTROLS (Searching / Idle State)
+   CALL CONTROLS BAR (Bottom)
    ========================================================================== */
 
 .original-controls-bar {
@@ -815,42 +625,8 @@ h1 {
     .video-stage {
         height: calc(100vh - 200px);
         min-height: 460px;
-    }
-
-    .video-stage.mode-original {
         grid-template-columns: 1fr;
         grid-template-rows: 1fr 1fr;
-    }
-
-    .video-stage.mode-whatsapp .panel-local {
-        width: 120px;
-        height: 165px;
-        top: 14px;
-        right: 14px;
-        border-radius: 12px;
-    }
-
-    .whatsapp-floating-control-bar {
-        bottom: 14px;
-        padding: 8px 14px;
-        gap: 12px;
-    }
-
-    .whatsapp-btn.btn-neutral,
-    .whatsapp-btn.btn-warning {
-        width: 42px;
-        height: 42px;
-    }
-
-    .whatsapp-btn.btn-danger {
-        width: 48px;
-        height: 48px;
-    }
-
-    .whatsapp-btn.btn-next {
-        height: 42px;
-        padding: 0 16px;
-        font-size: 14px;
     }
 
     .original-controls-bar {

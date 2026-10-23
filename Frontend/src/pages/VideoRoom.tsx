@@ -439,12 +439,12 @@ export function VideoRoom() {
                 </div>
             )}
 
-            {/* Video Stage: transitions smoothly between Original Proportions and WhatsApp Calling Setup */}
+            {/* Video Stage: 50-50 Split Layout (Left: Opponent, Right: You) */}
             <section
-                className={`video-stage ${isConnected ? "mode-whatsapp" : "mode-original"}`}
+                className="video-stage"
                 aria-label="Video Call Stage"
             >
-                {/* Remote Participant Panel */}
+                {/* Left Panel (50%): Remote Participant / Opponent */}
                 <article className="panel-remote">
                     <div className="panel-header-overlay">
                         <div className="participant-badge">
@@ -506,7 +506,7 @@ export function VideoRoom() {
                     </div>
                 </article>
 
-                {/* Local Participant Panel (Transitions from 50% grid panel to WhatsApp floating PiP) */}
+                {/* Right Panel (50%): Local Participant / You */}
                 <article className="panel-local">
                     <div className="panel-header-overlay local-overlay">
                         <div className="participant-badge local-badge">
@@ -526,83 +526,50 @@ export function VideoRoom() {
                         />
                     </div>
                 </article>
+            </section>
 
-                {/* WHATSAPP-STYLE FLOATING CONTROL BAR (Visible when Connected) */}
-                {isConnected && (
-                    <div className="whatsapp-floating-control-bar" role="toolbar" aria-label="Call controls">
-                        {/* STOP BUTTON (Red End Call) */}
+            {/* Bottom Controls Bar (Stop / Next) */}
+            <footer className="original-controls-bar">
+                <div className="controls-group-center">
+                    {callState === "stopped" ? (
+                        <button
+                            type="button"
+                            onClick={handleStartSearching}
+                            className="control-action-btn btn-start-search"
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                <polygon points="5 3 19 12 5 21 5 3" />
+                            </svg>
+                            Find Partner
+                        </button>
+                    ) : (
                         <button
                             type="button"
                             onClick={handleStop}
-                            className="whatsapp-btn btn-danger"
-                            title="Stop / End Call"
-                            aria-label="Stop / End Call"
-                        >
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <rect width="12" height="12" x="6" y="6" rx="2" fill="currentColor" />
-                            </svg>
-                        </button>
-
-                        {/* NEXT BUTTON (Skip to next partner) */}
-                        <button
-                            type="button"
-                            onClick={handleNext}
-                            className="whatsapp-btn btn-next"
-                            title="Next Partner"
-                            aria-label="Next Partner"
-                        >
-                            <span className="next-label">Next</span>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <polygon points="5 4 15 12 5 20 5 4" fill="currentColor" />
-                                <line x1="19" x2="19" y1="5" y2="19" />
-                            </svg>
-                        </button>
-                    </div>
-                )}
-            </section>
-
-            {/* ORIGINAL PROPORTIONS BOTTOM CONTROLS (Visible when Searching or Stopped) */}
-            {!isConnected && (
-                <footer className="original-controls-bar">
-                    <div className="controls-group-center">
-                        {callState === "searching" ? (
-                            <button
-                                type="button"
-                                onClick={handleStop}
-                                className="control-action-btn btn-stop-search"
-                            >
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                                    <rect width="14" height="14" x="5" y="5" rx="2" />
-                                </svg>
-                                Stop
-                            </button>
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={handleStartSearching}
-                                className="control-action-btn btn-start-search"
-                            >
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                                    <polygon points="5 3 19 12 5 21 5 3" />
-                                </svg>
-                                Find Partner
-                            </button>
-                        )}
-
-                        <button
-                            type="button"
-                            onClick={handleNext}
-                            className="control-action-btn btn-skip-next"
+                            className="control-action-btn btn-stop-search"
+                            title={isConnected ? "End Call / Stop" : "Stop Searching"}
                         >
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                                <polygon points="5 4 15 12 5 20 5 4" />
-                                <line x1="19" x2="19" y1="5" y2="19" stroke="currentColor" strokeWidth="3" />
+                                <rect width="14" height="14" x="5" y="5" rx="2" />
                             </svg>
-                            Next
+                            Stop
                         </button>
-                    </div>
-                </footer>
-            )}
+                    )}
+
+                    <button
+                        type="button"
+                        onClick={handleNext}
+                        className="control-action-btn btn-skip-next"
+                        title="Skip to Next Partner"
+                    >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                            <polygon points="5 4 15 12 5 20 5 4" />
+                            <line x1="19" x2="19" y1="5" y2="19" stroke="currentColor" strokeWidth="3" />
+                        </svg>
+                        Next
+                    </button>
+                </div>
+            </footer>
 
             {mediaError && (
                 <p className="media-error" role="alert">
