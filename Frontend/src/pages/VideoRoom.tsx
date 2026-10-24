@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { io, type Socket } from "socket.io-client";
 import { useNickname } from "../context/NicknameContext";
-import { initPlayer, getSessionDetails, clearSession } from "../service/service";
+import { initPlayer, getSessionDetails } from "../service/service";
+import { ProfileModal } from "../components/ProfileModal";
 import { config } from "../config/Config";
 
 const ICE_SERVERS: RTCConfiguration = {
@@ -13,7 +14,7 @@ const ICE_SERVERS: RTCConfiguration = {
 };
 
 export function VideoRoom() {
-    const { nickname, setNickname } = useNickname();
+    const { nickname } = useNickname();
     const navigate = useNavigate();
 
     // Media References
@@ -42,17 +43,15 @@ export function VideoRoom() {
         "waiting" | "countdown" | "action" | "reveal"
     >("waiting");
     const [timer, setTimer] = useState(0);
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
 
     // Call Duration Timer
     useEffect(() => {
         let interval: ReturnType<typeof setInterval> | null = null;
         if (callState === "connected" && remoteStream) {
-            setCallDuration(0);
             interval = setInterval(() => {
                 setCallDuration((prev) => prev + 1);
             }, 1000);
-        } else {
-            setCallDuration(0);
         }
         return () => {
             if (interval) clearInterval(interval);
@@ -62,8 +61,11 @@ export function VideoRoom() {
     // Start the game loop once the remote WebRTC stream is available.
     useEffect(() => {
         if (remoteStream && gamePhase === "waiting") {
-            setGamePhase("countdown");
-            setTimer(5);
+            const timeout = setTimeout(() => {
+                setGamePhase("countdown");
+                setTimer(5);
+            }, 0);
+            return () => clearTimeout(timeout);
         }
     }, [remoteStream, gamePhase]);
 
@@ -385,14 +387,12 @@ export function VideoRoom() {
     };
 
     // Action: Leave Room completely
-    const handleLeaveRoom = async () => {
+    const handleLeaveRoom = () => {
         teardownPeerConnection();
-        try {
-            await clearSession();
-        } catch {
-            // ignore
+        if (socketRef.current) {
+            socketRef.current.disconnect();
+            socketRef.current = null;
         }
-        setNickname("");
         navigate("/");
     };
 
@@ -410,6 +410,30 @@ export function VideoRoom() {
                 </div>
 
                 <div className="room-header-actions">
+                    <button
+                        type="button"
+                        className="profile-top-button in-room-profile-btn"
+                        onClick={() => setIsProfileOpen(true)}
+                        title="View Profile"
+                        aria-label="Open user profile"
+                    >
+                        <span className="profile-status-dot active" />
+                        <span className="profile-top-nickname">{nickname}</span>
+                        <svg
+                            className="profile-icon"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            aria-hidden="true"
+                        >
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                            <circle cx="12" cy="7" r="4" />
+                        </svg>
+                    </button>
+
                     <button
                         type="button"
                         className="text-button leave-button"
@@ -439,12 +463,12 @@ export function VideoRoom() {
                 </div>
             )}
 
-            {/* Video Stage: transitions smoothly between Original Proportions and WhatsApp Calling Setup */}
+            {/* Video Stage: 50-50 Split Layout (Left: Opponent, Right: You) */}
             <section
-                className={`video-stage ${isConnected ? "mode-whatsapp" : "mode-original"}`}
+                className="video-stage"
                 aria-label="Video Call Stage"
             >
-                {/* Remote Participant Panel */}
+                {/* Left Panel (50%): Remote Participant / Opponent */}
                 <article className="panel-remote">
                     <div className="panel-header-overlay">
                         <div className="participant-badge">
@@ -506,7 +530,7 @@ export function VideoRoom() {
                     </div>
                 </article>
 
-                {/* Local Participant Panel (Transitions from 50% grid panel to WhatsApp floating PiP) */}
+                {/* Right Panel (50%): Local Participant / You */}
                 <article className="panel-local">
                     <div className="panel-header-overlay local-overlay">
                         <div className="participant-badge local-badge">
@@ -526,89 +550,63 @@ export function VideoRoom() {
                         />
                     </div>
                 </article>
+            </section>
 
-                {/* WHATSAPP-STYLE FLOATING CONTROL BAR (Visible when Connected) */}
-                {isConnected && (
-                    <div className="whatsapp-floating-control-bar" role="toolbar" aria-label="Call controls">
-                        {/* STOP BUTTON (Red End Call) */}
+            {/* Bottom Controls Bar (Stop / Next) */}
+            <footer className="original-controls-bar">
+                <div className="controls-group-center">
+                    {callState === "stopped" ? (
+                        <button
+                            type="button"
+                            onClick={handleStartSearching}
+                            className="control-action-btn btn-start-search"
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                <polygon points="5 3 19 12 5 21 5 3" />
+                            </svg>
+                            Find Partner
+                        </button>
+                    ) : (
                         <button
                             type="button"
                             onClick={handleStop}
-                            className="whatsapp-btn btn-danger"
-                            title="Stop / End Call"
-                            aria-label="Stop / End Call"
-                        >
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <rect width="12" height="12" x="6" y="6" rx="2" fill="currentColor" />
-                            </svg>
-                        </button>
-
-                        {/* NEXT BUTTON (Skip to next partner) */}
-                        <button
-                            type="button"
-                            onClick={handleNext}
-                            className="whatsapp-btn btn-next"
-                            title="Next Partner"
-                            aria-label="Next Partner"
-                        >
-                            <span className="next-label">Next</span>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <polygon points="5 4 15 12 5 20 5 4" fill="currentColor" />
-                                <line x1="19" x2="19" y1="5" y2="19" />
-                            </svg>
-                        </button>
-                    </div>
-                )}
-            </section>
-
-            {/* ORIGINAL PROPORTIONS BOTTOM CONTROLS (Visible when Searching or Stopped) */}
-            {!isConnected && (
-                <footer className="original-controls-bar">
-                    <div className="controls-group-center">
-                        {callState === "searching" ? (
-                            <button
-                                type="button"
-                                onClick={handleStop}
-                                className="control-action-btn btn-stop-search"
-                            >
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                                    <rect width="14" height="14" x="5" y="5" rx="2" />
-                                </svg>
-                                Stop
-                            </button>
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={handleStartSearching}
-                                className="control-action-btn btn-start-search"
-                            >
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                                    <polygon points="5 3 19 12 5 21 5 3" />
-                                </svg>
-                                Find Partner
-                            </button>
-                        )}
-
-                        <button
-                            type="button"
-                            onClick={handleNext}
-                            className="control-action-btn btn-skip-next"
+                            className="control-action-btn btn-stop-search"
+                            title={isConnected ? "End Call / Stop" : "Stop Searching"}
                         >
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                                <polygon points="5 4 15 12 5 20 5 4" />
-                                <line x1="19" x2="19" y1="5" y2="19" stroke="currentColor" strokeWidth="3" />
+                                <rect width="14" height="14" x="5" y="5" rx="2" />
                             </svg>
-                            Next
+                            Stop
                         </button>
-                    </div>
-                </footer>
-            )}
+                    )}
+
+                    <button
+                        type="button"
+                        onClick={handleNext}
+                        className="control-action-btn btn-skip-next"
+                        title="Skip to Next Partner"
+                    >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                            <polygon points="5 4 15 12 5 20 5 4" />
+                            <line x1="19" x2="19" y1="5" y2="19" stroke="currentColor" strokeWidth="3" />
+                        </svg>
+                        Next
+                    </button>
+                </div>
+            </footer>
 
             {mediaError && (
                 <p className="media-error" role="alert">
                     {mediaError}
                 </p>
             )}
+
+            {/* Profile Modal */}
+            <ProfileModal
+                isOpen={isProfileOpen}
+                onClose={() => setIsProfileOpen(false)}
+                onDeleted={handleLeaveRoom}
+            />
         </main>
     );
 }

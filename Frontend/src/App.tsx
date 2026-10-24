@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     BrowserRouter,
     Navigate,
@@ -13,10 +13,26 @@ import {
 } from "./context/NicknameContext";
 import { LandingPage } from "./pages/LandingPage";
 import { VideoRoom } from "./pages/VideoRoom";
-import { clearSession } from "./service/service";
+import {
+    clearSession,
+    getSessionDetails,
+    initPlayer,
+    type GuestProfile,
+} from "./service/service";
 
 function RoomRoute() {
-    const { nickname } = useNickname();
+    const { nickname, isCheckingSession } = useNickname();
+
+    if (isCheckingSession) {
+        return (
+            <main className="landing-page">
+                <section className="landing-card" aria-busy="true">
+                    <p className="eyebrow">CHEIRON / VIDEO CHAT</p>
+                    <p className="landing-copy">Checking session...</p>
+                </section>
+            </main>
+        );
+    }
 
     return nickname ? <VideoRoom /> : <Navigate to="/" replace />;
 }
@@ -29,15 +45,8 @@ function AppRoutes() {
     const navigate = useNavigate();
     const { setNickname } = useNickname();
 
-    useEffect(() => {
-        setNickname("");
-        void clearSession().catch(() => {
-            // There may be no session on the first visit.
-        });
-    }, [setNickname]);
-
-    const handleStart = (nickname: string) => {
-        setNickname(nickname);
+    const handleStart = (startedNickname: string) => {
+        setNickname(startedNickname);
         navigate("/room");
     };
 
@@ -52,9 +61,107 @@ function AppRoutes() {
 
 function App() {
     const [nickname, setNickname] = useState("");
+    const [userData, setUserData] = useState<GuestProfile | null>(null);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [isCheckingSession, setIsCheckingSession] = useState(true);
+
+    const refreshSession = useCallback(async (): Promise<GuestProfile | null> => {
+        try {
+            const response = await getSessionDetails();
+            if (response && response.profile) {
+                setUserData(response.profile);
+                setNickname(response.profile.nickname);
+                setIsLoggedIn(true);
+                return response.profile;
+            } else {
+                setUserData(null);
+                setNickname("");
+                setIsLoggedIn(false);
+                return null;
+            }
+        } catch {
+            setUserData(null);
+            setNickname("");
+            setIsLoggedIn(false);
+            return null;
+        } finally {
+            setIsCheckingSession(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        let isMounted = true;
+        getSessionDetails()
+            .then((response) => {
+                if (!isMounted) return;
+                if (response?.profile) {
+                    setUserData(response.profile);
+                    setNickname(response.profile.nickname);
+                    setIsLoggedIn(true);
+                } else {
+                    setUserData(null);
+                    setNickname("");
+                    setIsLoggedIn(false);
+                }
+            })
+            .catch(() => {
+                if (!isMounted) return;
+                setUserData(null);
+                setNickname("");
+                setIsLoggedIn(false);
+            })
+            .finally(() => {
+                if (isMounted) {
+                    setIsCheckingSession(false);
+                }
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
+    const updateUsername = useCallback(async (newNickname: string) => {
+        const trimmed = newNickname.trim();
+        if (trimmed.length <= 2) {
+            throw new Error("Username must be greater than 2 characters.");
+        }
+        const response = await initPlayer(trimmed);
+        if (response && response.profile) {
+            setUserData(response.profile);
+            setNickname(response.profile.nickname);
+            setIsLoggedIn(true);
+        }
+    }, []);
+
+    const deleteUserId = useCallback(async () => {
+        await clearSession();
+        setUserData(null);
+        setNickname("");
+        setIsLoggedIn(false);
+    }, []);
+
     const contextValue = useMemo(
-        () => ({ nickname, setNickname }),
-        [nickname]
+        () => ({
+            nickname,
+            setNickname,
+            userData,
+            setUserData,
+            isLoggedIn,
+            isCheckingSession,
+            updateUsername,
+            deleteUserId,
+            refreshSession,
+        }),
+        [
+            nickname,
+            userData,
+            isLoggedIn,
+            isCheckingSession,
+            updateUsername,
+            deleteUserId,
+            refreshSession,
+        ]
     );
 
     return (
@@ -67,3 +174,4 @@ function App() {
 }
 
 export default App;
+

@@ -197,7 +197,9 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
         socket.on("webrtc_ice_candidate", handleIceCandidate);
         socket.on("opponent_disconnected", handleOpponentDisconnected);
         socket.emit("find_match");
-        setStatus("searching");
+        queueMicrotask(() => {
+            setStatus("searching");
+        });
 
         return () => {
             socket.off("match_found", handleMatchFound);
