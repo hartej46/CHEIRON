@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { io, type Socket } from "socket.io-client";
 import { useNickname } from "../context/NicknameContext";
-import { initPlayer, getSessionDetails, clearSession } from "../service/service";
+import { initPlayer, getSessionDetails } from "../service/service";
+import { ProfileModal } from "../components/ProfileModal";
 import { config } from "../config/Config";
 
 const ICE_SERVERS: RTCConfiguration = {
@@ -13,7 +14,7 @@ const ICE_SERVERS: RTCConfiguration = {
 };
 
 export function VideoRoom() {
-    const { nickname, setNickname } = useNickname();
+    const { nickname } = useNickname();
     const navigate = useNavigate();
 
     // Media References
@@ -42,17 +43,15 @@ export function VideoRoom() {
         "waiting" | "countdown" | "action" | "reveal"
     >("waiting");
     const [timer, setTimer] = useState(0);
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
 
     // Call Duration Timer
     useEffect(() => {
         let interval: ReturnType<typeof setInterval> | null = null;
         if (callState === "connected" && remoteStream) {
-            setCallDuration(0);
             interval = setInterval(() => {
                 setCallDuration((prev) => prev + 1);
             }, 1000);
-        } else {
-            setCallDuration(0);
         }
         return () => {
             if (interval) clearInterval(interval);
@@ -62,8 +61,11 @@ export function VideoRoom() {
     // Start the game loop once the remote WebRTC stream is available.
     useEffect(() => {
         if (remoteStream && gamePhase === "waiting") {
-            setGamePhase("countdown");
-            setTimer(5);
+            const timeout = setTimeout(() => {
+                setGamePhase("countdown");
+                setTimer(5);
+            }, 0);
+            return () => clearTimeout(timeout);
         }
     }, [remoteStream, gamePhase]);
 
@@ -385,14 +387,12 @@ export function VideoRoom() {
     };
 
     // Action: Leave Room completely
-    const handleLeaveRoom = async () => {
+    const handleLeaveRoom = () => {
         teardownPeerConnection();
-        try {
-            await clearSession();
-        } catch {
-            // ignore
+        if (socketRef.current) {
+            socketRef.current.disconnect();
+            socketRef.current = null;
         }
-        setNickname("");
         navigate("/");
     };
 
@@ -410,6 +410,30 @@ export function VideoRoom() {
                 </div>
 
                 <div className="room-header-actions">
+                    <button
+                        type="button"
+                        className="profile-top-button in-room-profile-btn"
+                        onClick={() => setIsProfileOpen(true)}
+                        title="View Profile"
+                        aria-label="Open user profile"
+                    >
+                        <span className="profile-status-dot active" />
+                        <span className="profile-top-nickname">{nickname}</span>
+                        <svg
+                            className="profile-icon"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            aria-hidden="true"
+                        >
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                            <circle cx="12" cy="7" r="4" />
+                        </svg>
+                    </button>
+
                     <button
                         type="button"
                         className="text-button leave-button"
@@ -576,6 +600,13 @@ export function VideoRoom() {
                     {mediaError}
                 </p>
             )}
+
+            {/* Profile Modal */}
+            <ProfileModal
+                isOpen={isProfileOpen}
+                onClose={() => setIsProfileOpen(false)}
+                onDeleted={handleLeaveRoom}
+            />
         </main>
     );
 }

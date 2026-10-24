@@ -1,13 +1,26 @@
 import { useState, useRef, useEffect } from "react";
 import type { FormEvent } from "react";
 import { initPlayer } from "../service/service";
+import { useNickname } from "../context/NicknameContext";
+import { ProfileModal } from "../components/ProfileModal";
 
 interface LandingPageProps {
     onStart: (nickname: string) => void;
 }
 
 export function LandingPage({ onStart }: LandingPageProps) {
-    const [nickname, setNickname] = useState("");
+    const {
+        nickname: contextNickname,
+        userData,
+        isLoggedIn,
+        setNickname: setContextNickname,
+    } = useNickname();
+
+    const activeName = contextNickname || userData?.nickname || "";
+    const [userTypedNickname, setUserTypedNickname] = useState<string | null>(null);
+    const nicknameInput = userTypedNickname !== null ? userTypedNickname : activeName;
+
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [validationError, setValidationError] = useState<string | null>(null);
     const [apiError, setApiError] = useState<string | null>(null);
     const [mediaError, setMediaError] = useState<string | null>(null);
@@ -79,7 +92,7 @@ export function LandingPage({ onStart }: LandingPageProps) {
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        const trimmedNickname = nickname.trim();
+        const trimmedNickname = nicknameInput.trim();
 
         // 1. Validate username on frontend
         if (!trimmedNickname) {
@@ -107,12 +120,20 @@ export function LandingPage({ onStart }: LandingPageProps) {
         previewStream?.getTracks().forEach((track) => track.stop());
         setPreviewStream(null);
 
-        // 4. Submit session initiation request to backend
+        // 4. If user is already logged in with this exact nickname, continue directly!
+        const existingName = userData?.nickname || contextNickname;
+        if (isLoggedIn && existingName && existingName === trimmedNickname) {
+            onStart(trimmedNickname);
+            return;
+        }
+
+        // 5. Submit session initiation/update request to backend
         try {
             setIsSubmitting(true);
             setApiError(null);
             setValidationError(null);
             await initPlayer(trimmedNickname);
+            setContextNickname(trimmedNickname);
             onStart(trimmedNickname);
         } catch (error) {
             setApiError(
@@ -123,108 +144,201 @@ export function LandingPage({ onStart }: LandingPageProps) {
         }
     };
 
-    return (
-        <main className="landing-page">
-            <section className="landing-card" aria-labelledby="landing-title">
-                <p className="eyebrow">CHEIRON / VIDEO CHAT</p>
-                <h1 id="landing-title">Talk to someone new.</h1>
-                <p className="landing-copy">
-                    Camera and microphone access are required before entering the room.
-                </p>
+    const activeUserDisplayName =
+        userData?.nickname || contextNickname || (isLoggedIn ? "Guest" : null);
 
-                {/* Media Permission Status & Preview */}
-                <div className="permission-card">
-                    {permissionStatus === "granted" && previewStream ? (
-                        <div className="preview-container">
-                            <video
-                                ref={videoRef}
-                                autoPlay
-                                muted
-                                playsInline
-                                className="preview-video"
-                                aria-label="Camera preview"
-                            />
-                            <div className="preview-badge success">
+    return (
+        <div className="landing-layout">
+            {/* Top Navigation Bar with Logo and Top-Right Profile Section */}
+            <header className="landing-top-bar">
+                <div className="brand-logo-group">
+                    <span className="brand-title">CHEIRON</span>
+                    <span className="brand-divider">/</span>
+                    <span className="brand-subtitle">minimalist video</span>
+                </div>
+
+                <div className="top-bar-right">
+                    <button
+                        type="button"
+                        onClick={() => setIsProfileOpen(true)}
+                        className="profile-top-button"
+                        title={
+                            isLoggedIn && activeUserDisplayName
+                                ? `Profile: ${activeUserDisplayName}`
+                                : "View Profile"
+                        }
+                        aria-label="Open user profile"
+                    >
+                        <span
+                            className={`profile-status-dot ${isLoggedIn ? "active" : "idle"}`}
+                        />
+                        <span className="profile-top-nickname">
+                            {isLoggedIn && activeUserDisplayName
+                                ? activeUserDisplayName
+                                : "Profile"}
+                        </span>
+                        <svg
+                            className="profile-icon"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            aria-hidden="true"
+                        >
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                            <circle cx="12" cy="7" r="4" />
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <main className="landing-page">
+                <section className="landing-card" aria-labelledby="landing-title">
+                    <p className="eyebrow">CHEIRON / VIDEO CHAT</p>
+                    <h1 id="landing-title">
+                        {isLoggedIn && activeUserDisplayName
+                            ? `Welcome, ${activeUserDisplayName}.`
+                            : "Talk to someone new."}
+                    </h1>
+
+                    <p className="landing-copy">
+                        {isLoggedIn && activeUserDisplayName
+                            ? "Your session is active. Enable camera and microphone to continue chatting."
+                            : "Camera and microphone access are required before entering the room."}
+                    </p>
+
+                    {/* Active session continuity badge if logged in */}
+                    {isLoggedIn && activeUserDisplayName && (
+                        <div className="session-continuity-pill">
+                            <div className="continuity-status">
                                 <span className="pulse-dot green" />
-                                Camera & Mic Active
+                                <span>
+                                    Continuing as <strong>{activeUserDisplayName}</strong>
+                                </span>
                             </div>
-                        </div>
-                    ) : (
-                        <div className="permission-prompt-box">
-                            <div className="permission-icon-row">
-                                <span className="permission-icon" aria-hidden="true">📹</span>
-                                <span className="permission-icon" aria-hidden="true">🎙️</span>
-                            </div>
-                            <p className="permission-text">
-                                {permissionStatus === "denied"
-                                    ? "Permissions blocked. Please allow camera and microphone in your browser to enter."
-                                    : "Grant camera & microphone permission to test your setup before entering."}
-                            </p>
                             <button
                                 type="button"
-                                onClick={requestMediaPermissions}
-                                disabled={permissionStatus === "requesting"}
-                                className="permission-button"
+                                onClick={() => setIsProfileOpen(true)}
+                                className="continuity-profile-link"
                             >
-                                {permissionStatus === "requesting"
-                                    ? "Requesting Access..."
-                                    : permissionStatus === "denied"
-                                      ? "Try Again"
-                                      : "Enable Camera & Mic"}
+                                Manage Profile
                             </button>
                         </div>
                     )}
-                </div>
 
-                {mediaError && (
-                    <p className="form-error media-block-error" role="alert">
-                        {mediaError}
-                    </p>
-                )}
+                    {/* Media Permission Status & Preview */}
+                    <div className="permission-card">
+                        {permissionStatus === "granted" && previewStream ? (
+                            <div className="preview-container">
+                                <video
+                                    ref={videoRef}
+                                    autoPlay
+                                    muted
+                                    playsInline
+                                    className="preview-video"
+                                    aria-label="Camera preview"
+                                />
+                                <div className="preview-badge success">
+                                    <span className="pulse-dot green" />
+                                    Camera & Mic Active
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="permission-prompt-box">
+                                <div className="permission-icon-row">
+                                    <span className="permission-icon" aria-hidden="true">
+                                        📹
+                                    </span>
+                                    <span className="permission-icon" aria-hidden="true">
+                                        🎙️
+                                    </span>
+                                </div>
+                                <p className="permission-text">
+                                    {permissionStatus === "denied"
+                                        ? "Permissions blocked. Please allow camera and microphone in your browser to enter."
+                                        : "Grant camera & microphone permission to test your setup before entering."}
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={requestMediaPermissions}
+                                    disabled={permissionStatus === "requesting"}
+                                    className="permission-button"
+                                >
+                                    {permissionStatus === "requesting"
+                                        ? "Requesting Access..."
+                                        : permissionStatus === "denied"
+                                          ? "Try Again"
+                                          : "Enable Camera & Mic"}
+                                </button>
+                            </div>
+                        )}
+                    </div>
 
-                <form onSubmit={handleSubmit} className="nickname-form">
-                    <label htmlFor="nickname">Nickname</label>
-                    <input
-                        id="nickname"
-                        name="nickname"
-                        type="text"
-                        value={nickname}
-                        onChange={(event) => {
-                            setNickname(event.target.value);
-                            setValidationError(null);
-                            setApiError(null);
-                        }}
-                        placeholder="Enter your nickname"
-                        autoComplete="nickname"
-                        autoFocus
-                        aria-invalid={Boolean(validationError)}
-                        aria-describedby={
-                            validationError
-                                ? "nickname-error"
-                                : apiError
-                                  ? "nickname-api-error"
-                                  : undefined
-                        }
-                    />
-                    {validationError && (
-                        <p id="nickname-error" className="form-error" role="alert">
-                            {validationError}
+                    {mediaError && (
+                        <p className="form-error media-block-error" role="alert">
+                            {mediaError}
                         </p>
                     )}
-                    {apiError && (
-                        <p id="nickname-api-error" className="form-error" role="alert">
-                            {apiError}
-                        </p>
-                    )}
-                    <button
-                        type="submit"
-                        className="primary-button"
-                        disabled={isSubmitting || permissionStatus === "requesting"}
-                    >
-                        {isSubmitting ? "Starting..." : "Start Chatting"}
-                    </button>
-                </form>
-            </section>
-        </main>
+
+                    <form onSubmit={handleSubmit} className="nickname-form">
+                        <label htmlFor="nickname">
+                            {isLoggedIn ? "Nickname (Editable)" : "Nickname"}
+                        </label>
+                        <input
+                            id="nickname"
+                            name="nickname"
+                            type="text"
+                            value={nicknameInput}
+                            onChange={(event) => {
+                                setUserTypedNickname(event.target.value);
+                                setValidationError(null);
+                                setApiError(null);
+                            }}
+                            placeholder="Enter your nickname"
+                            autoComplete="nickname"
+                            autoFocus={!isLoggedIn}
+                            aria-invalid={Boolean(validationError)}
+                            aria-describedby={
+                                validationError
+                                    ? "nickname-error"
+                                    : apiError
+                                      ? "nickname-api-error"
+                                      : undefined
+                            }
+                        />
+                        {validationError && (
+                            <p id="nickname-error" className="form-error" role="alert">
+                                {validationError}
+                            </p>
+                        )}
+                        {apiError && (
+                            <p id="nickname-api-error" className="form-error" role="alert">
+                                {apiError}
+                            </p>
+                        )}
+                        <button
+                            type="submit"
+                            className="primary-button"
+                            disabled={isSubmitting || permissionStatus === "requesting"}
+                        >
+                            {isSubmitting
+                                ? "Starting..."
+                                : isLoggedIn
+                                  ? "Continue to Video Chat"
+                                  : "Start Chatting"}
+                        </button>
+                    </form>
+                </section>
+            </main>
+
+            {/* Profile Modal */}
+            <ProfileModal
+                isOpen={isProfileOpen}
+                onClose={() => setIsProfileOpen(false)}
+            />
+        </div>
     );
 }
+
