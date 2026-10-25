@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { FilesetResolver, HandLandmarker } from "@mediapipe/tasks-vision";
 import { io, type Socket } from "socket.io-client";
 import CameraFeed from "./CameraFeed";
 import RemoteScreen, { type MatchStatus } from "./RemoteScreen";
@@ -12,6 +13,7 @@ const ICE_SERVERS: RTCConfiguration = {
         { urls: "stun:stun1.l.google.com:19302" },
     ],
 };
+
 interface VideoScreenProps {
     onEnsureLoggedIn: () => Promise<void>;
     isLoggedin: boolean;
@@ -39,17 +41,178 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
     const [status, setStatus] = useState<MatchStatus>("idle");
     const [partnerName, setPartnerName] = useState<string | undefined>(undefined);
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+    const [isRoundActive, setIsRoundActive] = useState(false);
+    const [countdown, setCountdown] = useState(7);
 
     // Chat Messages
     const [messages, setMessages] = useState<ChatMessage[]>([]);
 
     const socketRef = useRef<Socket | null>(null);
     const roomIdRef = useRef<string | null>(null);
+    const latestCoordinatesRef = useRef<number[] | null>(null);
+    const landmarkerRef = useRef<HandLandmarker | null>(null);
+    const videoRef = useRef<HTMLVideoElement | null>(null);
+    const detectionFrameRef = useRef<number | null>(null);
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const isRoundActiveRef = useRef(false);
+    const [isVideoReady, setIsVideoReady] = useState(false);
+    const [isLandmarkerReady, setIsLandmarkerReady] = useState(false);
 
     // Update parent about camera state
     useEffect(() => {
         onCameraActiveChange?.(isCameraActive);
     }, [isCameraActive, onCameraActiveChange]);
+
+    useEffect(() => {
+        isRoundActiveRef.current = isRoundActive;
+        if (!isRoundActive) {
+            latestCoordinatesRef.current = null;
+        }
+    }, [isRoundActive]);
+
+    useEffect(() => {
+        if (!localStream) return;
+
+        let cancelled = false;
+        setIsLandmarkerReady(false);
+        const initializeLandmarker = async () => {
+            try {
+                const vision = await FilesetResolver.forVisionTasks(
+                    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+                );
+                const landmarker = await HandLandmarker.createFromOptions(vision, {
+                    baseOptions: {
+                        modelAssetPath:
+                            "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+                    },
+                    runningMode: "VIDEO",
+                    numHands: 1,
+                });
+                if (cancelled) {
+                    landmarker.close();
+                    return;
+                }
+                landmarkerRef.current = landmarker;
+                console.log("MediaPipe successfully loaded!");
+                setIsLandmarkerReady(true);
+            } catch (error) {
+                console.error("Unable to initialize MediaPipe hand tracking.", error);
+            }
+        };
+
+        void initializeLandmarker();
+
+        return () => {
+            cancelled = true;
+            if (detectionFrameRef.current !== null) {
+                cancelAnimationFrame(detectionFrameRef.current);
+                detectionFrameRef.current = null;
+            }
+            landmarkerRef.current?.close();
+            landmarkerRef.current = null;
+            latestCoordinatesRef.current = null;
+            setIsVideoReady(false);
+            setIsLandmarkerReady(false);
+        };
+    }, [localStream]);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        const ctx = canvas?.getContext("2d");
+
+        if (!isVideoReady || !isLandmarkerReady || !canvas || !ctx) return;
+
+        if (!localStream) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            return;
+        }
+
+        const startDetectionLoop = () => {
+            if (!canvasRef.current || !videoRef.current || !landmarkerRef.current) return;
+
+            const currentCanvas = canvasRef.current;
+            const currentVideo = videoRef.current;
+            const currentContext = currentCanvas.getContext("2d");
+            if (!currentContext) return;
+
+            if (currentVideo.videoWidth <= 0 || currentVideo.videoHeight <= 0) {
+                detectionFrameRef.current = requestAnimationFrame(startDetectionLoop);
+                return;
+            }
+
+            currentCanvas.width = currentVideo.videoWidth;
+            currentCanvas.height = currentVideo.videoHeight;
+            currentContext.clearRect(
+                0,
+                0,
+                currentCanvas.width,
+                currentCanvas.height
+            );
+
+            const landmarker = landmarkerRef.current;
+            if (currentVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+                try {
+                    const result = landmarker.detectForVideo(
+                    currentVideo,
+                    performance.now()
+                    );
+                    const landmarks = result.landmarks[0];
+
+                    if (isRoundActiveRef.current) {
+                    latestCoordinatesRef.current = landmarks
+                        ? landmarks.flatMap(({ x, y, z }) => [x, y, z])
+                        : null;
+                    }
+
+                    if (landmarks) {
+                    console.log("Tracking hand...", landmarks.length);
+                    currentContext.fillStyle = "red";
+                    for (const point of landmarks) {
+                        const px = point.x * currentCanvas.width;
+                        const py = point.y * currentCanvas.height;
+                        currentContext.fillRect(px, py, 10, 10);
+                    }
+                    }
+                } catch (error) {
+                    console.error("MediaPipe hand detection failed for a frame.", error);
+                }
+            }
+
+            detectionFrameRef.current = requestAnimationFrame(startDetectionLoop);
+        };
+
+        detectionFrameRef.current = requestAnimationFrame(startDetectionLoop);
+        return () => {
+            if (detectionFrameRef.current !== null) {
+                cancelAnimationFrame(detectionFrameRef.current);
+                detectionFrameRef.current = null;
+            }
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        };
+    }, [isLandmarkerReady, isVideoReady, localStream]);
+
+    useEffect(() => {
+        if (!isRoundActive) return;
+
+        setCountdown(7);
+        const interval = setInterval(() => {
+            setCountdown((current) => Math.max(0, current - 1));
+        }, 1000);
+        const timeout = setTimeout(() => {
+            socketRef.current?.emit("submit_coordinates", {
+                roomId: roomIdRef.current,
+                coordinates: latestCoordinatesRef.current || [],
+            });
+            latestCoordinatesRef.current = null;
+            setIsRoundActive(false);
+            setCountdown(7);
+        }, 7000);
+
+        return () => {
+            clearInterval(interval);
+            clearTimeout(timeout);
+        };
+    }, [isRoundActive]);
 
     useEffect(() => {
         if (!localStream) return;
@@ -304,6 +467,9 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
             videoTracks.forEach((track) => {
                 track.enabled = !nextState;
             });
+            if (nextState) {
+                setIsVideoReady(false);
+            }
             setIsVideoStopped(nextState);
         }
     };
@@ -371,6 +537,7 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
                     <RemoteScreen
                         status={status}
                         remoteStream={remoteStream}
+                        hideVideo={isRoundActive}
                         partnerName={partnerName}
                         onGetStarted={handleGetStarted}
                         onNext={handleNext}
@@ -380,20 +547,44 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
 
                 {/* Local Camera View: Browser camera on the side */}
                 <div className="video-col video-col-local">
-                    <CameraFeed
-                        stream={localStream}
-                        isActive={isCameraActive}
-                        isMuted={isMuted}
-                        isVideoStopped={isVideoStopped}
-                        permissionStatus={permissionStatus}
-                        errorMessage={errorMessage}
-                        userNickname={userNickname}
-                        onStartCamera={handleStartCamera}
-                        onToggleMute={handleToggleMute}
-                        onToggleVideo={handleToggleVideo}
-                    />
+                    <div className="local-round-stage">
+                        <CameraFeed
+                            stream={localStream}
+                            isActive={isCameraActive}
+                            isMuted={isMuted}
+                            isVideoStopped={isVideoStopped}
+                            permissionStatus={permissionStatus}
+                            errorMessage={errorMessage}
+                            userNickname={userNickname}
+                            onStartCamera={handleStartCamera}
+                            onToggleMute={handleToggleMute}
+                            onToggleVideo={handleToggleVideo}
+                            videoRef={videoRef}
+                            canvasRef={canvasRef}
+                            onVideoLoadedData={() => {
+                                const video = videoRef.current;
+                                if (video && video.videoWidth > 0) {
+                                    setIsVideoReady(true);
+                                }
+                            }}
+                        />
+                        {isRoundActive && (
+                            <div className="round-countdown-overlay" aria-live="polite">
+                                {countdown}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </section>
+
+            <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setIsRoundActive(true)}
+                disabled={isRoundActive || status !== "connected" || !remoteStream}
+            >
+                Start Round
+            </button>
 
             {/* Minimalist Action Controls */}
             <ControlBar

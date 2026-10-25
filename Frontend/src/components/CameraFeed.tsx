@@ -11,6 +11,9 @@ interface CameraFeedProps {
     onStartCamera: () => Promise<void>;
     onToggleMute: () => void;
     onToggleVideo: () => void;
+    videoRef?: React.RefObject<HTMLVideoElement | null>;
+    canvasRef?: React.RefObject<HTMLCanvasElement | null>;
+    onVideoLoadedData?: () => void;
 }
 
 export const CameraFeed: React.FC<CameraFeedProps> = ({
@@ -24,8 +27,12 @@ export const CameraFeed: React.FC<CameraFeedProps> = ({
     onStartCamera,
     onToggleMute,
     onToggleVideo,
+    videoRef: externalVideoRef,
+    canvasRef,
+    onVideoLoadedData,
 }) => {
-    const videoRef = useRef<HTMLVideoElement | null>(null);
+    const internalVideoRef = useRef<HTMLVideoElement | null>(null);
+    const videoRef = externalVideoRef || internalVideoRef;
 
     useEffect(() => {
         if (videoRef.current) {
@@ -39,15 +46,53 @@ export const CameraFeed: React.FC<CameraFeedProps> = ({
 
     return (
         <div className="camera-feed-card">
-            <div className="video-viewport">
+            <div
+                className="video-viewport"
+                style={{
+                    position: "relative",
+                    width: "100%",
+                    height: "100%",
+                    aspectRatio: "16 / 9",
+                }}
+            >
                 {isActive && stream && !isVideoStopped ? (
-                    <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        className="video-element mirrored"
-                    />
+                    <>
+                        <video
+                            ref={videoRef}
+                            autoPlay
+                            playsInline
+                            muted
+                            onLoadedData={onVideoLoadedData}
+                            className="video-element mirrored"
+                            style={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                                transform: "scaleX(-1)",
+                            }}
+                        />
+                        {canvasRef && (
+                            <canvas
+                                ref={canvasRef}
+                                width={0}
+                                height={0}
+                                aria-hidden="true"
+                                style={{
+                                    position: "absolute",
+                                    top: 0,
+                                    left: 0,
+                                    width: "100%",
+                                    height: "100%",
+                                    zIndex: 10,
+                                    pointerEvents: "none",
+                                    transform: "scaleX(-1)",
+                                }}
+                            />
+                        )}
+                    </>
                 ) : (
                     <div className="video-empty-state">
                         {permissionStatus === "requesting" ? (

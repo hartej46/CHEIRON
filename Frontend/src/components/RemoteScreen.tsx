@@ -5,6 +5,7 @@ export type MatchStatus = "idle" | "searching" | "connected" | "disconnected";
 interface RemoteScreenProps {
     status: MatchStatus;
     remoteStream: MediaStream | null;
+    hideVideo?: boolean;
     partnerName?: string;
     onGetStarted: () => void;
     onNext: () => void;
@@ -14,6 +15,7 @@ interface RemoteScreenProps {
 export const RemoteScreen: React.FC<RemoteScreenProps> = ({
     status,
     remoteStream,
+    hideVideo = false,
     partnerName,
     onGetStarted,
     onNext,
@@ -35,7 +37,19 @@ export const RemoteScreen: React.FC<RemoteScreenProps> = ({
         <div className="camera-feed-card">
             <div className="video-viewport remote-viewport">
                 {status === "connected" && remoteStream ? (
-                    <video ref={videoRef} autoPlay playsInline className="video-element" />
+                    <>
+                        <video
+                            ref={videoRef}
+                            autoPlay
+                            playsInline
+                            className={`video-element ${hideVideo ? "blind-phase-video" : ""}`}
+                        />
+                        {hideVideo && (
+                            <div className="blind-phase-placeholder">
+                                Opponent is choosing...
+                            </div>
+                        )}
+                    </>
                 ) : (
                     <div className="video-empty-state remote-empty">
                         {status === "searching" ? (

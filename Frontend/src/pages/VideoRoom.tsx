@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { FilesetResolver, HandLandmarker } from "@mediapipe/tasks-vision";
 import { io, type Socket } from "socket.io-client";
 import { useNickname } from "../context/NicknameContext";
 import { initPlayer, getSessionDetails } from "../service/service";
@@ -13,6 +14,16 @@ const ICE_SERVERS: RTCConfiguration = {
     ],
 };
 
+const HAND_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
+    [0, 1], [1, 2], [2, 3], [3, 4],
+    [0, 5], [5, 6], [6, 7], [7, 8],
+    [5, 9], [9, 10], [10, 11], [11, 12],
+    [9, 13], [13, 14], [14, 15], [15, 16],
+    [13, 17], [0, 17], [17, 18], [18, 19], [19, 20],
+];
+
+const HAND_HIGHLIGHT_LANDMARKS = [0, 4, 8, 12, 16, 20];
+
 export function VideoRoom() {
     const { nickname } = useNickname();
     const navigate = useNavigate();
@@ -20,6 +31,7 @@ export function VideoRoom() {
     // Media References
     const videoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
     const remoteStreamRef = useRef<MediaStream | null>(null);
 
@@ -28,6 +40,10 @@ export function VideoRoom() {
     const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
     const roomIdRef = useRef<string | null>(null);
     const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
+    const latestCoordinatesRef = useRef<number[] | null>(null);
+    const landmarkerRef = useRef<HandLandmarker | null>(null);
+    const detectionFrameRef = useRef<number | null>(null);
+    const isRoundActiveRef = useRef(false);
 
     // Media State
     const [hasMediaPermissions, setHasMediaPermissions] = useState<boolean | null>(null);
@@ -44,6 +60,150 @@ export function VideoRoom() {
     >("waiting");
     const [timer, setTimer] = useState(0);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+    useEffect(() => {
+        isRoundActiveRef.current = gamePhase === "action";
+        if (!isRoundActiveRef.current) {
+            // Coordinates are only meaningful during the action phase.
+            latestCoordinatesRef.current = null;
+        }
+    }, [gamePhase]);
+
+    useEffect(() => {
+        if (!hasMediaPermissions || !streamRef.current) return;
+
+        let cancelled = false;
+        const initializeLandmarker = async () => {
+            try {
+                const vision = await FilesetResolver.forVisionTasks(
+                    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm"
+                );
+                const landmarker = await HandLandmarker.createFromOptions(vision, {
+                    baseOptions: {
+                        modelAssetPath:
+                            "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+                    },
+                    runningMode: "VIDEO",
+                    numHands: 1,
+                });
+
+                if (cancelled) {
+                    landmarker.close();
+                    return;
+                }
+                landmarkerRef.current = landmarker;
+            } catch (error) {
+                console.error("Unable to initialize MediaPipe hand tracking.", error);
+            }
+        };
+
+        void initializeLandmarker();
+
+        return () => {
+            cancelled = true;
+            if (detectionFrameRef.current !== null) {
+                cancelAnimationFrame(detectionFrameRef.current);
+                detectionFrameRef.current = null;
+            }
+            landmarkerRef.current?.close();
+            landmarkerRef.current = null;
+        };
+    }, [hasMediaPermissions]);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        const context = canvas?.getContext("2d");
+        const video = videoRef.current;
+
+        if (!canvas || !context || !video) return;
+
+        const clearCanvas = () => {
+            context.clearRect(0, 0, canvas.width, canvas.height);
+        };
+
+        const detectFrame = () => {
+            clearCanvas();
+            const landmarker = landmarkerRef.current;
+
+            try {
+                if (
+                    landmarker &&
+                    video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+                    video.videoWidth > 0 &&
+                    video.videoHeight > 0
+                ) {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+
+                    const result = landmarker.detectForVideo(video, performance.now());
+                    const landmarks = result.landmarks[0];
+
+                    if (isRoundActiveRef.current) {
+                        latestCoordinatesRef.current = landmarks
+                            ? landmarks.flatMap(({ x, y, z }) => [x, y, z])
+                            : null;
+                    }
+
+                    if (landmarks) {
+                        context.strokeStyle = "#00ffff";
+                        context.lineWidth = 3;
+                        context.shadowColor = "#00ffff";
+                        context.shadowBlur = 10;
+                        context.lineCap = "round";
+                        context.lineJoin = "round";
+
+                        for (const [start, end] of HAND_CONNECTIONS) {
+                            const startLandmark = landmarks[start];
+                            const endLandmark = landmarks[end];
+                            if (!startLandmark || !endLandmark) continue;
+
+                            context.beginPath();
+                            context.moveTo(
+                                startLandmark.x * canvas.width,
+                                startLandmark.y * canvas.height
+                            );
+                            context.lineTo(
+                                endLandmark.x * canvas.width,
+                                endLandmark.y * canvas.height
+                            );
+                            context.stroke();
+                        }
+
+                        context.fillStyle = "#ffffff";
+                        context.shadowBlur = 12;
+                        for (const index of HAND_HIGHLIGHT_LANDMARKS) {
+                            const landmark = landmarks[index];
+                            if (!landmark) continue;
+
+                            context.beginPath();
+                            context.arc(
+                                landmark.x * canvas.width,
+                                landmark.y * canvas.height,
+                                5,
+                                0,
+                                Math.PI * 2
+                            );
+                            context.fill();
+                        }
+                        context.shadowBlur = 0;
+                    }
+                }
+            } catch (error) {
+                console.error("MediaPipe hand detection failed for a frame.", error);
+            }
+
+            detectionFrameRef.current = requestAnimationFrame(detectFrame);
+        };
+
+        detectionFrameRef.current = requestAnimationFrame(detectFrame);
+        return () => {
+            if (detectionFrameRef.current !== null) {
+                cancelAnimationFrame(detectionFrameRef.current);
+                detectionFrameRef.current = null;
+            }
+            clearCanvas();
+        };
+    }, [hasMediaPermissions]);
 
     // Call Duration Timer
     useEffect(() => {
@@ -547,6 +707,11 @@ export function VideoRoom() {
                             playsInline
                             className="stream-video local-video active"
                             aria-label="Your local camera stream"
+                        />
+                        <canvas
+                            ref={canvasRef}
+                            className="hand-tracking-canvas"
+                            aria-hidden="true"
                         />
                     </div>
                 </article>
