@@ -1,2 +1,4 @@
-pytorch
+torch
+uvicorn
 mediapipe
+fastapi
