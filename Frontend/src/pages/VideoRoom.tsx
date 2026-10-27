@@ -23,9 +23,12 @@ const HAND_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
 ];
 
 const HAND_HIGHLIGHT_LANDMARKS = [0, 4, 8, 12, 16, 20];
+const GESTURE_SAMPLE_COUNT = 5;
+const GESTURE_SAMPLE_INTERVAL_MS = 200;
+const LANDMARK_VALUE_COUNT = 63;
 
 export function VideoRoom() {
-    const { nickname } = useNickname();
+    const { nickname, setUserData } = useNickname();
     const navigate = useNavigate();
 
     // Media References
@@ -44,6 +47,9 @@ export function VideoRoom() {
     const landmarkerRef = useRef<HandLandmarker | null>(null);
     const detectionFrameRef = useRef<number | null>(null);
     const isRoundActiveRef = useRef(false);
+    const captureIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const captureSamplesRef = useRef<number[][]>([]);
+    const captureTickCountRef = useRef(0);
 
     // Media State
     const [hasMediaPermissions, setHasMediaPermissions] = useState<boolean | null>(null);
@@ -60,6 +66,9 @@ export function VideoRoom() {
     >("waiting");
     const [timer, setTimer] = useState(0);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const [isCapturing, setIsCapturing] = useState(false);
+    const [captureSampleCount, setCaptureSampleCount] = useState(0);
+    const [captureError, setCaptureError] = useState<string | null>(null);
 
     useEffect(() => {
         isRoundActiveRef.current = gamePhase === "action";
@@ -76,12 +85,11 @@ export function VideoRoom() {
         const initializeLandmarker = async () => {
             try {
                 const vision = await FilesetResolver.forVisionTasks(
-                    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm"
+                    `${window.location.origin}/wasm`
                 );
                 const landmarker = await HandLandmarker.createFromOptions(vision, {
                     baseOptions: {
-                        modelAssetPath:
-                            "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+                        modelAssetPath: `${window.location.origin}/hand_landmarker.task`,
                     },
                     runningMode: "VIDEO",
                     numHands: 1,
@@ -228,6 +236,71 @@ export function VideoRoom() {
             return () => clearTimeout(timeout);
         }
     }, [remoteStream, gamePhase]);
+
+    // Capture five landmark samples during the action phase.
+    useEffect(() => {
+        if (gamePhase !== "action") return;
+
+        const video = videoRef.current;
+        if (!video || !landmarkerRef.current) {
+            setCaptureError("Hand tracking is not ready yet.");
+            return;
+        }
+
+        captureSamplesRef.current = [];
+        captureTickCountRef.current = 0;
+        setCaptureSampleCount(0);
+        setCaptureError(null);
+        setIsCapturing(true);
+
+        const finishCapture = () => {
+            if (captureIntervalRef.current !== null) {
+                clearInterval(captureIntervalRef.current);
+                captureIntervalRef.current = null;
+            }
+
+            setIsCapturing(false);
+
+            const samples = captureSamplesRef.current;
+            if (samples.length !== GESTURE_SAMPLE_COUNT) {
+                setCaptureError("A complete hand capture was not detected.");
+                return;
+            }
+
+            if (!socketRef.current || !roomIdRef.current) {
+                setCaptureError("Unable to submit hand coordinates.");
+                return;
+            }
+
+            socketRef.current.emit("submit_coordinates", {
+                roomId: roomIdRef.current,
+                coordinates: samples,
+            });
+        };
+
+        captureIntervalRef.current = setInterval(() => {
+            captureTickCountRef.current += 1;
+            const coordinates = latestCoordinatesRef.current;
+            if (coordinates && coordinates.length === LANDMARK_VALUE_COUNT) {
+                captureSamplesRef.current.push([...coordinates]);
+                setCaptureSampleCount(captureSamplesRef.current.length);
+            }
+
+            if (captureTickCountRef.current === GESTURE_SAMPLE_COUNT) {
+                finishCapture();
+            }
+        }, GESTURE_SAMPLE_INTERVAL_MS);
+
+        return () => {
+            if (captureIntervalRef.current !== null) {
+                clearInterval(captureIntervalRef.current);
+                captureIntervalRef.current = null;
+            }
+            captureSamplesRef.current = [];
+            captureTickCountRef.current = 0;
+            setIsCapturing(false);
+        };
+    }, [gamePhase]);
 
     // Run the countdown and blind action phases with one cancellable interval.
     useEffect(() => {
@@ -378,15 +451,25 @@ export function VideoRoom() {
 
             // Ensure player session is ready
             try {
-                await getSessionDetails();
+                const sessionRes = await getSessionDetails();
+                if (sessionRes?.profile) {
+                    setUserData(sessionRes.profile);
+                }
             } catch {
-                await initPlayer(nickname);
+                const initRes = await initPlayer(nickname);
+                if (initRes?.profile) {
+                    setUserData(initRes.profile);
+                }
             }
-            if (isCancelled) return;
-
             // Connect Socket.IO
-            const socket = io(config.apiURL, {
+            const token =
+                sessionStorage.getItem("jwtToken") || localStorage.getItem("jwtToken");
+
+            const socket = io(config.apiURL || undefined, {
                 withCredentials: true,
+                auth: {
+                    token: token || undefined,
+                },
             });
             socketRef.current = socket;
 
@@ -396,7 +479,8 @@ export function VideoRoom() {
                 socket.emit("find_match");
             });
 
-            socket.on("connect_error", () => {
+            socket.on("connect_error", (err) => {
+                console.error("Socket connection error:", err.message);
                 setConnectionStatus("Unable to connect to the matchmaking server.");
             });
 
@@ -498,6 +582,12 @@ export function VideoRoom() {
                 roomIdRef.current = null;
                 setCallState("stopped");
                 setConnectionStatus("Opponent disconnected. Find a new partner when ready.");
+            });
+
+            socket.on("roundResults", (data: { p1_move: string; p2_move: string; result: string }) => {
+                setGamePhase("reveal");
+                setTimer(0);
+                setConnectionStatus(`Round Result: ${data.result}`);
             });
         };
 
@@ -713,6 +803,16 @@ export function VideoRoom() {
                             className="hand-tracking-canvas"
                             aria-hidden="true"
                         />
+                        {isCapturing && (
+                            <div className="game-timer-overlay" aria-live="polite">
+                                Scanning {captureSampleCount}/{GESTURE_SAMPLE_COUNT}
+                            </div>
+                        )}
+                        {captureError && (
+                            <div className="action-phase-overlay" role="alert">
+                                {captureError}
+                            </div>
+                        )}
                     </div>
                 </article>
             </section>

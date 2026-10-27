@@ -217,8 +217,14 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
     useEffect(() => {
         if (!localStream) return;
 
-        const socket = io(config.apiURL, {
+        const token =
+            sessionStorage.getItem("jwtToken") || localStorage.getItem("jwtToken");
+
+        const socket = io(config.apiURL || undefined, {
             withCredentials: true,
+            auth: {
+                token: token || undefined,
+            },
         });
         let peerConnection: RTCPeerConnection | null = null;
         let pendingCandidates: RTCIceCandidateInit[] = [];
@@ -396,7 +402,8 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
                 audio: true,
             });
 
-            const response = await fetch(`${config.apiURL}/session/init`, {
+            const initUrl = config.apiURL ? `${config.apiURL}/session/init` : "/session/init";
+            const response = await fetch(initUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ nickname: userNickname || "Player" }),

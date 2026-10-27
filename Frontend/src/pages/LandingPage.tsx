@@ -14,6 +14,7 @@ export function LandingPage({ onStart }: LandingPageProps) {
         userData,
         isLoggedIn,
         setNickname: setContextNickname,
+        setUserData,
     } = useNickname();
 
     const activeName = contextNickname || userData?.nickname || "";
@@ -120,19 +121,15 @@ export function LandingPage({ onStart }: LandingPageProps) {
         previewStream?.getTracks().forEach((track) => track.stop());
         setPreviewStream(null);
 
-        // 4. If user is already logged in with this exact nickname, continue directly!
-        const existingName = userData?.nickname || contextNickname;
-        if (isLoggedIn && existingName && existingName === trimmedNickname) {
-            onStart(trimmedNickname);
-            return;
-        }
-
-        // 5. Submit session initiation/update request to backend
+        // 4. Submit session initiation/update request to backend
         try {
             setIsSubmitting(true);
             setApiError(null);
             setValidationError(null);
-            await initPlayer(trimmedNickname);
+            const response = await initPlayer(trimmedNickname);
+            if (response?.profile) {
+                setUserData(response.profile);
+            }
             setContextNickname(trimmedNickname);
             onStart(trimmedNickname);
         } catch (error) {
