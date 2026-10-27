@@ -5,7 +5,9 @@ import { addNewPlayer, getUserDetails } from "../memory/user.memory.ts";
 import type { AuthFastifyRequest } from "../types/user.types.ts";
 
 export async function authMiddleware(request: AuthFastifyRequest, reply: FastifyReply) {
-    const signedToken = request.cookies.jwtToken;
+    const authHeader = request.headers.authorization;
+    const headerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    const signedToken = request.cookies.jwtToken || headerToken;
 
     if (!signedToken) throw new AppError("No user found", 401);
     const user = verifyToken(signedToken);

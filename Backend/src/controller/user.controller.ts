@@ -26,8 +26,8 @@ export const initPlayer = async (request: FastifyRequest, reply: FastifyReply) =
     reply.setCookie("jwtToken", token, jwtTokenOptions);
     return reply.status(201).send({
         success: true,
+        token,
         profile: {
-            id: newPlayer.id,
             nickname: newPlayer.nickname,
             initiatedAt: newPlayer.initiatedAt,
             expiresAt: newPlayer.expiresAt,
@@ -43,7 +43,6 @@ export const getPlayerDetails = async (request: AuthFastifyRequest, reply: Fasti
     return reply.status(200).send({
         success: true,
         profile: {
-            id: user.id,
             nickname: user.nickname,
             initiatedAt: user.initiatedAt,
             expiresAt: user.expiresAt,

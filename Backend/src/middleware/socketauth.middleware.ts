@@ -10,18 +10,15 @@ interface JwtPayload {
 }
 
 export const verifySocketToken = (socket: Socket, next: (err?: Error) => void) => {
-    try{
+    try {
         const rawCookie = socket.handshake.headers.cookie;
-        if (!rawCookie) {
-            return next(new AppError("No cookie found",401));
-        }
-
-        // Native regex to extract the JWT token directly from the string
-        const match = rawCookie.match(/(?:^|; )jwtToken=([^;]*)/);
-        const token = match ? decodeURIComponent(match[1]) : null;
+        const cookieMatch = rawCookie?.match(/(?:^|; )jwtToken=([^;]*)/);
+        const cookieToken = cookieMatch ? decodeURIComponent(cookieMatch[1]) : null;
+        const authToken = (socket.handshake.auth?.token as string | undefined) || null;
+        const token = authToken || cookieToken;
 
         if (!token) {
-            return next(new AppError("JWT token not found in cookie",401));
+            return next(new AppError("No authentication token found", 401));
         }
 
         const decoded = jwt.verify(token, envConfig.JWT_TOKEN_SECERT) as JwtPayload;
