@@ -58,36 +58,40 @@ export default function registerGameSockets(io_server: Server) {
             }
         };
 
-        const rawCookie = socket.handshake.headers.cookie;
-        if (!rawCookie) {
-            socket.disconnect();
-            return;
-        }
-
-        console.log(`Player connected: ${rawCookie}`);
+        console.log(`Player connected: socketId=${socket.id}, nickname=${socket.data.nickname}`);
 
         socket.on("find_match", () => {
-            if (waitingQueue.includes(socket.id) || socketToRoom.has(socket.id)) return;
+            console.log(`[MATCHMAKING] 'find_match' received from ${socket.id} (${socket.data.nickname})`);
+            if (waitingQueue.includes(socket.id) || socketToRoom.has(socket.id)) {
+                console.log(`[MATCHMAKING] Socket ${socket.id} already in queue or room`);
+                return;
+            }
 
+            // Filter out any stale, disconnected, or busy sockets from the queue
+            const availableQueue = waitingQueue.filter((id) => {
+                const s = io_server.sockets.sockets.get(id);
+                return s?.connected && !socketToRoom.has(id) && id !== socket.id;
+            });
+
+            // Random matchmaking: pick a random opponent from the available queue
             let opponentId: string | undefined;
             let opponentSocket: Socket | undefined;
-            while (waitingQueue.length > 0) {
-                const queuedSocketId = waitingQueue.shift();
-                const queuedSocket = queuedSocketId
-                    ? io_server.sockets.sockets.get(queuedSocketId)
-                    : undefined;
-                if (queuedSocket?.connected && !socketToRoom.has(queuedSocket.id)) {
-                    opponentId = queuedSocket.id;
-                    opponentSocket = queuedSocket;
-                    break;
-                }
+
+            if (availableQueue.length > 0) {
+                const randomIndex = Math.floor(Math.random() * availableQueue.length);
+                opponentId = availableQueue[randomIndex];
+                opponentSocket = io_server.sockets.sockets.get(opponentId);
+
+                // Remove the chosen opponent from waitingQueue
+                const qIdx = waitingQueue.indexOf(opponentId);
+                if (qIdx !== -1) waitingQueue.splice(qIdx, 1);
             }
 
             if (opponentSocket && opponentId) {
                 const roomId = `room_${Date.now()}`;
+                console.log(`[MATCHMAKING] Match created! Room: ${roomId} between ${socket.id} and ${opponentId}`);
 
                 socket.join(roomId);
-
                 opponentSocket.join(roomId);
                 createGameRoom(roomId, opponentId, socket.id);
 
@@ -103,6 +107,7 @@ export default function registerGameSockets(io_server: Server) {
                 });
             } else {
                 waitingQueue.push(socket.id);
+                console.log(`[MATCHMAKING] Socket ${socket.id} added to waitingQueue. Queue length: ${waitingQueue.length}`);
                 socket.emit("waiting_for_opponent");
             }
         });
@@ -131,9 +136,12 @@ export default function registerGameSockets(io_server: Server) {
             socket.to(roomId).emit("webrtc_ice_candidate", { roomId, candidate });
         });
 
-        socket.on("submit_coordinates", ({ roomId, coordinates }) => {
-            submitCoordinates(roomId, socket.id, coordinates, io_server);
-        });
+        socket.on(
+            "submit_coordinates",
+            ({ roomId, coordinates }: { roomId: string; coordinates: number[][] }) => {
+                void submitCoordinates(roomId, socket.id, coordinates, io_server);
+            }
+        );
         // TODO: Both the users can send this incrementing rounds twice
         socket.on("client_ready", ({ roomId }) => {
             startNextRound(roomId, io_server); 
