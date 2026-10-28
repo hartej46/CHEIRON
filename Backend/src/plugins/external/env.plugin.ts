@@ -9,6 +9,7 @@ declare module "fastify" {
             JWT_TOKEN_EXPIRY: string;
             PLAYER_DETAILS_DELETE_TIME: number;
             FRONTEND_URL: string;
+            ML_SERVICE_URL: string;
         };
     }
 }

@@ -39,7 +39,6 @@ const ProfileModalDialog: React.FC<Omit<ProfileModalProps, "isOpen">> = ({
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
-    const [hasCopiedId, setHasCopiedId] = useState(false);
 
     // Handle Escape key
     useEffect(() => {
@@ -52,17 +51,6 @@ const ProfileModalDialog: React.FC<Omit<ProfileModalProps, "isOpen">> = ({
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [onClose]);
-
-    const handleCopyId = async () => {
-        if (!userData?.id) return;
-        try {
-            await navigator.clipboard.writeText(userData.id);
-            setHasCopiedId(true);
-            setTimeout(() => setHasCopiedId(false), 2000);
-        } catch {
-            // Clipboard write fallback
-        }
-    };
 
     const handleUpdateUsername = async (event: React.FormEvent) => {
         event.preventDefault();
@@ -172,25 +160,6 @@ const ProfileModalDialog: React.FC<Omit<ProfileModalProps, "isOpen">> = ({
                         </div>
                     </div>
 
-                    {/* User ID Section */}
-                    <div className="profile-meta-field">
-                        <div className="meta-field-label-row">
-                            <span className="meta-label">User ID</span>
-                            {userData?.id && (
-                                <button
-                                    type="button"
-                                    onClick={handleCopyId}
-                                    className="btn-copy-id"
-                                    title="Copy User ID"
-                                >
-                                    {hasCopiedId ? "✓ Copied" : "Copy ID"}
-                                </button>
-                            )}
-                        </div>
-                        <div className="user-id-display font-mono">
-                            {userData?.id || "No User ID assigned yet"}
-                        </div>
-                    </div>
 
                     {userData?.initiatedAt && (
                         <div className="profile-meta-row">
@@ -260,13 +229,13 @@ const ProfileModalDialog: React.FC<Omit<ProfileModalProps, "isOpen">> = ({
                     </form>
                 </section>
 
-                {/* Option 2: Delete User ID */}
+                {/* Option 2: Delete Session */}
                 <section className="profile-section-block danger-block">
                     <h3 className="section-block-title text-danger">
-                        Option 2: Delete User ID
+                        Option 2: Delete Session
                     </h3>
                     <p className="section-block-desc">
-                        Permanently delete your current User ID and clear your stored JWT session.
+                        Permanently clear your active session and reset your stored profile.
                     </p>
 
                     {deleteError && (
@@ -280,7 +249,7 @@ const ProfileModalDialog: React.FC<Omit<ProfileModalProps, "isOpen">> = ({
                             type="button"
                             onClick={() => setIsConfirmingDelete(true)}
                             className="btn-danger-outline"
-                            disabled={!isLoggedIn && !userData?.id}
+                            disabled={!isLoggedIn}
                         >
                             <svg
                                 width="15"
@@ -294,13 +263,12 @@ const ProfileModalDialog: React.FC<Omit<ProfileModalProps, "isOpen">> = ({
                                 <polyline points="3 6 5 6 21 6" />
                                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                             </svg>
-                            Delete User ID
+                            Delete Session
                         </button>
                     ) : (
                         <div className="delete-confirm-box" role="alert">
                             <p className="confirm-prompt-text">
-                                Are you sure? This will delete User ID{" "}
-                                <strong>{userData?.id || "session"}</strong> and log you out.
+                                Are you sure? This will delete your current session and log you out.
                             </p>
                             <div className="confirm-btn-row">
                                 <button

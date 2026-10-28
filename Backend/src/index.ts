@@ -9,7 +9,7 @@ const io_server = new SocketIOServer(fastify.server, {
             if (
                 !origin ||
                 origin === process.env.FRONTEND_URL ||
-                /^http:\/\/(?:localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+                /^http:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(origin)
             ) {
                 callback(null, true);
                 return;
@@ -36,7 +36,7 @@ const start = async () => {
         await fastify.ready();
         await fastify.listen({
             port: fastify.config.PORT,
-            host: "0.0.0.0",
+            host: "::",
         });
     } catch (error) {
         fastify.log.error(error);

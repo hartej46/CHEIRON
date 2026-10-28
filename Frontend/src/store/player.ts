@@ -1,18 +1,13 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
-import { getSessionDetails, clearSession } from "../service/service";
+import { getSessionDetails, clearSession, type GuestProfile } from "../service/service";
 import { AxiosError } from "axios";
 
 interface ApiErrorResponse {
     message?: string;
 }
 
-export interface PlayerProfile {
-    id: string;
-    nickname: string;
-    initiatedAt: string;
-    expiresAt: string;
-}
+export type PlayerProfile = GuestProfile;
 
 export interface SessionApiResponse {
     success: boolean;
@@ -102,7 +97,7 @@ const playerSlice = createSlice({
                 state.userData = null;
                 state.isCheckingSession = false;
                 state.error =
-                    action.payload ||
+                    (typeof action.payload === "string" ? action.payload : null) ||
                     action.error.message ||
                     "Unable to connect to server. Please refresh your page.";
             })

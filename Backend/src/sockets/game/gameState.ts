@@ -5,7 +5,7 @@ import AppError from "../../utils/error";
 export interface PlayerState {
     id: string;
     score: number;
-    coordinates: number[] | null;
+    coordinates: number[][] | null;
 }
 
 export interface RoomState {
@@ -71,12 +71,29 @@ export function startNextRound(roomId: string, io_server: Server) {
 export async function submitCoordinates(
     roomId: string,
     socketId: string,
-    coordinates: number[],
+    coordinates: number[][],
     io_server: Server
 ) {
     const room = activeRooms.get(roomId);
 
     if (!room) return;
+
+    if (
+        !Array.isArray(coordinates) ||
+        coordinates.length !== 5 ||
+        coordinates.some(
+            (sample) =>
+                !Array.isArray(sample) ||
+                sample.length !== 63 ||
+                sample.some((value) => !Number.isFinite(value))
+        )
+    ) {
+        console.error("Rejected invalid coordinate batch.", {
+            roomId,
+            socketId,
+        });
+        return;
+    }
 
     if (room.player_1.id === socketId && !room.player_1.coordinates) {
         room.player_1.coordinates = coordinates;
@@ -100,13 +117,16 @@ export async function evaluateRound(room: RoomState, io_server: Server) {
 
     try{
 
+        const player1Coordinates = room.player_1.coordinates ?? [];
+        const player2Coordinates = room.player_2.coordinates ?? [];
+
         const[p1_respones, p2_response] = await Promise.all([
             fetch(`${(envConfig as any).ML_SERVICE_URL}/predict`, {
                 method: "POST",
                 headers : {
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({coordinates: room.player_1.coordinates})
+                body: JSON.stringify({coordinates: player1Coordinates})
             }),
 
             fetch(`${(envConfig as any).ML_SERVICE_URL}/predict`, {
@@ -114,7 +134,7 @@ export async function evaluateRound(room: RoomState, io_server: Server) {
                 headers : {
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({coordinates: room.player_2.coordinates})
+                body: JSON.stringify({coordinates: player2Coordinates})
             })
         ]);
 

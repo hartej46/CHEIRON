@@ -2,7 +2,6 @@ import { AxiosError } from "axios";
 import { apiClient } from "./apiClient.ts";
 
 export interface GuestProfile {
-    id: string;
     nickname: string;
     initiatedAt: string;
     expiresAt: string;
@@ -10,6 +9,7 @@ export interface GuestProfile {
 
 export interface SessionResponse {
     success: boolean;
+    token?: string;
     profile: GuestProfile;
     message?: string;
 }
@@ -37,10 +37,15 @@ export const initPlayer = async (
     try {
         const response = await apiClient.post<SessionResponse>("/session/init", payload);
         if (response.data && response.data.profile) {
+            if (response.data.token) {
+                sessionStorage.setItem("jwtToken", response.data.token);
+                localStorage.setItem("jwtToken", response.data.token);
+            }
             return response.data;
         }
         throw new Error("Unable to connect to server. Please refresh your page.");
     } catch (error: unknown) {
+        console.error("[initPlayer error]", error);
         let msg = "Unable to connect to server. Please refresh your page.";
         if (error instanceof AxiosError) {
             msg = (error.response?.data as ApiErrorResponse)?.message || msg;
@@ -74,6 +79,8 @@ export const getSessionDetails = async (): Promise<SessionResponse> => {
  */
 export const clearSession = async (): Promise<{ success: boolean; message?: string }> => {
     try {
+        sessionStorage.removeItem("jwtToken");
+        localStorage.removeItem("jwtToken");
         const response = await apiClient.post("/session/clear");
         return response.data || { success: true };
     } catch (error: unknown) {

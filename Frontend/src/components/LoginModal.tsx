@@ -119,10 +119,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                     {isLoggedin && userData && (
                         <div className="session-meta-panel">
                             <div className="meta-row">
-                                <span className="meta-key">User ID</span>
-                                <span className="meta-val font-mono">{userData.id}</span>
-                            </div>
-                            <div className="meta-row">
                                 <span className="meta-key">Initiated</span>
                                 <span className="meta-val font-mono">
                                     {new Date(userData.initiatedAt).toLocaleTimeString()}
