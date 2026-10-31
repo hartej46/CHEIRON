@@ -69,6 +69,7 @@ export function VideoRoom() {
     const [isCapturing, setIsCapturing] = useState(false);
     const [captureSampleCount, setCaptureSampleCount] = useState(0);
     const [captureError, setCaptureError] = useState<string | null>(null);
+    const [isLandmarkerReady, setIsLandmarkerReady] = useState(false);
 
     useEffect(() => {
         isRoundActiveRef.current = gamePhase === "action";
@@ -82,6 +83,7 @@ export function VideoRoom() {
         if (!hasMediaPermissions || !streamRef.current) return;
 
         let cancelled = false;
+        setIsLandmarkerReady(false);
         const initializeLandmarker = async () => {
             try {
                 const vision = await FilesetResolver.forVisionTasks(
@@ -89,7 +91,8 @@ export function VideoRoom() {
                 );
                 const landmarker = await HandLandmarker.createFromOptions(vision, {
                     baseOptions: {
-                        modelAssetPath: `${window.location.origin}/hand_landmarker.task`,
+                        modelAssetPath:
+                            "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
                     },
                     runningMode: "VIDEO",
                     numHands: 1,
@@ -100,8 +103,12 @@ export function VideoRoom() {
                     return;
                 }
                 landmarkerRef.current = landmarker;
+                setIsLandmarkerReady(true);
             } catch (error) {
                 console.error("Unable to initialize MediaPipe hand tracking.", error);
+                setCaptureError(
+                    "Unable to initialize hand tracking. Check your connection and reload the page."
+                );
             }
         };
 
@@ -115,6 +122,7 @@ export function VideoRoom() {
             }
             landmarkerRef.current?.close();
             landmarkerRef.current = null;
+            setIsLandmarkerReady(false);
         };
     }, [hasMediaPermissions]);
 
@@ -300,7 +308,7 @@ export function VideoRoom() {
             captureTickCountRef.current = 0;
             setIsCapturing(false);
         };
-    }, [gamePhase]);
+    }, [gamePhase, isLandmarkerReady]);
 
     // Run the countdown and blind action phases with one cancellable interval.
     useEffect(() => {
