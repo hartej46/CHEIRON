@@ -167,16 +167,16 @@ export async function evaluateRound(room: RoomState, io_server: Server) {
         else if (p1_move !== "None" && p2_move !== "None") {
             // Standard game logic
             if (
-                (p1_move === "Rock" && p2_move === "Scissors") ||
-                (p1_move === "Paper" && p2_move === "Rock") ||
-                (p1_move === "Scissors" && p2_move === "Paper")
+                (p1_move === "rock" && p2_move === "scissors") ||
+                (p1_move === "paper" && p2_move === "rock") ||
+                (p1_move === "scissors" && p2_move === "paper")
             ) {
                 roundResult = "player_1_wins";
                 // room.player_1.score += 1;
             } else if (
-                (p2_move === "Rock" && p1_move === "Scissors") ||
-                (p2_move === "Paper" && p1_move === "Rock") ||
-                (p2_move === "Scissors" && p1_move === "Paper")
+                (p2_move === "rock" && p1_move === "scissors") ||
+                (p2_move === "paper" && p1_move === "rock") ||
+                (p2_move === "scissors" && p1_move === "paper")
             ) {
                 roundResult = "player_2_wins";
                 // room.player_2.score += 1;
