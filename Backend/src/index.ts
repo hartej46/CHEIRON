@@ -36,7 +36,7 @@ const start = async () => {
         await fastify.ready();
         await fastify.listen({
             port: fastify.config.PORT,
-            host: "::",
+            host: "0.0.0.0",
         });
     } catch (error) {
         fastify.log.error(error);
