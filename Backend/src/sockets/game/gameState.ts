@@ -120,8 +120,9 @@ export async function evaluateRound(room: RoomState, io_server: Server) {
         const player1Coordinates = room.player_1.coordinates ?? [];
         const player2Coordinates = room.player_2.coordinates ?? [];
 
+        const mlBaseUrl = String((envConfig as any).ML_SERVICE_URL || "http://localhost:8000").replace(/\/+$/, "");
         const[p1_respones, p2_response] = await Promise.all([
-            fetch(`${(envConfig as any).ML_SERVICE_URL}/predict`, {
+            fetch(`${mlBaseUrl}/predict`, {
                 method: "POST",
                 headers : {
                     "Content-Type": "application/json"
@@ -129,7 +130,7 @@ export async function evaluateRound(room: RoomState, io_server: Server) {
                 body: JSON.stringify({coordinates: player1Coordinates})
             }),
 
-            fetch(`${(envConfig as any).ML_SERVICE_URL}/predict`, {
+            fetch(`${mlBaseUrl}/predict`, {
                 method: "POST",
                 headers : {
                     "Content-Type": "application/json"

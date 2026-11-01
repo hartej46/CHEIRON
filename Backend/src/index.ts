@@ -6,9 +6,11 @@ import fastify from "./app.ts";
 const io_server = new SocketIOServer(fastify.server, {
     cors: {
         origin: (origin, callback) => {
+            const allowedOrigin = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
+            const normalizedOrigin = origin ? origin.replace(/\/+$/, "") : "";
             if (
                 !origin ||
-                origin === process.env.FRONTEND_URL ||
+                normalizedOrigin === allowedOrigin ||
                 /^http:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(origin)
             ) {
                 callback(null, true);
@@ -36,7 +38,7 @@ const start = async () => {
         await fastify.ready();
         await fastify.listen({
             port: fastify.config.PORT,
-            host: "::",
+            host: "0.0.0.0",
         });
     } catch (error) {
         fastify.log.error(error);

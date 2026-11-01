@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: cheiron-engine
+    runtime: python
+    rootDir: Engine
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn src.app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+
+  - type: web
+    name: cheiron-backend
+    runtime: node
+    rootDir: Backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: LOG_LEVEL
+        value: info
+      - key: JWT_TOKEN_SECERT
+        generateValue: true
+      - key: JWT_TOKEN_EXPIRY
+        value: 1d
+      - key: PLAYER_DETAILS_DELETE_TIME
+        value: 3600000
+      - key: FRONTEND_URL
+        sync: false
+      - key: ML_SERVICE_URL
+        sync: false
