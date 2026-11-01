@@ -4,9 +4,10 @@ import type { FastifyCorsOptions } from "@fastify/cors";
 export const autoConfig: FastifyCorsOptions = {
     origin: (origin, cb) => {
         if (!origin) return cb(null, true);
-        const allowedOrigin = process.env.FRONTEND_URL || "http://localhost:5173";
+        const allowedOrigin = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
+        const normalizedOrigin = origin.replace(/\/+$/, "");
         if (
-            origin === allowedOrigin ||
+            normalizedOrigin === allowedOrigin ||
             /^http:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(origin)
         ) {
             return cb(null, true);
