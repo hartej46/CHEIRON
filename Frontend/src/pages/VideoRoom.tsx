@@ -488,7 +488,7 @@ export function VideoRoom() {
             });
 
             socket.on("connect_error", (err) => {
-                console.error("Socket connection error:", err.message);
+                console.error("Socket connection failed:", err.message);
                 setConnectionStatus("Unable to connect to the matchmaking server.");
             });
 
