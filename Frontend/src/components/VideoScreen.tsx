@@ -231,6 +231,11 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
 
         socketRef.current = socket;
 
+        const handleConnectError = (err: Error) => {
+            console.error("Socket connection failed:", err.message);
+            setStatus("disconnected");
+        };
+
         const closePeerConnection = () => {
             peerConnection?.close();
             peerConnection = null;
@@ -360,6 +365,7 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
             closePeerConnection();
         };
 
+        socket.on("connect_error", handleConnectError);
         socket.on("match_found", handleMatchFound);
         socket.on("webrtc_offer", handleOffer);
         socket.on("webrtc_answer", handleAnswer);
@@ -371,6 +377,7 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
         });
 
         return () => {
+            socket.off("connect_error", handleConnectError);
             socket.off("match_found", handleMatchFound);
             socket.off("webrtc_offer", handleOffer);
             socket.off("webrtc_answer", handleAnswer);
