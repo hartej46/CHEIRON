@@ -220,7 +220,7 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
         const token =
             sessionStorage.getItem("jwtToken") || localStorage.getItem("jwtToken");
 
-        const socket = io(config.apiURL || undefined, {
+        const socket = io(import.meta.env.VITE_BACKEND_URL, {
             withCredentials: true,
             auth: {
                 token: token || undefined,
@@ -232,7 +232,7 @@ export const VideoScreen: React.FC<VideoScreenProps> = ({
         socketRef.current = socket;
 
         const handleConnectError = (err: Error) => {
-            console.error("Socket connection failed:", err.message);
+            console.error(`Socket connection failed: ${err.message}`);
             setStatus("disconnected");
         };
 

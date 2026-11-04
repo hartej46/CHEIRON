@@ -5,7 +5,6 @@ import { io, type Socket } from "socket.io-client";
 import { useNickname } from "../context/NicknameContext";
 import { initPlayer, getSessionDetails } from "../service/service";
 import { ProfileModal } from "../components/ProfileModal";
-import { config } from "../config/Config";
 
 const ICE_SERVERS: RTCConfiguration = {
     iceServers: [
@@ -473,7 +472,7 @@ export function VideoRoom() {
             const token =
                 sessionStorage.getItem("jwtToken") || localStorage.getItem("jwtToken");
 
-            const socket = io(config.apiURL || undefined, {
+            const socket = io(import.meta.env.VITE_BACKEND_URL, {
                 withCredentials: true,
                 auth: {
                     token: token || undefined,
@@ -488,7 +487,7 @@ export function VideoRoom() {
             });
 
             socket.on("connect_error", (err) => {
-                console.error("Socket connection failed:", err.message);
+                console.error(`Socket connection failed: ${err.message}`);
                 setConnectionStatus("Unable to connect to the matchmaking server.");
             });
 
