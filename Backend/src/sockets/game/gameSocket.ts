@@ -142,12 +142,8 @@ export default function registerGameSockets(io_server: Server) {
                 void submitCoordinates(roomId, socket.id, coordinates, io_server);
             }
         );
-        // TODO: Both the users can send this incrementing rounds twice
-        socket.on("client_ready", ({ roomId }) => {
-            startNextRound(roomId, io_server); 
-        });
-
-        socket.on("client_ready", (roomId) =>{
+        socket.on("client_ready", (payload: string | { roomId: string }) => {
+            const roomId = typeof payload === "string" ? payload : payload.roomId;
             const room = activeRooms.get(roomId);
 
             if (!room) return;
@@ -163,7 +159,7 @@ export default function registerGameSockets(io_server: Server) {
             if ( room.status === "waiting" && room.player_1.isReady && room.player_2.isReady) {
                 startNextRound(roomId, io_server);
             }
-        })
+        });
 
     });
 }
