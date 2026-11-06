@@ -195,6 +195,27 @@ export async function evaluateRound(room: RoomState, io_server: Server) {
             }
         )
 
+        const winningScore = 3
+        
+        if(room.player_1.score >= winningScore || room.player_2.score >= winningScore) {
+            room.status = "finished";
+
+            const match_winner = room.player_1.score > room.player_2.score ? "player_1" : "player_2";
+
+            setTimeout(() => {
+                io_server.to(room.roomId).emit("match_finished", {
+                    winner: match_winner,
+                    p1_score: room.player_1.score,
+                    p2_score: room.player_2.score,
+                });
+
+                // Clean up the room after the match is finished
+                activeRooms.delete(room.roomId);
+                socketToRoom.delete(room.player_1.id);
+                socketToRoom.delete(room.player_2.id);
+            }, 2000);
+        }
+
     } catch (error) {
         console.error("Error during round evaluation:", error);
         io_server.to(room.roomId).emit("round_error", { message: "Error during round evaluation" });
