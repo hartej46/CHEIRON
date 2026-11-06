@@ -6,6 +6,7 @@ export interface PlayerState {
     id: string;
     score: number;
     coordinates: number[][] | null;
+    isReady?: boolean;
 }
 
 export interface RoomState {
@@ -156,12 +157,12 @@ export async function evaluateRound(room: RoomState, io_server: Server) {
         // Handle cases where players camera did not detect 
 
         if(p1_move === "None" && p2_move !== "None") {
-            roundResult = "Player 2 Wins";
+            roundResult = "player_2_wins";
             room.player_2.score += 1;
         }
 
         else if(p2_move === "None" && p1_move !== "None") {
-            roundResult = "Player 1 Wins";
+            roundResult = "player_1_wins";
             room.player_1.score += 1;
         }
 
@@ -213,6 +214,10 @@ export async function evaluateRound(room: RoomState, io_server: Server) {
                 activeRooms.delete(room.roomId);
                 socketToRoom.delete(room.player_1.id);
                 socketToRoom.delete(room.player_2.id);
+            }, 2000);
+        } else {
+            setTimeout(() => {
+                startNextRound(room.roomId, io_server);
             }, 2000);
         }
 

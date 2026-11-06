@@ -146,5 +146,24 @@ export default function registerGameSockets(io_server: Server) {
         socket.on("client_ready", ({ roomId }) => {
             startNextRound(roomId, io_server); 
         });
+
+        socket.on("client_ready", (roomId) =>{
+            const room = activeRooms.get(roomId);
+
+            if (!room) return;
+
+            if (room.player_1.id === socket.id) {
+                room.player_1.isReady = true;
+            }
+
+            if (room.player_2.id === socket.id) {
+                room.player_2.isReady = true;
+            }
+
+            if ( room.status === "waiting" && room.player_1.isReady && room.player_2.isReady) {
+                startNextRound(roomId, io_server);
+            }
+        })
+
     });
 }
