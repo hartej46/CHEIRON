@@ -157,12 +157,12 @@ export async function evaluateRound(room: RoomState, io_server: Server) {
 
         if(p1_move === "None" && p2_move !== "None") {
             roundResult = "Player 2 Wins";
-            // TODO: here we can update the score of player 2 if we want score system
+            room.player_2.score += 1;
         }
 
         else if(p2_move === "None" && p1_move !== "None") {
             roundResult = "Player 1 Wins";
-            // TODO: here we can update the score of player 1 if we want score system
+            room.player_1.score += 1;
         }
 
         else if (p1_move !== "None" && p2_move !== "None") {
@@ -173,14 +173,14 @@ export async function evaluateRound(room: RoomState, io_server: Server) {
                 (p1_move === "scissors" && p2_move === "paper")
             ) {
                 roundResult = "player_1_wins";
-                // room.player_1.score += 1;
+                room.player_1.score += 1;
             } else if (
                 (p2_move === "rock" && p1_move === "scissors") ||
                 (p2_move === "paper" && p1_move === "rock") ||
                 (p2_move === "scissors" && p1_move === "paper")
             ) {
                 roundResult = "player_2_wins";
-                // room.player_2.score += 1;
+                room.player_2.score += 1;
             }
         }
 
@@ -190,8 +190,8 @@ export async function evaluateRound(room: RoomState, io_server: Server) {
                 p1_move,
                 p2_move,
                 result: roundResult,
-                // p1_score: room.player_1.score,
-                // p2_score: room.player_2.score,
+                p1_score: room.player_1.score,
+                p2_score: room.player_2.score,
             }
         )
 
