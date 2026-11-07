@@ -542,22 +542,50 @@ h1 {
     visibility: hidden;
 }
 
+.side-notification-popup,
 .action-phase-overlay {
     align-items: center;
-    background: #111;
-    color: #fff;
+    animation: sideNotificationSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    background: rgba(18, 18, 22, 0.88);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 16px rgba(245, 158, 11, 0.12);
+    color: #fbbf24;
     display: flex;
-    inset: 0;
-    justify-content: center;
+    gap: 10px;
+    max-width: 85%;
+    padding: 10px 16px;
+    pointer-events: none;
     position: absolute;
-    z-index: 2;
+    right: 16px;
+    top: 16px;
+    z-index: 10;
 }
 
-.action-phase-overlay span {
-    color: #888;
+.side-notification-icon {
+    flex-shrink: 0;
+    stroke: #f59e0b;
+}
+
+.side-notification-text {
+    color: #f3f4f6;
     font-size: 13px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1.4;
+}
+
+@keyframes sideNotificationSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 .game-timer-overlay {
@@ -1307,6 +1335,38 @@ h1 {
     color: #fef3c7;
 }
 
+.break-banner.winner-banner {
+    background: linear-gradient(135deg, #064e3b, #047857);
+    border: 1px solid #34d399;
+    color: #ecfdf5;
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.35);
+}
+
+.break-banner.winner-banner strong {
+    color: #a7f3d0;
+}
+
+.break-banner.loser-banner {
+    background: linear-gradient(135deg, #450a0a, #991b1b);
+    border: 1px solid #f87171;
+    color: #fef2f2;
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+}
+
+.break-banner.loser-banner strong {
+    color: #fecaca;
+}
+
+.break-banner.draw-banner {
+    background: linear-gradient(135deg, #1e293b, #334155);
+    border: 1px solid #94a3b8;
+    color: #f8fafc;
+}
+
+.break-banner.draw-banner strong {
+    color: #cbd5e1;
+}
+
 .break-banner strong {
     color: #fbbf24;
 }
@@ -1323,4 +1383,286 @@ h1 {
     background: linear-gradient(135deg, #064e3b, #022c22);
     border: 1px solid #10b981;
     color: #ecfdf5;
+}
+
+/* ==========================================================================
+   BLIND PHASE (Anti-Peeking Vision Obscured)
+   ========================================================================== */
+
+.remote-viewport.blind-active {
+    background: #09090b;
+}
+
+.stream-video.remote-video.blind-blackout {
+    opacity: 0;
+    filter: brightness(0);
+    transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+.blind-conceal-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(9, 9, 11, 0.95);
+    z-index: 5;
+    text-align: center;
+    padding: 24px;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.blind-lock-symbol {
+    font-size: 46px;
+    margin-bottom: 12px;
+    animation: blindPulse 1.6s infinite;
+}
+
+@keyframes blindPulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 0.9;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 1;
+        filter: drop-shadow(0 0 14px rgba(245, 158, 11, 0.6));
+    }
+}
+
+.blind-lock-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fafafa;
+    margin: 0 0 6px;
+    letter-spacing: -0.02em;
+}
+
+.blind-lock-subtitle {
+    font-size: 13px;
+    color: #a1a1aa;
+    margin: 0;
+}
+
+/* ==========================================================================
+   BREAK TIMING CAMERA DIMMING (Local Camera Darkened)
+   ========================================================================== */
+
+.local-viewport.break-dimmed .local-video.camera-dimmed {
+    filter: brightness(0.18) contrast(1.1);
+    transition: filter 0.35s ease;
+}
+
+.camera-dimmed-tag {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: #d4d4d8;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    z-index: 5;
+    animation: fadeIn 0.25s ease;
+}
+
+/* ==========================================================================
+   ROUND BREAK CELEBRATION & DEFEAT CARDS
+   ========================================================================== */
+
+.round-break-celebration-container {
+    margin: 8px 16px 12px;
+    display: flex;
+    justify-content: center;
+    animation: celebrationSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    z-index: 10;
+}
+
+@keyframes celebrationSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-12px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.celebration-card-inner {
+    width: 100%;
+    max-width: 600px;
+    border-radius: 16px;
+    padding: 20px 24px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.4);
+    position: relative;
+    overflow: hidden;
+}
+
+.round-break-celebration-container.user .celebration-card-inner {
+    background: linear-gradient(135deg, rgba(6, 78, 59, 0.95), rgba(4, 120, 87, 0.95));
+    border: 2px solid #34d399;
+    color: #ffffff;
+    box-shadow: 0 12px 32px -4px rgba(16, 185, 129, 0.45);
+}
+
+.round-break-celebration-container.opponent .celebration-card-inner {
+    background: linear-gradient(135deg, rgba(69, 10, 10, 0.95), rgba(153, 27, 27, 0.95));
+    border: 2px solid #f87171;
+    color: #ffffff;
+    box-shadow: 0 12px 32px -4px rgba(239, 68, 68, 0.4);
+}
+
+.round-break-celebration-container.draw .celebration-card-inner {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(51, 65, 85, 0.95));
+    border: 2px solid #94a3b8;
+    color: #ffffff;
+    box-shadow: 0 12px 32px -4px rgba(100, 116, 139, 0.35);
+}
+
+.celebration-particles {
+    font-size: 24px;
+    display: flex;
+    gap: 12px;
+    margin-bottom: 6px;
+    animation: floatParticles 2s infinite ease-in-out;
+}
+
+@keyframes floatParticles {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-4px);
+    }
+}
+
+.defeat-particles {
+    font-size: 24px;
+    display: flex;
+    gap: 12px;
+    margin-bottom: 6px;
+}
+
+.celebration-badge-pill {
+    background: #10b981;
+    color: #064e3b;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 8px;
+}
+
+.defeat-badge-pill {
+    background: #ef4444;
+    color: #450a0a;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 8px;
+}
+
+.draw-badge-pill {
+    background: #94a3b8;
+    color: #0f172a;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 8px;
+}
+
+.celebration-heading,
+.defeat-heading,
+.draw-heading {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 10px;
+}
+
+.celebration-matchup {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 0 0 10px;
+    flex-wrap: wrap;
+}
+
+.move-tag {
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.move-tag.win-move {
+    background: rgba(255, 255, 255, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: #ffffff;
+}
+
+.move-tag.loss-move {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #e4e4e7;
+}
+
+.move-tag.draw-move {
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+}
+
+.vs-tag {
+    font-size: 12px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
+}
+
+.celebration-reason,
+.defeat-reason,
+.draw-reason {
+    font-size: 14px;
+    margin: 0 0 12px;
+    opacity: 0.95;
+    line-height: 1.4;
+}
+
+.celebration-timer-box,
+.defeat-timer-box,
+.draw-timer-box {
+    font-size: 13px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 20px;
+    padding: 6px 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.celebration-timer-box strong,
+.defeat-timer-box strong,
+.draw-timer-box strong {
+    font-size: 15px;
+    color: #fef08a;
 }

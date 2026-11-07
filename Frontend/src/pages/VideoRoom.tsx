@@ -22,8 +22,6 @@ const HAND_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
 ];
 
 const HAND_HIGHLIGHT_LANDMARKS = [0, 4, 8, 12, 16, 20];
-const GESTURE_SAMPLE_COUNT = 5;
-const GESTURE_SAMPLE_INTERVAL_MS = 200;
 const LANDMARK_VALUE_COUNT = 63;
 
 export function VideoRoom() {
@@ -66,8 +64,15 @@ export function VideoRoom() {
     const [timer, setTimer] = useState(0);
     const [round, setRound] = useState(0);
     const [scores, setScores] = useState({ user: 0, opponent: 0 });
-    const [roundResultText, setRoundResultText] = useState<string | null>(null);
     const [matchWinner, setMatchWinner] = useState<string | null>(null);
+    const [isBlindPhase, setIsBlindPhase] = useState(false);
+    const [lastRoundResult, setLastRoundResult] = useState<{
+        winner: "user" | "opponent" | "draw";
+        userMove: string;
+        opponentMove: string;
+        reason: string;
+        round: number;
+    } | null>(null);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isCapturing, setIsCapturing] = useState(false);
     const [captureSampleCount, setCaptureSampleCount] = useState(0);
@@ -107,6 +112,7 @@ export function VideoRoom() {
                 }
                 landmarkerRef.current = landmarker;
                 setIsLandmarkerReady(true);
+                setCaptureError((prev) => (prev?.includes("tracking") ? null : prev));
             } catch (error) {
                 console.error("Unable to initialize MediaPipe hand tracking.", error);
                 setCaptureError(
@@ -164,6 +170,7 @@ export function VideoRoom() {
                     }
 
                     if (landmarks) {
+                        setCaptureError((prev) => (prev ? null : prev));
                         context.strokeStyle = "#00ffff";
                         context.lineWidth = 3;
                         context.shadowColor = "#00ffff";
@@ -248,13 +255,22 @@ export function VideoRoom() {
         return () => clearInterval(interval);
     }, [gamePhase]);
 
-    // Capture five landmark samples during the action phase.
+    // Auto-dismiss capture error after 3.5 seconds
+    useEffect(() => {
+        if (!captureError) return;
+        const dismissTimer = setTimeout(() => {
+            setCaptureError(null);
+        }, 3500);
+        return () => clearTimeout(dismissTimer);
+    }, [captureError]);
+
+    // Capture landmark samples during the action phase.
     useEffect(() => {
         if (gamePhase !== "action") return;
 
         const video = videoRef.current;
         if (!video || !landmarkerRef.current) {
-            setCaptureError("Hand tracking is not ready yet.");
+            setCaptureError("Hand tracking is initializing...");
             return;
         }
 
@@ -273,9 +289,21 @@ export function VideoRoom() {
             setIsCapturing(false);
 
             const samples = captureSamplesRef.current;
-            if (samples.length !== GESTURE_SAMPLE_COUNT) {
-                setCaptureError("A complete hand capture was not detected.");
-                return;
+            let finalCoordinates: number[][] = [];
+
+            if (samples.length > 0) {
+                // Use the most recent captured samples (up to 5)
+                const recent = samples.slice(-5);
+                // Pad up to 5 if fewer samples were captured
+                while (recent.length < 5) {
+                    recent.push([...recent[recent.length - 1]]);
+                }
+                finalCoordinates = recent;
+            } else {
+                // If no hand was detected during the window, submit empty array
+                // so the backend evaluates gracefully and the round does not stall
+                finalCoordinates = [];
+                setCaptureError("No hand detected for this round.");
             }
 
             if (!socketRef.current || !roomIdRef.current) {
@@ -285,22 +313,35 @@ export function VideoRoom() {
 
             socketRef.current.emit("submit_coordinates", {
                 roomId: roomIdRef.current,
-                coordinates: samples,
+                coordinates: finalCoordinates,
             });
         };
 
+        // Sample every 150ms over ~4.8 seconds (32 ticks total for 5s round)
+        const TOTAL_SAMPLE_TICKS = 32;
+        // Trigger blind phase at ~3.5 seconds (tick 24 * 150ms = 3600ms)
+        const BLIND_PHASE_TICK = 24;
+
         captureIntervalRef.current = setInterval(() => {
             captureTickCountRef.current += 1;
+            const currentTick = captureTickCountRef.current;
+
+            // Client-side backup to ensure remote view is obscured at 3.5s
+            if (currentTick >= BLIND_PHASE_TICK) {
+                setIsBlindPhase(true);
+            }
+
             const coordinates = latestCoordinatesRef.current;
             if (coordinates && coordinates.length === LANDMARK_VALUE_COUNT) {
                 captureSamplesRef.current.push([...coordinates]);
                 setCaptureSampleCount(captureSamplesRef.current.length);
+                setCaptureError((prev) => (prev ? null : prev));
             }
 
-            if (captureTickCountRef.current === GESTURE_SAMPLE_COUNT) {
+            if (currentTick >= TOTAL_SAMPLE_TICKS) {
                 finishCapture();
             }
-        }, GESTURE_SAMPLE_INTERVAL_MS);
+        }, 150);
 
         return () => {
             if (captureIntervalRef.current !== null) {
@@ -360,8 +401,9 @@ export function VideoRoom() {
         setTimer(0);
         setRound(0);
         setScores({ user: 0, opponent: 0 });
-        setRoundResultText(null);
         setMatchWinner(null);
+        setIsBlindPhase(false);
+        setLastRoundResult(null);
     }, []);
 
     // Setup WebRTC PeerConnection
@@ -580,6 +622,9 @@ export function VideoRoom() {
                 teardownPeerConnection();
                 roomIdRef.current = null;
                 setCallState("stopped");
+                setCaptureError(null);
+                setIsBlindPhase(false);
+                setLastRoundResult(null);
                 setConnectionStatus("Opponent disconnected. Find a new partner when ready.");
             });
 
@@ -587,21 +632,31 @@ export function VideoRoom() {
                 setGamePhase("warmup");
                 setTimer(data.durationSeconds || 10);
                 setRound(0);
+                setIsBlindPhase(false);
                 setScores({ user: 0, opponent: 0 });
                 setMatchWinner(null);
-                setRoundResultText(null);
+                setLastRoundResult(null);
+                setCaptureError(null);
                 setConnectionStatus(data.message || "Game starts in 10s... Say hello!");
             });
 
-            socket.on("round_start", (data: { round: number; durationMs?: number }) => {
+            socket.on("round_start", (data: { round: number; durationMs?: number; blindAfterMs?: number }) => {
                 setGamePhase("action");
-                setRound(data.round);
-                setTimer(Math.round((data.durationMs || 3000) / 1000));
-                setConnectionStatus(`Round ${data.round} of 5: Show your hand!`);
+                setIsBlindPhase(false);
+                setRound(Math.min(data.round, 5));
+                setTimer(Math.round((data.durationMs || 5000) / 1000));
+                setCaptureError(null);
+                setConnectionStatus(`Round ${Math.min(data.round, 5)} of 5: Show your hand!`);
+            });
+
+            socket.on("round_blind_phase", () => {
+                // Server-side coordinated blind phase at 3.5s
+                setIsBlindPhase(true);
             });
 
             socket.on("roundResults", (data: {
                 round?: number;
+                maxRounds?: number;
                 p1_move: string;
                 p2_move: string;
                 winner?: string;
@@ -611,24 +666,46 @@ export function VideoRoom() {
                 p2_score?: number;
                 p1_id?: string;
                 p2_id?: string;
+                nextRoundIn?: number;
+                isFinalRound?: boolean;
             }) => {
+                setCaptureError(null);
+                // Return camera to normal where both players can see each other
+                setIsBlindPhase(false);
+
                 const isPlayer1 = socket.id === data.p1_id;
                 const myScore = isPlayer1 ? (data.p1_score ?? 0) : (data.p2_score ?? 0);
                 const oppScore = isPlayer1 ? (data.p2_score ?? 0) : (data.p1_score ?? 0);
                 setScores({ user: myScore, opponent: oppScore });
 
-                let outcome = data.reason || data.result;
+                const myMove = isPlayer1 ? data.p1_move : data.p2_move;
+                const oppMove = isPlayer1 ? data.p2_move : data.p1_move;
+                let roundWinner: "user" | "opponent" | "draw" = "draw";
                 if (data.winner === "player_1") {
-                    outcome = isPlayer1 ? `You won! (${data.reason || "Round Won"})` : `Opponent won! (${data.reason || "Round Lost"})`;
+                    roundWinner = isPlayer1 ? "user" : "opponent";
                 } else if (data.winner === "player_2") {
-                    outcome = !isPlayer1 ? `You won! (${data.reason || "Round Won"})` : `Opponent won! (${data.reason || "Round Lost"})`;
-                } else if (data.winner === "draw") {
-                    outcome = `Draw! (${data.reason || "Tie"})`;
+                    roundWinner = !isPlayer1 ? "user" : "opponent";
                 }
 
-                setRoundResultText(outcome);
+                setLastRoundResult({
+                    winner: roundWinner,
+                    userMove: myMove || "none",
+                    opponentMove: oppMove || "none",
+                    reason: data.reason || data.result,
+                    round: Math.min(data.round ?? round, 5),
+                });
+
+                let outcome = data.reason || data.result;
+                if (roundWinner === "user") {
+                    outcome = `🎉 You won! (${data.reason || "Round Won"})`;
+                } else if (roundWinner === "opponent") {
+                    outcome = `💀 Opponent won! (${data.reason || "Round Lost"})`;
+                } else {
+                    outcome = `🤝 Draw! (${data.reason || "Tie"})`;
+                }
+
                 setGamePhase("round_break");
-                setTimer(2);
+                setTimer(data.nextRoundIn ?? 5);
                 setConnectionStatus(outcome);
             });
 
@@ -638,6 +715,7 @@ export function VideoRoom() {
                 p2_score: number;
                 totalRounds?: number;
             }) => {
+                setIsBlindPhase(false);
                 setGamePhase("game_over");
                 setMatchWinner(data.winner);
                 setConnectionStatus("Match Finished!");
@@ -660,6 +738,7 @@ export function VideoRoom() {
         teardownPeerConnection();
         roomIdRef.current = null;
         setCallState("searching");
+        setCaptureError(null);
         setConnectionStatus("Looking for an opponent...");
 
         if (socketRef.current) {
@@ -673,6 +752,7 @@ export function VideoRoom() {
         teardownPeerConnection();
         roomIdRef.current = null;
         setCallState("stopped");
+        setCaptureError(null);
         setConnectionStatus("Matchmaking stopped.");
 
         if (socketRef.current) {
@@ -683,6 +763,7 @@ export function VideoRoom() {
     // Action: Start Searching (after stopped)
     const handleStartSearching = () => {
         setCallState("searching");
+        setCaptureError(null);
         setConnectionStatus("Looking for an opponent...");
         if (socketRef.current) {
             socketRef.current.emit("find_match");
@@ -778,7 +859,7 @@ export function VideoRoom() {
 
             {isConnected && gamePhase === "action" && (
                 <div className="game-status-banner action-banner" role="status">
-                    <span className="banner-round-tag">Round {round} / 5</span>
+                    <span className="banner-round-tag">Round {Math.min(round, 5)} / 5</span>
                     <span className="banner-scoreboard">
                         {nickname}: <strong>{scores.user}</strong> &nbsp;|&nbsp; {opponentNickname || "Stranger"}: <strong>{scores.opponent}</strong>
                     </span>
@@ -787,9 +868,33 @@ export function VideoRoom() {
             )}
 
             {isConnected && gamePhase === "round_break" && (
-                <div className="game-status-banner break-banner" role="status">
+                <div
+                    className={`game-status-banner break-banner ${
+                        lastRoundResult?.winner === "user"
+                            ? "winner-banner"
+                            : lastRoundResult?.winner === "opponent"
+                            ? "loser-banner"
+                            : "draw-banner"
+                    }`}
+                    role="status"
+                >
+                    <span className="banner-icon">
+                        {lastRoundResult?.winner === "user" ? "🎉" : lastRoundResult?.winner === "opponent" ? "💀" : "🤝"}
+                    </span>
                     <span className="banner-text">
-                        {roundResultText} &nbsp;•&nbsp; Next round in <strong>{timer}s</strong>...
+                        {lastRoundResult?.winner === "user" ? (
+                            <>
+                                <strong>YOU WON ROUND {lastRoundResult.round}!</strong> &nbsp;•&nbsp; Next round in <strong>{timer}s</strong>...
+                            </>
+                        ) : lastRoundResult?.winner === "opponent" ? (
+                            <>
+                                <strong>YOU LOST ROUND {lastRoundResult.round}</strong> &nbsp;•&nbsp; Next round in <strong>{timer}s</strong>...
+                            </>
+                        ) : (
+                            <>
+                                <strong>ROUND {lastRoundResult?.round || round} TIED!</strong> &nbsp;•&nbsp; Next round in <strong>{timer}s</strong>...
+                            </>
+                        )}
                     </span>
                     <span className="banner-scoreboard-mini">
                         ({scores.user} - {scores.opponent})
@@ -805,6 +910,61 @@ export function VideoRoom() {
                     <span className="banner-text">
                         <strong>Match Finished!</strong> Final Score: {scores.user} - {scores.opponent} {matchWinner === "draw" ? "(Draw!)" : ""}
                     </span>
+                </div>
+            )}
+
+            {/* Break Celebration / Defeat Card Overlay */}
+            {isConnected && gamePhase === "round_break" && lastRoundResult && (
+                <div className={`round-break-celebration-container ${lastRoundResult.winner}`}>
+                    <div className="celebration-card-inner">
+                        {lastRoundResult.winner === "user" ? (
+                            <>
+                                <div className="celebration-particles" aria-hidden="true">
+                                    <span>🎉</span> <span>🏆</span> <span>✨</span>
+                                </div>
+                                <span className="celebration-badge-pill">ROUND {lastRoundResult.round} WIN</span>
+                                <h2 className="celebration-heading">🎉 You Won This Round! 🎉</h2>
+                                <p className="celebration-matchup">
+                                    <span className="move-tag win-move">You: {lastRoundResult.userMove.toUpperCase()}</span>
+                                    <span className="vs-tag">vs</span>
+                                    <span className="move-tag loss-move">{opponentNickname || "Opponent"}: {lastRoundResult.opponentMove.toUpperCase()}</span>
+                                </p>
+                                <p className="celebration-reason">{lastRoundResult.reason}</p>
+                                <div className="celebration-timer-box">
+                                    Next round in <strong>{timer}s</strong>...
+                                </div>
+                            </>
+                        ) : lastRoundResult.winner === "opponent" ? (
+                            <>
+                                <div className="defeat-particles" aria-hidden="true">
+                                    <span>💀</span> <span>💔</span> <span>⚠️</span>
+                                </div>
+                                <span className="defeat-badge-pill">ROUND {lastRoundResult.round} DEFEAT</span>
+                                <h2 className="defeat-heading">You Lost This Round</h2>
+                                <p className="celebration-matchup">
+                                    <span className="move-tag loss-move">You: {lastRoundResult.userMove.toUpperCase()}</span>
+                                    <span className="vs-tag">vs</span>
+                                    <span className="move-tag win-move">{opponentNickname || "Opponent"}: {lastRoundResult.opponentMove.toUpperCase()}</span>
+                                </p>
+                                <p className="defeat-reason">{lastRoundResult.reason}</p>
+                                <div className="defeat-timer-box">
+                                    Next round in <strong>{timer}s</strong>...
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <span className="draw-badge-pill">ROUND {lastRoundResult.round} TIE</span>
+                                <h2 className="draw-heading">🤝 Round Tied!</h2>
+                                <p className="celebration-matchup">
+                                    <span className="move-tag draw-move">Both chose: {lastRoundResult.userMove.toUpperCase()}</span>
+                                </p>
+                                <p className="draw-reason">{lastRoundResult.reason}</p>
+                                <div className="draw-timer-box">
+                                    Next round in <strong>{timer}s</strong>...
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
             )}
 
@@ -829,15 +989,22 @@ export function VideoRoom() {
                         )}
                     </div>
 
-                    <div className="video-viewport remote-viewport">
+                    <div className={`video-viewport remote-viewport ${isBlindPhase ? "blind-active" : ""}`}>
                         {remoteStream ? (
                             <>
                                 <video
                                     ref={remoteVideoRef}
                                     autoPlay
                                     playsInline
-                                    className="stream-video remote-video"
+                                    className={`stream-video remote-video ${isBlindPhase ? "blind-blackout" : ""}`}
                                 />
+                                {isBlindPhase && (
+                                    <div className="blind-conceal-overlay" aria-live="assertive">
+                                        <div className="blind-lock-symbol">🔒</div>
+                                        <p className="blind-lock-title">Vision Obscured</p>
+                                        <p className="blind-lock-subtitle">Anti-peeking mode: Lock in your move!</p>
+                                    </div>
+                                )}
                                 {gamePhase === "action" && (
                                     <div className="game-timer-overlay" aria-live="polite">
                                         {timer}
@@ -877,15 +1044,20 @@ export function VideoRoom() {
                         </div>
                     </div>
 
-                    <div className="video-viewport local-viewport">
+                    <div className={`video-viewport local-viewport ${gamePhase === "round_break" ? "break-dimmed" : ""}`}>
                         <video
                             ref={videoRef}
                             autoPlay
                             muted
                             playsInline
-                            className="stream-video local-video active"
+                            className={`stream-video local-video active ${gamePhase === "round_break" ? "camera-dimmed" : ""}`}
                             aria-label="Your local camera stream"
                         />
+                        {gamePhase === "round_break" && (
+                            <div className="camera-dimmed-tag" aria-hidden="true">
+                                <span>🌙 Camera Dimmed (Break)</span>
+                            </div>
+                        )}
                         <canvas
                             ref={canvasRef}
                             className="hand-tracking-canvas"
@@ -893,12 +1065,28 @@ export function VideoRoom() {
                         />
                         {isCapturing && (
                             <div className="game-timer-overlay" aria-live="polite">
-                                Scanning {captureSampleCount}/{GESTURE_SAMPLE_COUNT}
+                                {captureSampleCount > 0 ? `Captured (${captureSampleCount})` : "Show hand"}
                             </div>
                         )}
                         {captureError && (
-                            <div className="action-phase-overlay" role="alert">
-                                {captureError}
+                            <div className="side-notification-popup" role="alert">
+                                <svg
+                                    className="side-notification-icon"
+                                    width="16"
+                                    height="16"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    aria-hidden="true"
+                                >
+                                    <circle cx="12" cy="12" r="10" />
+                                    <line x1="12" y1="8" x2="12" y2="12" />
+                                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                                </svg>
+                                <span className="side-notification-text">{captureError}</span>
                             </div>
                         )}
                     </div>

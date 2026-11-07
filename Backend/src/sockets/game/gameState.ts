@@ -14,10 +14,17 @@ export interface RoomState {
     player_1: PlayerState;
     player_2: PlayerState;
     round: number;
-    status: "waiting" | "countdown" | "in_progress" | "evaluation" | "finished";
+    status: "waiting" | "countdown" | "in_progress" | "evaluation" | "round_break" | "finished";
     roundTimeout?: NodeJS.Timeout;
     warmupTimeout?: NodeJS.Timeout;
+    blindTimeout?: NodeJS.Timeout;
+    breakTimeout?: NodeJS.Timeout;
 }
+
+export const MAX_ROUNDS = 5;
+export const ROUND_DURATION_MS = 5000;
+export const BLIND_PHASE_MS = 3500;
+export const BREAK_BUFFER_MS = 5000; // 5-second buffer between rounds
 
 export const activeRooms = new Map<string, RoomState>();
 export const socketToRoom = new Map<string, string>(); // We use this accidental close ups
@@ -48,26 +55,101 @@ export function createGameRoom(
     socketToRoom.set(player_2_id, roomId);
 }
 
+export function finishMatch(room: RoomState, io_server: Server) {
+    room.status = "finished";
+
+    if (room.roundTimeout) {
+        clearTimeout(room.roundTimeout);
+        room.roundTimeout = undefined;
+    }
+    if (room.warmupTimeout) {
+        clearTimeout(room.warmupTimeout);
+        room.warmupTimeout = undefined;
+    }
+    if (room.blindTimeout) {
+        clearTimeout(room.blindTimeout);
+        room.blindTimeout = undefined;
+    }
+    if (room.breakTimeout) {
+        clearTimeout(room.breakTimeout);
+        room.breakTimeout = undefined;
+    }
+
+    let match_winner = "draw";
+    if (room.player_1.score > room.player_2.score) {
+        match_winner = "player_1";
+    } else if (room.player_2.score > room.player_1.score) {
+        match_winner = "player_2";
+    }
+
+    io_server.to(room.roomId).emit("match_finished", {
+        winner: match_winner,
+        p1_score: room.player_1.score,
+        p2_score: room.player_2.score,
+        totalRounds: room.round,
+    });
+
+    // Clean up the room after the match is finished
+    activeRooms.delete(room.roomId);
+    socketToRoom.delete(room.player_1.id);
+    socketToRoom.delete(room.player_2.id);
+}
+
 export function startNextRound(roomId: string, io_server: Server) {
     const room = activeRooms.get(roomId);
     if (!room) return;
 
+    if (room.roundTimeout) {
+        clearTimeout(room.roundTimeout);
+        room.roundTimeout = undefined;
+    }
+    if (room.blindTimeout) {
+        clearTimeout(room.blindTimeout);
+        room.blindTimeout = undefined;
+    }
+    if (room.breakTimeout) {
+        clearTimeout(room.breakTimeout);
+        room.breakTimeout = undefined;
+    }
+
+    if (room.round >= MAX_ROUNDS) {
+        finishMatch(room, io_server);
+        return;
+    }
+
     room.round += 1;
-    room.status = "countdown";
+    room.status = "in_progress";
 
     room.player_1.coordinates = null;
     room.player_2.coordinates = null;
 
-    io_server.to(roomId).emit("round_start", { round: room.round, durationMs: 3000 });
+    io_server.to(roomId).emit("round_start", {
+        round: room.round,
+        maxRounds: MAX_ROUNDS,
+        durationMs: ROUND_DURATION_MS,
+        blindAfterMs: BLIND_PHASE_MS,
+    });
 
-    // safety timeout
+    // Server-coordinated blind phase: at 3.5s, signal both clients to black remote view
+    room.blindTimeout = setTimeout(() => {
+        const current = activeRooms.get(roomId);
+        if (current && current.status === "in_progress" && current.round === room.round) {
+            io_server.to(roomId).emit("round_blind_phase", { round: room.round });
+        }
+    }, BLIND_PHASE_MS);
 
+    // Safety timeout: 5s round + 2.5s network grace
     room.roundTimeout = setTimeout(() => {
-        if (room.status !== "evaluation") {
-            io_server.to(roomId).emit("round_error", { message: "Retrying round" });
+        const current = activeRooms.get(roomId);
+        if (current && current.status === "in_progress" && current.round === room.round) {
+            if (current.round >= MAX_ROUNDS) {
+                finishMatch(current, io_server);
+                return;
+            }
+            io_server.to(roomId).emit("round_error", { message: "Round timed out, retrying..." });
             startNextRound(roomId, io_server);
         }
-    }, 5000);
+    }, ROUND_DURATION_MS + 2500);
 }
 
 export async function submitCoordinates(
@@ -82,7 +164,6 @@ export async function submitCoordinates(
 
     if (
         !Array.isArray(coordinates) ||
-        coordinates.length !== 5 ||
         coordinates.some(
             (sample) =>
                 !Array.isArray(sample) ||
@@ -97,10 +178,18 @@ export async function submitCoordinates(
         return;
     }
 
+    // Pad samples up to 5 if player provided 1 to 4 samples
+    const finalCoordinates = [...coordinates];
+    if (finalCoordinates.length > 0 && finalCoordinates.length < 5) {
+        while (finalCoordinates.length < 5) {
+            finalCoordinates.push([...finalCoordinates[finalCoordinates.length - 1]]);
+        }
+    }
+
     if (room.player_1.id === socketId && !room.player_1.coordinates) {
-        room.player_1.coordinates = coordinates;
+        room.player_1.coordinates = finalCoordinates;
     } else if (room.player_2.id === socketId && !room.player_2.coordinates) {
-        room.player_2.coordinates = coordinates;
+        room.player_2.coordinates = finalCoordinates;
     }
 
     if (room.player_1.coordinates && room.player_2.coordinates) {
@@ -108,6 +197,11 @@ export async function submitCoordinates(
 
         if (room.roundTimeout) {
             clearTimeout(room.roundTimeout);
+            room.roundTimeout = undefined;
+        }
+        if (room.blindTimeout) {
+            clearTimeout(room.blindTimeout);
+            room.blindTimeout = undefined;
         }
 
         await evaluateRound(room, io_server);
@@ -229,10 +323,13 @@ export async function evaluateRound(room: RoomState, io_server: Server) {
             room.player_2.score += 1;
         }
 
+        room.status = "round_break";
+
         io_server.to(room.roomId).emit(
             "roundResults",
             {
                 round: room.round,
+                maxRounds: MAX_ROUNDS,
                 p1_move,
                 p2_move,
                 winner: evaluation.winner,
@@ -242,37 +339,24 @@ export async function evaluateRound(room: RoomState, io_server: Server) {
                 p2_score: room.player_2.score,
                 p1_id: room.player_1.id,
                 p2_id: room.player_2.id,
+                nextRoundIn: Math.round(BREAK_BUFFER_MS / 1000),
+                isFinalRound: room.round >= MAX_ROUNDS,
             }
         );
 
-        const totalMatchRounds = 5;
-        if (room.round >= totalMatchRounds) {
-            room.status = "finished";
-
-            let match_winner = "draw";
-            if (room.player_1.score > room.player_2.score) {
-                match_winner = "player_1";
-            } else if (room.player_2.score > room.player_1.score) {
-                match_winner = "player_2";
-            }
-
-            setTimeout(() => {
-                io_server.to(room.roomId).emit("match_finished", {
-                    winner: match_winner,
-                    p1_score: room.player_1.score,
-                    p2_score: room.player_2.score,
-                    totalRounds: room.round,
-                });
-
-                // Clean up the room after the match is finished
-                activeRooms.delete(room.roomId);
-                socketToRoom.delete(room.player_1.id);
-                socketToRoom.delete(room.player_2.id);
-            }, 2000);
+        if (room.round >= MAX_ROUNDS) {
+            // Buffer of 5 seconds to celebrate/view round 5 results, then finish the match
+            room.breakTimeout = setTimeout(() => {
+                finishMatch(room, io_server);
+            }, BREAK_BUFFER_MS);
         } else {
-            setTimeout(() => {
-                startNextRound(room.roomId, io_server);
-            }, 2000);
+            // 5 second buffer before starting the next round
+            room.breakTimeout = setTimeout(() => {
+                const current = activeRooms.get(room.roomId);
+                if (current && current.status === "round_break") {
+                    startNextRound(room.roomId, io_server);
+                }
+            }, BREAK_BUFFER_MS);
         }
 
     } catch (error) {
