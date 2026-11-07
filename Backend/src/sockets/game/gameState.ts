@@ -204,6 +204,7 @@ export async function submitCoordinates(
             room.blindTimeout = undefined;
         }
 
+        console.log(`Evaluating round ${room.round} in room ${roomId} with coordinates from both players.${room.player_1.coordinates.length} samples from player 1 and ${room.player_2.coordinates.length} samples from player 2.`);
         await evaluateRound(room, io_server);
     }
 }
@@ -358,6 +359,8 @@ export async function evaluateRound(room: RoomState, io_server: Server) {
                 }
             }, BREAK_BUFFER_MS);
         }
+
+        console.log(`Round ${room.round} in room ${room.roomId} evaluated. Player 1 move: ${p1_move}, Player 2 move: ${p2_move} Scores - Player 1: ${room.player_1.score}, Player 2: ${room.player_2.score}`);
 
     } catch (error) {
         console.error("Error during round evaluation:", error);

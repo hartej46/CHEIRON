@@ -609,6 +609,22 @@ h1 {
     z-index: 3;
 }
 
+.blind-capture-overlay {
+    align-items: center;
+    background: #000;
+    color: #fff;
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    position: absolute;
+    z-index: 6;
+}
+
+.blind-capture-overlay span {
+    font-size: 18px;
+    font-weight: 600;
+}
+
 .resume-button {
     margin-top: 16px;
     background: #2563eb;

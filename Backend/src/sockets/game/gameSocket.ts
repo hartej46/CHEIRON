@@ -145,12 +145,18 @@ export default function registerGameSockets(io_server: Server) {
             socket.to(roomId).emit("webrtc_ice_candidate", { roomId, candidate });
         });
 
-        socket.on(
-            "submit_coordinates",
-            ({ roomId, coordinates }: { roomId: string; coordinates: number[][] }) => {
-                void submitCoordinates(roomId, socket.id, coordinates, io_server);
-            }
-        );
+        const handleCoordinateSubmission = ({
+            roomId,
+            coordinates,
+        }: {
+            roomId: string;
+            coordinates: number[][];
+        }) => {
+            void submitCoordinates(roomId, socket.id, coordinates, io_server);
+        };
+
+        socket.on("submit_coordinates", handleCoordinateSubmission);
+        socket.on("submitCoordinates", handleCoordinateSubmission);
         socket.on("client_ready", (payload: string | { roomId: string }) => {
             const roomId = typeof payload === "string" ? payload : payload.roomId;
             const room = activeRooms.get(roomId);

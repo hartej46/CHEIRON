@@ -61,10 +61,7 @@ export function VideoRoom() {
     const landmarkerRef = useRef<HandLandmarker | null>(null);
     const detectionFrameRef = useRef<number | null>(null);
     const isRoundActiveRef = useRef(false);
-    const captureIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const evaluationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const captureSamplesRef = useRef<number[][]>([]);
-    const captureTickCountRef = useRef(0);
 
     // Media State
     const [hasMediaPermissions, setHasMediaPermissions] = useState<boolean | null>(null);
@@ -77,7 +74,7 @@ export function VideoRoom() {
     const [opponentNickname, setOpponentNickname] = useState<string | null>(null);
     const [callDuration, setCallDuration] = useState(0);
     const [gamePhase, setGamePhase] = useState<
-        "waiting" | "warmup" | "action" | "evaluation" | "round_break" | "game_over"
+        "waiting" | "warmup" | "countdown" | "action" | "blind" | "evaluation" | "round_break" | "game_over"
     >("waiting");
     const [timer, setTimer] = useState(0);
     const [round, setRound] = useState(0);
@@ -93,15 +90,12 @@ export function VideoRoom() {
         round: number;
     } | null>(null);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
-    const [isCapturing, setIsCapturing] = useState(false);
-    const [captureSampleCount, setCaptureSampleCount] = useState(0);
     const [captureError, setCaptureError] = useState<string | null>(null);
-    const [isLandmarkerReady, setIsLandmarkerReady] = useState(false);
 
     useEffect(() => {
-        isRoundActiveRef.current = gamePhase === "action";
+        isRoundActiveRef.current = gamePhase === "countdown";
         if (!isRoundActiveRef.current) {
-            // Coordinates are only meaningful during the action phase.
+            // Keep the latest sample only while the countdown is visible.
             latestCoordinatesRef.current = null;
         }
     }, [gamePhase]);
@@ -110,7 +104,6 @@ export function VideoRoom() {
         if (!hasMediaPermissions || !streamRef.current) return;
 
         let cancelled = false;
-        setIsLandmarkerReady(false);
         const initializeLandmarker = async () => {
             try {
                 const vision = await FilesetResolver.forVisionTasks(
@@ -130,7 +123,6 @@ export function VideoRoom() {
                     return;
                 }
                 landmarkerRef.current = landmarker;
-                setIsLandmarkerReady(true);
                 setCaptureError((prev) => (prev?.includes("tracking") ? null : prev));
             } catch (error) {
                 console.error("Unable to initialize MediaPipe hand tracking.", error);
@@ -150,7 +142,6 @@ export function VideoRoom() {
             }
             landmarkerRef.current?.close();
             landmarkerRef.current = null;
-            setIsLandmarkerReady(false);
         };
     }, [hasMediaPermissions]);
 
@@ -263,9 +254,9 @@ export function VideoRoom() {
         };
     }, [callState, remoteStream]);
 
-    // Timer countdown effect for active phases (warmup, action, round break)
+    // Countdown is the only phase that runs before the blind capture transition.
     useEffect(() => {
-        if (gamePhase !== "warmup" && gamePhase !== "action" && gamePhase !== "round_break") return;
+        if (gamePhase !== "warmup" && gamePhase !== "countdown" && gamePhase !== "round_break") return;
 
         const interval = setInterval(() => {
             setTimer((prev) => (prev > 0 ? prev - 1 : 0));
@@ -283,99 +274,31 @@ export function VideoRoom() {
         return () => clearTimeout(dismissTimer);
     }, [captureError]);
 
-    // Capture landmark samples during the action phase.
+    // Transition to blind mode and submit exactly once when the countdown reaches zero.
     useEffect(() => {
-        if (gamePhase !== "action") return;
+        if (gamePhase !== "countdown" || timer !== 0) return;
 
-        const video = videoRef.current;
-        if (!video || !landmarkerRef.current) {
-            setCaptureError("Hand tracking is initializing...");
+        const coordinates = latestCoordinatesRef.current;
+        setGamePhase("blind");
+        setIsBlindPhase(true);
+
+        if (!socketRef.current || !roomIdRef.current) {
+            setCaptureError("Unable to submit hand coordinates.");
             return;
         }
 
-        captureSamplesRef.current = [];
-        captureTickCountRef.current = 0;
-        setCaptureSampleCount(0);
-        setCaptureError(null);
-        setIsCapturing(true);
+        if (!coordinates || coordinates.length !== LANDMARK_VALUE_COUNT) {
+            setCaptureError("No hand detected for this round.");
+        }
 
-        const finishCapture = () => {
-            if (captureIntervalRef.current !== null) {
-                clearInterval(captureIntervalRef.current);
-                captureIntervalRef.current = null;
-            }
-            if (evaluationTimeoutRef.current !== null) {
-                clearTimeout(evaluationTimeoutRef.current);
-                evaluationTimeoutRef.current = null;
-            }
-
-            setIsCapturing(false);
-
-            const samples = captureSamplesRef.current;
-            let finalCoordinates: number[][] = [];
-
-            if (samples.length > 0) {
-                // Use the most recent captured samples (up to 5)
-                const recent = samples.slice(-5);
-                // Pad up to 5 if fewer samples were captured
-                while (recent.length < 5) {
-                    recent.push([...recent[recent.length - 1]]);
-                }
-                finalCoordinates = recent;
-            } else {
-                // If no hand was detected during the window, submit empty array
-                // so the backend evaluates gracefully and the round does not stall
-                finalCoordinates = [];
-                setCaptureError("No hand detected for this round.");
-            }
-
-            if (!socketRef.current || !roomIdRef.current) {
-                setCaptureError("Unable to submit hand coordinates.");
-                return;
-            }
-
-            socketRef.current.emit("submit_coordinates", {
-                roomId: roomIdRef.current,
-                coordinates: finalCoordinates,
-            });
-        };
-
-        // Sample every 150ms over ~4.8 seconds (32 ticks total for 5s round)
-        const TOTAL_SAMPLE_TICKS = 32;
-        // Trigger blind phase at ~3.5 seconds (tick 24 * 150ms = 3600ms)
-        const BLIND_PHASE_TICK = 24;
-
-        captureIntervalRef.current = setInterval(() => {
-            captureTickCountRef.current += 1;
-            const currentTick = captureTickCountRef.current;
-
-            // Client-side backup to ensure remote view is obscured at 3.5s
-            if (currentTick >= BLIND_PHASE_TICK) {
-                setIsBlindPhase(true);
-            }
-
-            const coordinates = latestCoordinatesRef.current;
-            if (coordinates && coordinates.length === LANDMARK_VALUE_COUNT) {
-                captureSamplesRef.current.push([...coordinates]);
-                setCaptureSampleCount(captureSamplesRef.current.length);
-                setCaptureError((prev) => (prev ? null : prev));
-            }
-
-            if (currentTick >= TOTAL_SAMPLE_TICKS) {
-                finishCapture();
-            }
-        }, 150);
-
-        return () => {
-            if (captureIntervalRef.current !== null) {
-                clearInterval(captureIntervalRef.current);
-                captureIntervalRef.current = null;
-            }
-            captureSamplesRef.current = [];
-            captureTickCountRef.current = 0;
-            setIsCapturing(false);
-        };
-    }, [gamePhase, isLandmarkerReady]);
+        // The backend accepts a batch; submit one sample captured at the transition.
+        socketRef.current.emit("submit_coordinates", {
+            roomId: roomIdRef.current,
+            coordinates: coordinates && coordinates.length === LANDMARK_VALUE_COUNT
+                ? [coordinates]
+                : [],
+        });
+    }, [gamePhase, timer]);
 
 
 
@@ -673,17 +596,12 @@ export function VideoRoom() {
                     clearTimeout(evaluationTimeoutRef.current);
                     evaluationTimeoutRef.current = null;
                 }
-                setGamePhase("action");
+                setGamePhase("countdown");
                 setIsBlindPhase(false);
                 setRound(Math.min(data.round, 5));
-                setTimer(Math.round((data.durationMs || 5000) / 1000));
+                setTimer(5);
                 setCaptureError(null);
-                setConnectionStatus(`Round ${Math.min(data.round, 5)} of 5: Show your hand!`);
-            });
-
-            socket.on("round_blind_phase", () => {
-                // Server-side coordinated blind phase at 3.5s
-                setIsBlindPhase(true);
+                setConnectionStatus(`Round ${Math.min(data.round, 5)} of 5: Position your hand!`);
             });
 
             socket.on("roundResults", (data: {
@@ -909,7 +827,7 @@ export function VideoRoom() {
                 </div>
             )}
 
-            {isConnected && gamePhase === "action" && (
+            {isConnected && gamePhase === "countdown" && (
                 <div className="game-status-banner action-banner" role="status">
                     <span className="banner-round-tag">Round {Math.min(round, 5)} / 5</span>
                     <span className="banner-scoreboard">
@@ -1104,7 +1022,7 @@ export function VideoRoom() {
                                         <span>You won this round</span>
                                     </div>
                                 )}
-                                {gamePhase === "action" && (
+                                {gamePhase === "countdown" && (
                                     <div className="game-timer-overlay" aria-live="polite">
                                         {timer}
                                     </div>
@@ -1175,9 +1093,14 @@ export function VideoRoom() {
                             className="hand-tracking-canvas"
                             aria-hidden="true"
                         />
-                        {isCapturing && (
+                        {gamePhase === "countdown" && (
                             <div className="game-timer-overlay" aria-live="polite">
-                                {captureSampleCount > 0 ? `Captured (${captureSampleCount})` : "Show hand"}
+                                {timer}
+                            </div>
+                        )}
+                        {gamePhase === "blind" && (
+                            <div className="blind-capture-overlay" aria-live="assertive">
+                                <span>Capture complete</span>
                             </div>
                         )}
                         {captureError && (
