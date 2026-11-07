@@ -40,6 +40,8 @@ def predict(request: PredictionRequest) -> dict[str, int | str]:
         }
 
     predicted_index, predicted_option = evaluation
+
+    print(f"This is prediction {predicted_option}")
     return {
         "success": True,
         "prediction": predicted_option,
