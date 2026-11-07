@@ -2,6 +2,23 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { FilesetResolver, HandLandmarker } from "@mediapipe/tasks-vision";
 import { io, type Socket } from "socket.io-client";
+import {
+    AlertTriangle,
+    Hand,
+    Hourglass,
+    Trophy,
+    Skull,
+    Handshake,
+    PartyPopper,
+    Sparkles,
+    HeartCrack,
+    Timer,
+    Lock,
+    Moon,
+    Play,
+    Square,
+    SkipForward,
+} from "lucide-react";
 import { useNickname } from "../context/NicknameContext";
 import { initPlayer, getSessionDetails } from "../service/service";
 import { ProfileModal } from "../components/ProfileModal";
@@ -697,11 +714,11 @@ export function VideoRoom() {
 
                 let outcome = data.reason || data.result;
                 if (roundWinner === "user") {
-                    outcome = `🎉 You won! (${data.reason || "Round Won"})`;
+                    outcome = `You won! (${data.reason || "Round Won"})`;
                 } else if (roundWinner === "opponent") {
-                    outcome = `💀 Opponent won! (${data.reason || "Round Lost"})`;
+                    outcome = `Opponent won! (${data.reason || "Round Lost"})`;
                 } else {
-                    outcome = `🤝 Draw! (${data.reason || "Tie"})`;
+                    outcome = `Draw! (${data.reason || "Tie"})`;
                 }
 
                 setGamePhase("round_break");
@@ -831,7 +848,9 @@ export function VideoRoom() {
             {/* If camera & mic are not granted, block everything and show prompt */}
             {hasMediaPermissions === false && (
                 <div className="permission-barrier-card" role="alert">
-                    <div className="barrier-icon">⚠️</div>
+                    <div className="barrier-icon">
+                        <AlertTriangle size={36} color="#f59e0b" />
+                    </div>
                     <h2>Camera and Microphone Required</h2>
                     <p>
                         Nothing can start until camera and microphone permissions are granted.
@@ -850,7 +869,9 @@ export function VideoRoom() {
             {/* Top Game State Notification / Banner */}
             {isConnected && gamePhase === "warmup" && (
                 <div className="game-status-banner warmup-banner" role="status">
-                    <span className="banner-icon">👋</span>
+                    <span className="banner-icon">
+                        <Hand size={18} />
+                    </span>
                     <span className="banner-text">
                         Connected! Game starts in <strong>{timer}s</strong>... Say hello & get ready!
                     </span>
@@ -863,7 +884,9 @@ export function VideoRoom() {
                     <span className="banner-scoreboard">
                         {nickname}: <strong>{scores.user}</strong> &nbsp;|&nbsp; {opponentNickname || "Stranger"}: <strong>{scores.opponent}</strong>
                     </span>
-                    <span className="banner-timer-tag">⏳ {timer}s</span>
+                    <span className="banner-timer-tag">
+                        <Hourglass size={13} /> {timer}s
+                    </span>
                 </div>
             )}
 
@@ -879,7 +902,13 @@ export function VideoRoom() {
                     role="status"
                 >
                     <span className="banner-icon">
-                        {lastRoundResult?.winner === "user" ? "🎉" : lastRoundResult?.winner === "opponent" ? "💀" : "🤝"}
+                        {lastRoundResult?.winner === "user" ? (
+                            <Trophy size={18} />
+                        ) : lastRoundResult?.winner === "opponent" ? (
+                            <Skull size={18} />
+                        ) : (
+                            <Handshake size={18} />
+                        )}
                     </span>
                     <span className="banner-text">
                         {lastRoundResult?.winner === "user" ? (
@@ -905,7 +934,7 @@ export function VideoRoom() {
             {isConnected && gamePhase === "game_over" && (
                 <div className="game-status-banner gameover-banner" role="status">
                     <span className="banner-icon">
-                        {matchWinner === "draw" ? "🤝" : "🏆"}
+                        {matchWinner === "draw" ? <Handshake size={18} /> : <Trophy size={18} />}
                     </span>
                     <span className="banner-text">
                         <strong>Match Finished!</strong> Final Score: {scores.user} - {scores.opponent} {matchWinner === "draw" ? "(Draw!)" : ""}
@@ -920,10 +949,14 @@ export function VideoRoom() {
                         {lastRoundResult.winner === "user" ? (
                             <>
                                 <div className="celebration-particles" aria-hidden="true">
-                                    <span>🎉</span> <span>🏆</span> <span>✨</span>
+                                    <PartyPopper size={22} />
+                                    <Trophy size={22} />
+                                    <Sparkles size={22} />
                                 </div>
                                 <span className="celebration-badge-pill">ROUND {lastRoundResult.round} WIN</span>
-                                <h2 className="celebration-heading">🎉 You Won This Round! 🎉</h2>
+                                <h2 className="celebration-heading">
+                                    <Trophy size={24} /> You Won This Round!
+                                </h2>
                                 <p className="celebration-matchup">
                                     <span className="move-tag win-move">You: {lastRoundResult.userMove.toUpperCase()}</span>
                                     <span className="vs-tag">vs</span>
@@ -937,10 +970,14 @@ export function VideoRoom() {
                         ) : lastRoundResult.winner === "opponent" ? (
                             <>
                                 <div className="defeat-particles" aria-hidden="true">
-                                    <span>💀</span> <span>💔</span> <span>⚠️</span>
+                                    <Skull size={22} />
+                                    <HeartCrack size={22} />
+                                    <AlertTriangle size={22} />
                                 </div>
                                 <span className="defeat-badge-pill">ROUND {lastRoundResult.round} DEFEAT</span>
-                                <h2 className="defeat-heading">You Lost This Round</h2>
+                                <h2 className="defeat-heading">
+                                    <Skull size={24} /> You Lost This Round
+                                </h2>
                                 <p className="celebration-matchup">
                                     <span className="move-tag loss-move">You: {lastRoundResult.userMove.toUpperCase()}</span>
                                     <span className="vs-tag">vs</span>
@@ -954,7 +991,9 @@ export function VideoRoom() {
                         ) : (
                             <>
                                 <span className="draw-badge-pill">ROUND {lastRoundResult.round} TIE</span>
-                                <h2 className="draw-heading">🤝 Round Tied!</h2>
+                                <h2 className="draw-heading">
+                                    <Handshake size={24} /> Round Tied!
+                                </h2>
                                 <p className="celebration-matchup">
                                     <span className="move-tag draw-move">Both chose: {lastRoundResult.userMove.toUpperCase()}</span>
                                 </p>
@@ -984,7 +1023,7 @@ export function VideoRoom() {
                         </div>
                         {isConnected && (
                             <div className="call-duration-badge">
-                                ⏱️ {formatDuration(callDuration)}
+                                <Timer size={14} /> {formatDuration(callDuration)}
                             </div>
                         )}
                     </div>
@@ -1000,7 +1039,9 @@ export function VideoRoom() {
                                 />
                                 {isBlindPhase && (
                                     <div className="blind-conceal-overlay" aria-live="assertive">
-                                        <div className="blind-lock-symbol">🔒</div>
+                                        <div className="blind-lock-symbol">
+                                            <Lock size={44} strokeWidth={2.2} />
+                                        </div>
                                         <p className="blind-lock-title">Vision Obscured</p>
                                         <p className="blind-lock-subtitle">Anti-peeking mode: Lock in your move!</p>
                                     </div>
@@ -1055,7 +1096,8 @@ export function VideoRoom() {
                         />
                         {gamePhase === "round_break" && (
                             <div className="camera-dimmed-tag" aria-hidden="true">
-                                <span>🌙 Camera Dimmed (Break)</span>
+                                <Moon size={14} />
+                                <span>Camera Dimmed (Break)</span>
                             </div>
                         )}
                         <canvas
@@ -1102,9 +1144,7 @@ export function VideoRoom() {
                             onClick={handleStartSearching}
                             className="control-action-btn btn-start-search"
                         >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                                <polygon points="5 3 19 12 5 21 5 3" />
-                            </svg>
+                            <Play size={18} fill="currentColor" />
                             Find Partner
                         </button>
                     ) : (
@@ -1114,9 +1154,7 @@ export function VideoRoom() {
                             className="control-action-btn btn-stop-search"
                             title={isConnected ? "End Call / Stop" : "Stop Searching"}
                         >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                                <rect width="14" height="14" x="5" y="5" rx="2" />
-                            </svg>
+                            <Square size={16} fill="currentColor" />
                             Stop
                         </button>
                     )}
@@ -1127,10 +1165,7 @@ export function VideoRoom() {
                         className="control-action-btn btn-skip-next"
                         title="Skip to Next Partner"
                     >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                            <polygon points="5 4 15 12 5 20 5 4" />
-                            <line x1="19" x2="19" y1="5" y2="19" stroke="currentColor" strokeWidth="3" />
-                        </svg>
+                        <SkipForward size={18} fill="currentColor" />
                         Next
                     </button>
                 </div>

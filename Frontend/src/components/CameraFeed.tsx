@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import { AlertTriangle } from "lucide-react";
 
 interface CameraFeedProps {
     stream: MediaStream | null;
@@ -105,7 +106,7 @@ export const CameraFeed: React.FC<CameraFeedProps> = ({
                             </div>
                         ) : permissionStatus === "denied" ? (
                             <div className="empty-message-wrap">
-                                <span className="empty-icon">⚠</span>
+                                <span className="empty-icon"><AlertTriangle size={24} /></span>
                                 <p className="empty-title">Camera Permission Denied</p>
                                 <span className="empty-sub">
                                     {errorMessage ||
