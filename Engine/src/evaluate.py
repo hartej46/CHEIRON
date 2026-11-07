@@ -3,6 +3,7 @@ from src.predict import predict as run_prediction
 
 
 def evaluate(coordinates: list[list[float]] | list[float]) -> tuple[int, str] | None:
+    print(f'The coordinates are: {coordinates}.')
     if not coordinates:
         return None
 
