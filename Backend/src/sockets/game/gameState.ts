@@ -16,6 +16,7 @@ export interface RoomState {
     round: number;
     status: "waiting" | "countdown" | "in_progress" | "evaluation" | "finished";
     roundTimeout?: NodeJS.Timeout;
+    warmupTimeout?: NodeJS.Timeout;
 }
 
 export const activeRooms = new Map<string, RoomState>();
