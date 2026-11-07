@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import type { FormEvent } from "react";
+import { Video, Mic } from "lucide-react";
 import { initPlayer } from "../service/service";
 import { useNickname } from "../context/NicknameContext";
 import { ProfileModal } from "../components/ProfileModal";
@@ -246,10 +247,10 @@ export function LandingPage({ onStart }: LandingPageProps) {
                             <div className="permission-prompt-box">
                                 <div className="permission-icon-row">
                                     <span className="permission-icon" aria-hidden="true">
-                                        📹
+                                        <Video size={24} />
                                     </span>
                                     <span className="permission-icon" aria-hidden="true">
-                                        🎙️
+                                        <Mic size={24} />
                                     </span>
                                 </div>
                                 <p className="permission-text">

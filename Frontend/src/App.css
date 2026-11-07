@@ -421,6 +421,9 @@ h1 {
 }
 
 .call-duration-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     background: rgba(15, 17, 23, 0.7);
     backdrop-filter: blur(10px);
     padding: 6px 12px;
@@ -1321,6 +1324,9 @@ h1 {
 }
 
 .banner-timer-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     background: #ef4444;
     color: #fff;
     padding: 3px 8px;
@@ -1416,6 +1422,10 @@ h1 {
 .blind-lock-symbol {
     font-size: 46px;
     margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fbbf24;
     animation: blindPulse 1.6s infinite;
 }
 
@@ -1458,6 +1468,9 @@ h1 {
     position: absolute;
     bottom: 16px;
     right: 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     background: rgba(0, 0, 0, 0.8);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
@@ -1530,8 +1543,9 @@ h1 {
 }
 
 .celebration-particles {
-    font-size: 24px;
     display: flex;
+    align-items: center;
+    justify-content: center;
     gap: 12px;
     margin-bottom: 6px;
     animation: floatParticles 2s infinite ease-in-out;
@@ -1547,8 +1561,9 @@ h1 {
 }
 
 .defeat-particles {
-    font-size: 24px;
     display: flex;
+    align-items: center;
+    justify-content: center;
     gap: 12px;
     margin-bottom: 6px;
 }
@@ -1592,6 +1607,10 @@ h1 {
 .celebration-heading,
 .defeat-heading,
 .draw-heading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     font-size: 24px;
     font-weight: 700;
     letter-spacing: -0.02em;
