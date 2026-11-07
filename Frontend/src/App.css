@@ -1389,6 +1389,12 @@ h1 {
     color: #cbd5e1;
 }
 
+.evaluation-banner {
+    background: linear-gradient(135deg, #27272a, #3f3f46);
+    border: 1px solid #a1a1aa;
+    color: #f4f4f5;
+}
+
 .break-banner strong {
     color: #fbbf24;
 }
@@ -1469,6 +1475,58 @@ h1 {
     font-size: 13px;
     color: #a1a1aa;
     margin: 0;
+}
+
+/* ==========================================================================
+   ROUND RESULT VIDEO STATES
+   ========================================================================== */
+
+.video-viewport.result-loser {
+    background: #4b5563;
+}
+
+.video-viewport.result-loser .stream-video {
+    filter: grayscale(0.9) brightness(0.65);
+    transition: filter 0.35s ease;
+}
+
+.local-viewport.break-dimmed.result-loser .local-video.camera-dimmed {
+    filter: grayscale(0.9) brightness(0.65);
+}
+
+.winner-video-popover {
+    align-items: center;
+    background: rgba(6, 78, 59, 0.92);
+    border: 1px solid #34d399;
+    border-radius: 999px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    color: #ecfdf5;
+    display: inline-flex;
+    gap: 8px;
+    left: 50%;
+    padding: 9px 16px;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 6;
+    animation: winnerPopoverIn 0.3s ease-out;
+    white-space: nowrap;
+}
+
+.winner-video-popover span {
+    font-size: 13px;
+    font-weight: 700;
+}
+
+@keyframes winnerPopoverIn {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
 }
 
 /* ==========================================================================
