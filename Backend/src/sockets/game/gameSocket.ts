@@ -42,6 +42,15 @@ export default function registerGameSockets(io_server: Server) {
             if (room?.roundTimeout) {
                 clearTimeout(room.roundTimeout);
             }
+            if (room?.warmupTimeout) {
+                clearTimeout(room.warmupTimeout);
+            }
+            if (room?.blindTimeout) {
+                clearTimeout(room.blindTimeout);
+            }
+            if (room?.breakTimeout) {
+                clearTimeout(room.breakTimeout);
+            }
 
             activeRooms.delete(roomId);
             socketToRoom.delete(socket.id);
@@ -156,8 +165,21 @@ export default function registerGameSockets(io_server: Server) {
                 room.player_2.isReady = true;
             }
 
-            if ( room.status === "waiting" && room.player_1.isReady && room.player_2.isReady) {
-                startNextRound(roomId, io_server);
+            if (room.status === "waiting" && room.player_1.isReady && room.player_2.isReady) {
+                room.status = "countdown";
+                const WARMUP_DURATION = 10;
+
+                io_server.to(roomId).emit("warmup_start", {
+                    durationSeconds: WARMUP_DURATION,
+                    message: `Connected! Game starts in ${WARMUP_DURATION}s... Say hello and get ready!`,
+                });
+
+                room.warmupTimeout = setTimeout(() => {
+                    const currentRoom = activeRooms.get(roomId);
+                    if (currentRoom && currentRoom.status === "countdown") {
+                        startNextRound(roomId, io_server);
+                    }
+                }, WARMUP_DURATION * 1000);
             }
         });
 
