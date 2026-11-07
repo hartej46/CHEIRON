@@ -61,6 +61,9 @@ export function VideoRoom() {
     const landmarkerRef = useRef<HandLandmarker | null>(null);
     const detectionFrameRef = useRef<number | null>(null);
     const isRoundActiveRef = useRef(false);
+    const captureIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const captureTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const captureSamplesRef = useRef<number[][]>([]);
     const evaluationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Media State
@@ -93,9 +96,8 @@ export function VideoRoom() {
     const [captureError, setCaptureError] = useState<string | null>(null);
 
     useEffect(() => {
-        isRoundActiveRef.current = gamePhase === "countdown";
+        isRoundActiveRef.current = gamePhase === "countdown" || gamePhase === "blind";
         if (!isRoundActiveRef.current) {
-            // Keep the latest sample only while the countdown is visible.
             latestCoordinatesRef.current = null;
         }
     }, [gamePhase]);
@@ -274,31 +276,72 @@ export function VideoRoom() {
         return () => clearTimeout(dismissTimer);
     }, [captureError]);
 
-    // Transition to blind mode and submit exactly once when the countdown reaches zero.
+    // Start the blackout capture window and submit once after one second.
     useEffect(() => {
         if (gamePhase !== "countdown" || timer !== 0) return;
 
-        const coordinates = latestCoordinatesRef.current;
-        setGamePhase("blind");
-        setIsBlindPhase(true);
+        const transitionTimeout = setTimeout(() => {
+            setGamePhase("blind");
+            setIsBlindPhase(true);
+        }, 0);
 
         if (!socketRef.current || !roomIdRef.current) {
             setCaptureError("Unable to submit hand coordinates.");
-            return;
         }
 
-        if (!coordinates || coordinates.length !== LANDMARK_VALUE_COUNT) {
-            setCaptureError("No hand detected for this round.");
-        }
-
-        // The backend accepts a batch; submit one sample captured at the transition.
-        socketRef.current.emit("submit_coordinates", {
-            roomId: roomIdRef.current,
-            coordinates: coordinates && coordinates.length === LANDMARK_VALUE_COUNT
-                ? [coordinates]
-                : [],
-        });
+        return () => clearTimeout(transitionTimeout);
     }, [gamePhase, timer]);
+
+    useEffect(() => {
+        if (gamePhase !== "blind") return;
+
+        captureSamplesRef.current = [];
+
+        const submitCapturedCoordinates = () => {
+            if (captureIntervalRef.current !== null) {
+                clearInterval(captureIntervalRef.current);
+                captureIntervalRef.current = null;
+            }
+            if (captureTimeoutRef.current !== null) {
+                clearTimeout(captureTimeoutRef.current);
+                captureTimeoutRef.current = null;
+            }
+
+            const coordinates = captureSamplesRef.current;
+            if (coordinates.length === 0) {
+                setCaptureError("No hand detected during the blackout.");
+            }
+
+            socketRef.current?.emit("submit_coordinates", {
+                roomId: roomIdRef.current,
+                coordinates,
+            });
+        };
+
+        const captureFrame = () => {
+            const coordinates = latestCoordinatesRef.current;
+            if (coordinates && coordinates.length === LANDMARK_VALUE_COUNT) {
+                captureSamplesRef.current.push([...coordinates]);
+                if (captureSamplesRef.current.length >= 5) {
+                    submitCapturedCoordinates();
+                }
+            }
+        };
+
+        captureIntervalRef.current = setInterval(captureFrame, 200);
+        captureTimeoutRef.current = setTimeout(submitCapturedCoordinates, 1000);
+
+        return () => {
+            if (captureIntervalRef.current !== null) {
+                clearInterval(captureIntervalRef.current);
+                captureIntervalRef.current = null;
+            }
+            if (captureTimeoutRef.current !== null) {
+                clearTimeout(captureTimeoutRef.current);
+                captureTimeoutRef.current = null;
+            }
+        };
+    }, [gamePhase]);
 
 
 
@@ -343,6 +386,14 @@ export function VideoRoom() {
         if (evaluationTimeoutRef.current !== null) {
             clearTimeout(evaluationTimeoutRef.current);
             evaluationTimeoutRef.current = null;
+        }
+        if (captureIntervalRef.current !== null) {
+            clearInterval(captureIntervalRef.current);
+            captureIntervalRef.current = null;
+        }
+        if (captureTimeoutRef.current !== null) {
+            clearTimeout(captureTimeoutRef.current);
+            captureTimeoutRef.current = null;
         }
         remoteStreamRef.current = null;
         setRemoteStream(null);
