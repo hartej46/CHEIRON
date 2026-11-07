@@ -61,9 +61,13 @@ export function VideoRoom() {
     const [opponentNickname, setOpponentNickname] = useState<string | null>(null);
     const [callDuration, setCallDuration] = useState(0);
     const [gamePhase, setGamePhase] = useState<
-        "waiting" | "countdown" | "action" | "reveal"
+        "waiting" | "warmup" | "action" | "round_break" | "game_over"
     >("waiting");
     const [timer, setTimer] = useState(0);
+    const [round, setRound] = useState(0);
+    const [scores, setScores] = useState({ user: 0, opponent: 0 });
+    const [roundResultText, setRoundResultText] = useState<string | null>(null);
+    const [matchWinner, setMatchWinner] = useState<string | null>(null);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isCapturing, setIsCapturing] = useState(false);
     const [captureSampleCount, setCaptureSampleCount] = useState(0);
@@ -233,16 +237,16 @@ export function VideoRoom() {
         };
     }, [callState, remoteStream]);
 
-    // Start the game loop once the remote WebRTC stream is available.
+    // Timer countdown effect for active phases (warmup, action, round break)
     useEffect(() => {
-        if (remoteStream && gamePhase === "waiting") {
-            const timeout = setTimeout(() => {
-                setGamePhase("countdown");
-                setTimer(5);
-            }, 0);
-            return () => clearTimeout(timeout);
-        }
-    }, [remoteStream, gamePhase]);
+        if (gamePhase !== "warmup" && gamePhase !== "action" && gamePhase !== "round_break") return;
+
+        const interval = setInterval(() => {
+            setTimer((prev) => (prev > 0 ? prev - 1 : 0));
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [gamePhase]);
 
     // Capture five landmark samples during the action phase.
     useEffect(() => {
@@ -309,28 +313,7 @@ export function VideoRoom() {
         };
     }, [gamePhase, isLandmarkerReady]);
 
-    // Run the countdown and blind action phases with one cancellable interval.
-    useEffect(() => {
-        if (gamePhase !== "countdown" && gamePhase !== "action") return;
 
-        const interval = setInterval(() => {
-            setTimer((currentTimer) => {
-                if (currentTimer <= 1) {
-                    if (gamePhase === "countdown") {
-                        setGamePhase("action");
-                        return 7;
-                    }
-
-                    setGamePhase("reveal");
-                    return 0;
-                }
-
-                return currentTimer - 1;
-            });
-        }, 1000);
-
-        return () => clearInterval(interval);
-    }, [gamePhase]);
 
     // Format duration MM:SS
     const formatDuration = (totalSeconds: number) => {
@@ -375,6 +358,10 @@ export function VideoRoom() {
         setOpponentNickname(null);
         setGamePhase("waiting");
         setTimer(0);
+        setRound(0);
+        setScores({ user: 0, opponent: 0 });
+        setRoundResultText(null);
+        setMatchWinner(null);
     }, []);
 
     // Setup WebRTC PeerConnection
@@ -396,6 +383,11 @@ export function VideoRoom() {
             setRemoteStream(incomingStream);
             setCallState("connected");
             setConnectionStatus("Connected to opponent.");
+
+            // Signal to backend that video is visible
+            if (socketRef.current && roomIdRef.current) {
+                socketRef.current.emit("client_ready", { roomId: roomIdRef.current });
+            }
         };
 
         connection.onconnectionstatechange = () => {
@@ -591,10 +583,64 @@ export function VideoRoom() {
                 setConnectionStatus("Opponent disconnected. Find a new partner when ready.");
             });
 
-            socket.on("roundResults", (data: { p1_move: string; p2_move: string; result: string }) => {
-                setGamePhase("reveal");
-                setTimer(0);
-                setConnectionStatus(`Round Result: ${data.result}`);
+            socket.on("warmup_start", (data: { durationSeconds: number; message?: string }) => {
+                setGamePhase("warmup");
+                setTimer(data.durationSeconds || 10);
+                setRound(0);
+                setScores({ user: 0, opponent: 0 });
+                setMatchWinner(null);
+                setRoundResultText(null);
+                setConnectionStatus(data.message || "Game starts in 10s... Say hello!");
+            });
+
+            socket.on("round_start", (data: { round: number; durationMs?: number }) => {
+                setGamePhase("action");
+                setRound(data.round);
+                setTimer(Math.round((data.durationMs || 3000) / 1000));
+                setConnectionStatus(`Round ${data.round} of 5: Show your hand!`);
+            });
+
+            socket.on("roundResults", (data: {
+                round?: number;
+                p1_move: string;
+                p2_move: string;
+                winner?: string;
+                result: string;
+                reason?: string;
+                p1_score?: number;
+                p2_score?: number;
+                p1_id?: string;
+                p2_id?: string;
+            }) => {
+                const isPlayer1 = socket.id === data.p1_id;
+                const myScore = isPlayer1 ? (data.p1_score ?? 0) : (data.p2_score ?? 0);
+                const oppScore = isPlayer1 ? (data.p2_score ?? 0) : (data.p1_score ?? 0);
+                setScores({ user: myScore, opponent: oppScore });
+
+                let outcome = data.reason || data.result;
+                if (data.winner === "player_1") {
+                    outcome = isPlayer1 ? `You won! (${data.reason || "Round Won"})` : `Opponent won! (${data.reason || "Round Lost"})`;
+                } else if (data.winner === "player_2") {
+                    outcome = !isPlayer1 ? `You won! (${data.reason || "Round Won"})` : `Opponent won! (${data.reason || "Round Lost"})`;
+                } else if (data.winner === "draw") {
+                    outcome = `Draw! (${data.reason || "Tie"})`;
+                }
+
+                setRoundResultText(outcome);
+                setGamePhase("round_break");
+                setTimer(2);
+                setConnectionStatus(outcome);
+            });
+
+            socket.on("match_finished", (data: {
+                winner: string;
+                p1_score: number;
+                p2_score: number;
+                totalRounds?: number;
+            }) => {
+                setGamePhase("game_over");
+                setMatchWinner(data.winner);
+                setConnectionStatus("Match Finished!");
             });
         };
 
@@ -720,6 +766,48 @@ export function VideoRoom() {
                 </div>
             )}
 
+            {/* Top Game State Notification / Banner */}
+            {isConnected && gamePhase === "warmup" && (
+                <div className="game-status-banner warmup-banner" role="status">
+                    <span className="banner-icon">👋</span>
+                    <span className="banner-text">
+                        Connected! Game starts in <strong>{timer}s</strong>... Say hello & get ready!
+                    </span>
+                </div>
+            )}
+
+            {isConnected && gamePhase === "action" && (
+                <div className="game-status-banner action-banner" role="status">
+                    <span className="banner-round-tag">Round {round} / 5</span>
+                    <span className="banner-scoreboard">
+                        {nickname}: <strong>{scores.user}</strong> &nbsp;|&nbsp; {opponentNickname || "Stranger"}: <strong>{scores.opponent}</strong>
+                    </span>
+                    <span className="banner-timer-tag">⏳ {timer}s</span>
+                </div>
+            )}
+
+            {isConnected && gamePhase === "round_break" && (
+                <div className="game-status-banner break-banner" role="status">
+                    <span className="banner-text">
+                        {roundResultText} &nbsp;•&nbsp; Next round in <strong>{timer}s</strong>...
+                    </span>
+                    <span className="banner-scoreboard-mini">
+                        ({scores.user} - {scores.opponent})
+                    </span>
+                </div>
+            )}
+
+            {isConnected && gamePhase === "game_over" && (
+                <div className="game-status-banner gameover-banner" role="status">
+                    <span className="banner-icon">
+                        {matchWinner === "draw" ? "🤝" : "🏆"}
+                    </span>
+                    <span className="banner-text">
+                        <strong>Match Finished!</strong> Final Score: {scores.user} - {scores.opponent} {matchWinner === "draw" ? "(Draw!)" : ""}
+                    </span>
+                </div>
+            )}
+
             {/* Video Stage: 50-50 Split Layout (Left: Opponent, Right: You) */}
             <section
                 className="video-stage"
@@ -748,16 +836,9 @@ export function VideoRoom() {
                                     ref={remoteVideoRef}
                                     autoPlay
                                     playsInline
-                                    className={`stream-video remote-video ${
-                                        gamePhase === "action" ? "remote-video-hidden" : ""
-                                    }`}
+                                    className="stream-video remote-video"
                                 />
                                 {gamePhase === "action" && (
-                                    <div className="action-phase-overlay" aria-label="Action phase">
-                                        <span>Action</span>
-                                    </div>
-                                )}
-                                {(gamePhase === "countdown" || gamePhase === "action") && (
                                     <div className="game-timer-overlay" aria-live="polite">
                                         {timer}
                                     </div>
