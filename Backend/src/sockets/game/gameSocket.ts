@@ -45,6 +45,12 @@ export default function registerGameSockets(io_server: Server) {
             if (room?.warmupTimeout) {
                 clearTimeout(room.warmupTimeout);
             }
+            if (room?.blindTimeout) {
+                clearTimeout(room.blindTimeout);
+            }
+            if (room?.breakTimeout) {
+                clearTimeout(room.breakTimeout);
+            }
 
             activeRooms.delete(roomId);
             socketToRoom.delete(socket.id);
