@@ -113,6 +113,76 @@ export async function submitCoordinates(
     }
 }
 
+export interface RoundEvaluation {
+    winner: "player_1" | "player_2" | "draw";
+    result: "player_1_wins" | "player_2_wins" | "draw";
+    reason: string;
+}
+
+/**
+ * Evaluates round moves returned from the Python engine
+ */
+export function evaluateMoves(p1_raw_move: string, p2_raw_move: string): RoundEvaluation {
+    const p1 = (p1_raw_move || "none").toLowerCase().trim();
+    const p2 = (p2_raw_move || "none").toLowerCase().trim();
+
+    // Case 1: Both failed to show a recognizable gesture
+    if (p1 === "none" && p2 === "none") {
+        return {
+            winner: "draw",
+            result: "draw",
+            reason: "Neither player showed a clear hand gesture",
+        };
+    }
+
+    // Case 2: Only player 1 showed a recognizable gesture
+    if (p1 !== "none" && p2 === "none") {
+        return {
+            winner: "player_1",
+            result: "player_1_wins",
+            reason: `Player 1 wins with ${p1} (Player 2 not detected)`,
+        };
+    }
+
+    // Case 3: Only player 2 showed a recognizable gesture
+    if (p1 === "none" && p2 !== "none") {
+        return {
+            winner: "player_2",
+            result: "player_2_wins",
+            reason: `Player 2 wins with ${p2} (Player 1 not detected)`,
+        };
+    }
+
+    // Case 4: Both players chose the same gesture
+    if (p1 === p2) {
+        return {
+            winner: "draw",
+            result: "draw",
+            reason: `Draw! Both players chose ${p1}`,
+        };
+    }
+
+    // Case 5: Standard Rock-Paper-Scissors rules
+    const p1Wins =
+        (p1 === "rock" && p2 === "scissors") ||
+        (p1 === "paper" && p2 === "rock") ||
+        (p1 === "scissors" && p2 === "paper");
+
+    if (p1Wins) {
+        return {
+            winner: "player_1",
+            result: "player_1_wins",
+            reason: `${p1.toUpperCase()} beats ${p2.toUpperCase()}`,
+        };
+    } else {
+        return {
+            winner: "player_2",
+            result: "player_2_wins",
+            reason: `${p2.toUpperCase()} beats ${p1.toUpperCase()}`,
+        };
+    }
+}
+
 export async function evaluateRound(room: RoomState, io_server: Server) {
     // Here we have to write the python script to evaluate the round and update the scores accordingly. For now, let's just simulate the evaluation.
 
@@ -147,54 +217,32 @@ export async function evaluateRound(room: RoomState, io_server: Server) {
         const p1_result = await p1_respones.json();
         const p2_result = await p2_response.json();
 
-        const p1_move = p1_result.prediction;
-        const p2_move = p2_result.prediction;
+        const p1_move = p1_result?.success ? p1_result.prediction : "None";
+        const p2_move = p2_result?.success ? p2_result.prediction : "None";
+            
+        const evaluation = evaluateMoves(p1_move, p2_move);
 
-        // Calculating the winner based on the predictions
-
-        let roundResult = "Draw"
-
-        // Handle cases where players camera did not detect 
-
-        if(p1_move === "None" && p2_move !== "None") {
-            roundResult = "player_2_wins";
-            room.player_2.score += 1;
-        }
-
-        else if(p2_move === "None" && p1_move !== "None") {
-            roundResult = "player_1_wins";
+        if (evaluation.winner === "player_1") {
             room.player_1.score += 1;
-        }
-
-        else if (p1_move !== "None" && p2_move !== "None") {
-            // Standard game logic
-            if (
-                (p1_move === "rock" && p2_move === "scissors") ||
-                (p1_move === "paper" && p2_move === "rock") ||
-                (p1_move === "scissors" && p2_move === "paper")
-            ) {
-                roundResult = "player_1_wins";
-                room.player_1.score += 1;
-            } else if (
-                (p2_move === "rock" && p1_move === "scissors") ||
-                (p2_move === "paper" && p1_move === "rock") ||
-                (p2_move === "scissors" && p1_move === "paper")
-            ) {
-                roundResult = "player_2_wins";
-                room.player_2.score += 1;
-            }
+        } else if (evaluation.winner === "player_2") {
+            room.player_2.score += 1;
         }
 
         io_server.to(room.roomId).emit(
             "roundResults",
             {
+                round: room.round,
                 p1_move,
                 p2_move,
-                result: roundResult,
+                winner: evaluation.winner,
+                result: evaluation.result,
+                reason: evaluation.reason,
                 p1_score: room.player_1.score,
                 p2_score: room.player_2.score,
+                p1_id: room.player_1.id,
+                p2_id: room.player_2.id,
             }
-        )
+        );
 
         const totalMatchRounds = 5;
         if (room.round >= totalMatchRounds) {
