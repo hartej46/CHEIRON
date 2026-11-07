@@ -62,6 +62,7 @@ export function VideoRoom() {
     const detectionFrameRef = useRef<number | null>(null);
     const isRoundActiveRef = useRef(false);
     const captureIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const evaluationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const captureSamplesRef = useRef<number[][]>([]);
     const captureTickCountRef = useRef(0);
 
@@ -76,13 +77,14 @@ export function VideoRoom() {
     const [opponentNickname, setOpponentNickname] = useState<string | null>(null);
     const [callDuration, setCallDuration] = useState(0);
     const [gamePhase, setGamePhase] = useState<
-        "waiting" | "warmup" | "action" | "round_break" | "game_over"
+        "waiting" | "warmup" | "action" | "evaluation" | "round_break" | "game_over"
     >("waiting");
     const [timer, setTimer] = useState(0);
     const [round, setRound] = useState(0);
     const [scores, setScores] = useState({ user: 0, opponent: 0 });
     const [matchWinner, setMatchWinner] = useState<string | null>(null);
     const [isBlindPhase, setIsBlindPhase] = useState(false);
+    const [isEvaluationBlackout, setIsEvaluationBlackout] = useState(false);
     const [lastRoundResult, setLastRoundResult] = useState<{
         winner: "user" | "opponent" | "draw";
         userMove: string;
@@ -302,6 +304,10 @@ export function VideoRoom() {
                 clearInterval(captureIntervalRef.current);
                 captureIntervalRef.current = null;
             }
+            if (evaluationTimeoutRef.current !== null) {
+                clearTimeout(evaluationTimeoutRef.current);
+                evaluationTimeoutRef.current = null;
+            }
 
             setIsCapturing(false);
 
@@ -411,6 +417,10 @@ export function VideoRoom() {
         if (remoteVideoRef.current) {
             remoteVideoRef.current.srcObject = null;
         }
+        if (evaluationTimeoutRef.current !== null) {
+            clearTimeout(evaluationTimeoutRef.current);
+            evaluationTimeoutRef.current = null;
+        }
         remoteStreamRef.current = null;
         setRemoteStream(null);
         setOpponentNickname(null);
@@ -420,6 +430,7 @@ export function VideoRoom() {
         setScores({ user: 0, opponent: 0 });
         setMatchWinner(null);
         setIsBlindPhase(false);
+        setIsEvaluationBlackout(false);
         setLastRoundResult(null);
     }, []);
 
@@ -658,6 +669,10 @@ export function VideoRoom() {
             });
 
             socket.on("round_start", (data: { round: number; durationMs?: number; blindAfterMs?: number }) => {
+                if (evaluationTimeoutRef.current !== null) {
+                    clearTimeout(evaluationTimeoutRef.current);
+                    evaluationTimeoutRef.current = null;
+                }
                 setGamePhase("action");
                 setIsBlindPhase(false);
                 setRound(Math.min(data.round, 5));
@@ -687,8 +702,11 @@ export function VideoRoom() {
                 isFinalRound?: boolean;
             }) => {
                 setCaptureError(null);
-                // Return camera to normal where both players can see each other
-                setIsBlindPhase(false);
+                // Keep the opponent hidden for a short evaluation transition so the
+                // move reveal happens only after both results are ready.
+                setIsBlindPhase(true);
+                setIsEvaluationBlackout(true);
+                setGamePhase("evaluation");
 
                 const isPlayer1 = socket.id === data.p1_id;
                 const myScore = isPlayer1 ? (data.p1_score ?? 0) : (data.p2_score ?? 0);
@@ -721,9 +739,17 @@ export function VideoRoom() {
                     outcome = `Draw! (${data.reason || "Tie"})`;
                 }
 
-                setGamePhase("round_break");
-                setTimer(data.nextRoundIn ?? 5);
-                setConnectionStatus(outcome);
+                setTimer(1);
+                setConnectionStatus("Evaluating round...");
+
+                evaluationTimeoutRef.current = window.setTimeout(() => {
+                    evaluationTimeoutRef.current = null;
+                    setIsBlindPhase(false);
+                    setIsEvaluationBlackout(false);
+                    setGamePhase("round_break");
+                    setTimer(data.nextRoundIn ?? 5);
+                    setConnectionStatus(outcome);
+                }, 1000);
             });
 
             socket.on("match_finished", (data: {
@@ -732,7 +758,12 @@ export function VideoRoom() {
                 p2_score: number;
                 totalRounds?: number;
             }) => {
+                if (evaluationTimeoutRef.current !== null) {
+                    clearTimeout(evaluationTimeoutRef.current);
+                    evaluationTimeoutRef.current = null;
+                }
                 setIsBlindPhase(false);
+                setIsEvaluationBlackout(false);
                 setGamePhase("game_over");
                 setMatchWinner(data.winner);
                 setConnectionStatus("Match Finished!");
@@ -890,9 +921,12 @@ export function VideoRoom() {
                 </div>
             )}
 
-            {isConnected && gamePhase === "round_break" && (
+            {isConnected && (gamePhase === "evaluation" || gamePhase === "round_break") && (
                 <div
                     className={`game-status-banner break-banner ${
+                        gamePhase === "evaluation"
+                            ? "evaluation-banner"
+                            :
                         lastRoundResult?.winner === "user"
                             ? "winner-banner"
                             : lastRoundResult?.winner === "opponent"
@@ -902,7 +936,9 @@ export function VideoRoom() {
                     role="status"
                 >
                     <span className="banner-icon">
-                        {lastRoundResult?.winner === "user" ? (
+                        {gamePhase === "evaluation" ? (
+                            <Hourglass size={18} />
+                        ) : lastRoundResult?.winner === "user" ? (
                             <Trophy size={18} />
                         ) : lastRoundResult?.winner === "opponent" ? (
                             <Skull size={18} />
@@ -911,7 +947,11 @@ export function VideoRoom() {
                         )}
                     </span>
                     <span className="banner-text">
-                        {lastRoundResult?.winner === "user" ? (
+                        {gamePhase === "evaluation" ? (
+                            <>
+                                <strong>Evaluating round {lastRoundResult?.round || round}...</strong>
+                            </>
+                        ) : lastRoundResult?.winner === "user" ? (
                             <>
                                 <strong>YOU WON ROUND {lastRoundResult.round}!</strong> &nbsp;•&nbsp; Next round in <strong>{timer}s</strong>...
                             </>
@@ -925,9 +965,11 @@ export function VideoRoom() {
                             </>
                         )}
                     </span>
-                    <span className="banner-scoreboard-mini">
-                        ({scores.user} - {scores.opponent})
-                    </span>
+                    {gamePhase === "round_break" && (
+                        <span className="banner-scoreboard-mini">
+                            ({scores.user} - {scores.opponent})
+                        </span>
+                    )}
                 </div>
             )}
 
@@ -1028,7 +1070,11 @@ export function VideoRoom() {
                         )}
                     </div>
 
-                    <div className={`video-viewport remote-viewport ${isBlindPhase ? "blind-active" : ""}`}>
+                    <div className={`video-viewport remote-viewport ${isBlindPhase ? "blind-active" : ""} ${
+                        gamePhase === "round_break" && lastRoundResult?.winner === "user"
+                            ? "result-loser"
+                            : ""
+                    }`}>
                         {remoteStream ? (
                             <>
                                 <video
@@ -1042,8 +1088,20 @@ export function VideoRoom() {
                                         <div className="blind-lock-symbol">
                                             <Lock size={44} strokeWidth={2.2} />
                                         </div>
-                                        <p className="blind-lock-title">Vision Obscured</p>
-                                        <p className="blind-lock-subtitle">Anti-peeking mode: Lock in your move!</p>
+                                        <p className="blind-lock-title">
+                                            {isEvaluationBlackout ? "Evaluating..." : "Opponent hidden"}
+                                        </p>
+                                        <p className="blind-lock-subtitle">
+                                            {isEvaluationBlackout
+                                                ? "Revealing results..."
+                                                : "Lock in your move!"}
+                                        </p>
+                                    </div>
+                                )}
+                                {gamePhase === "round_break" && lastRoundResult?.winner === "user" && (
+                                    <div className="winner-video-popover">
+                                        <Trophy size={20} />
+                                        <span>You won this round</span>
                                     </div>
                                 )}
                                 {gamePhase === "action" && (
@@ -1085,7 +1143,13 @@ export function VideoRoom() {
                         </div>
                     </div>
 
-                    <div className={`video-viewport local-viewport ${gamePhase === "round_break" ? "break-dimmed" : ""}`}>
+                    <div className={`video-viewport local-viewport ${
+                        gamePhase === "round_break" ? "break-dimmed" : ""
+                    } ${
+                        gamePhase === "round_break" && lastRoundResult?.winner === "opponent"
+                            ? "result-loser"
+                            : ""
+                    }`}>
                         <video
                             ref={videoRef}
                             autoPlay
@@ -1098,6 +1162,12 @@ export function VideoRoom() {
                             <div className="camera-dimmed-tag" aria-hidden="true">
                                 <Moon size={14} />
                                 <span>Camera Dimmed (Break)</span>
+                            </div>
+                        )}
+                        {gamePhase === "round_break" && lastRoundResult?.winner === "opponent" && (
+                            <div className="winner-video-popover">
+                                <Trophy size={20} />
+                                <span>{opponentNickname || "Opponent"} won this round</span>
                             </div>
                         )}
                         <canvas
