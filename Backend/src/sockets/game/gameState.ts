@@ -196,18 +196,23 @@ export async function evaluateRound(room: RoomState, io_server: Server) {
             }
         )
 
-        const winningScore = 3
-        
-        if(room.player_1.score >= winningScore || room.player_2.score >= winningScore) {
+        const totalMatchRounds = 5;
+        if (room.round >= totalMatchRounds) {
             room.status = "finished";
 
-            const match_winner = room.player_1.score > room.player_2.score ? "player_1" : "player_2";
+            let match_winner = "draw";
+            if (room.player_1.score > room.player_2.score) {
+                match_winner = "player_1";
+            } else if (room.player_2.score > room.player_1.score) {
+                match_winner = "player_2";
+            }
 
             setTimeout(() => {
                 io_server.to(room.roomId).emit("match_finished", {
                     winner: match_winner,
                     p1_score: room.player_1.score,
                     p2_score: room.player_2.score,
+                    totalRounds: room.round,
                 });
 
                 // Clean up the room after the match is finished
