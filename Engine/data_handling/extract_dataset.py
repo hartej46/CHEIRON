@@ -1,6 +1,7 @@
 import os
 import csv
 import urllib.request
+import numpy as np
 import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
@@ -29,6 +30,31 @@ DATASET_PATHS = {
 }
 
 OUTPUT_CSV = "./Engine/data/train_hand_coordinates_dataset.csv"
+
+def normalize_hand_landmarks(landmarks_flat):
+    """
+    Normalizes hand coordinates to be invariant to position and scale.
+    """
+    # Reshape the flat list [x0, y0, z0, x1, y1, z1...] into a 21x3 matrix
+    coords = np.array(landmarks_flat).reshape(21, 3)
+    
+    # Step A: Shift to Wrist Origin (Landmark 0)
+    wrist = coords[0]
+    shifted_coords = coords - wrist
+    
+    # Step B: Scale by Palm Length (Distance from wrist to Landmark 9)
+    middle_finger_base = shifted_coords[9]
+    # np.linalg.norm calculates the Euclidean distance automatically
+    palm_length = np.linalg.norm(middle_finger_base)
+    
+    # Prevent division by zero in case of glitchy frame data
+    if palm_length > 1e-6:
+        normalized_coords = shifted_coords / palm_length
+    else:
+        normalized_coords = shifted_coords
+        
+    # Flatten back to a 1D array of 63 elements for the neural network
+    return normalized_coords.flatten().tolist()
 
 def process_images():
     total_processed = 0
@@ -63,22 +89,30 @@ def process_images():
                 # 4. Process the image
                 detection_result = detector.detect(mp_image)
 
-                # 5. Extract and flatten if a hand is found
+                # 5. Extract, flatten, and normalize if a hand is found
                 if detection_result.hand_landmarks:
-                  hand_landmarks = detection_result.hand_landmarks[0]
+                    hand_landmarks = detection_result.hand_landmarks[0]
 
-                  row = [label]
-                  for landmark in hand_landmarks:
-                    row.extend([landmark.x, landmark.y, landmark.z])
+                    raw_coords = []
+                    for landmark in hand_landmarks:
+                        raw_coords.extend([landmark.x, landmark.y, landmark.z])
 
-                  writer.writerow(row)
-                  total_processed += 1
+                    # Apply normalization before writing to CSV
+                    normalized_coords = normalize_hand_landmarks(raw_coords)
+                    
+                    row = [label] + normalized_coords
+                    writer.writerow(row)
+                    
+                    total_processed += 1
                 else:
-                  total_skipped += 1
+                    total_skipped += 1
 
-                print(f"Processed: {total_processed}, Skipped: {total_skipped}")
+                # Print progress intermittently to avoid console spam
+                if (total_processed + total_skipped) % 100 == 0:
+                    print(f"Processed: {total_processed}, Skipped: {total_skipped}")
+                    
+    print(f"Final Count -> Processed: {total_processed}, Skipped: {total_skipped}")
 
 if __name__ == "__main__":
     process_images()
-    detector.close() # <--- Add this line to manually close the model
-    
+    detector.close() # <--- Manually close the model
