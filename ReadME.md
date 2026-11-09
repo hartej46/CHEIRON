@@ -1,14 +1,14 @@
-# CHEIRON 🎮✋✌️✊
+# CHEIRON
 
 **Real-Time AI-Powered WebRTC Rock-Paper-Scissors Arena**
 
 > **Contributors:**  
-> • **Jay Patil** (IIT Jodhpur) — [@yay1503](https://github.com/yay1503)  
-> • **Hartejsingh Sandhu** (NST Pune) — [@hartej46](https://github.com/hartej46)
+> - **Jay Patil** (IIT Jodhpur) — [@yay1503](https://github.com/yay1503)  
+> - **Hartejsingh Sandhu** (NST Pune) — [@hartej46](https://github.com/hartej46)
 
 ---
 
-## 📌 Overview
+## Overview
 
 **CHEIRON** is an interactive, Omegle-style peer-to-peer video chat and gaming platform where strangers are matched in real time to compete in **Rock-Paper-Scissors** using live physical hand gestures. 
 
@@ -16,7 +16,7 @@ Instead of clicking buttons, players simply show their hands to their webcams. C
 
 ---
 
-## ✨ Key Features
+## Key Features
 
 - **P2P Video Chat with WebRTC**: Ultra-low-latency video and audio streaming between matched opponents using WebRTC peer connections and STUN servers.
 - **In-Browser Hand Tracking**: Client-side computer vision with `@mediapipe/tasks-vision`, tracking 21 hand landmarks ($x, y, z \rightarrow 63$ float features) at 60 FPS without transferring raw video bytes to the server.
@@ -28,7 +28,7 @@ Instead of clicking buttons, players simply show their hands to their webcams. C
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 CHEIRON is built as a modular 3-tier architecture:
 
@@ -80,7 +80,7 @@ CHEIRON is built as a modular 3-tier architecture:
 
 ---
 
-## ⏱️ Round & Match Lifecycle
+## Round & Match Lifecycle
 
 ```
 [ Match Found ]
@@ -106,12 +106,12 @@ CHEIRON is built as a modular 3-tier architecture:
        │
        No
        ▼
-[ Match Finished ] ──────── 🏆 Winner declared (Best of 5)
+[ Match Finished ] ──────── Winner declared (Best of 5)
 ```
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -195,7 +195,7 @@ Open `http://localhost:5173` in two different browser windows (or an incognito w
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Component | Technologies |
 |---|---|
@@ -206,13 +206,13 @@ Open `http://localhost:5173` in two different browser windows (or an incognito w
 
 ---
 
-## 🤝 Authors & Credits
+## Authors & Credits
 
-* **Jay Patil** — Indian Institute of Technology (IIT) Jodhpur — [@yay1503](https://github.com/yay1503)
-* **Hartejsingh Sandhu** — Newton School of Technology (NST) Pune — [@hartej46](https://github.com/hartej46)
+- **Jay Patil** — Indian Institute of Technology (IIT) Jodhpur — [@yay1503](https://github.com/yay1503)
+- **Hartejsingh Sandhu** — Newton School of Technology (NST) Pune — [@hartej46](https://github.com/hartej46)
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License — see the LICENSE file for details.
