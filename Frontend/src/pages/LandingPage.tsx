@@ -5,7 +5,6 @@ import { Check, Circle, Hand, Mic, Scissors, Video } from "lucide-react";
 import { initPlayer } from "../service/service";
 import { useNickname } from "../context/NicknameContext";
 import { ProfileModal } from "../components/ProfileModal";
-import { CardContent } from "../components/ui/card";
 
 interface LandingPageProps {
     onStart: (nickname: string) => void;
@@ -161,7 +160,7 @@ export function LandingPage({ onStart }: LandingPageProps) {
     };
 
     return (
-        <main className="min-h-screen w-full overflow-x-hidden grid grid-cols-1 lg:grid-cols-2 bg-zinc-950">
+        <main className="min-h-screen w-full grid grid-cols-1 lg:grid-cols-2 bg-zinc-950 text-foreground overflow-x-hidden">
             <section className="rps-hero" aria-labelledby="rps-title">
                 <div className="rps-hero-grid" aria-hidden="true" />
                 <motion.header
@@ -244,69 +243,68 @@ export function LandingPage({ onStart }: LandingPageProps) {
             </section>
 
             <section
-                className="rps-action-area flex h-full min-h-[600px] flex-col items-center justify-center p-4 lg:p-12"
+                className="rps-action-area flex h-full flex-col justify-center px-8 lg:px-24"
                 aria-labelledby="landing-title"
             >
                 <motion.div
-                    className="rps-setup-card"
+                    className="rps-setup-content"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, ease: "easeOut" }}
                 >
-                    <CardContent>
-                        <motion.div
-                            className="rps-card-topline"
-                            variants={reveal}
-                            custom={0}
-                            initial="hidden"
-                            animate="visible"
+                    <motion.div
+                        className="rps-card-topline"
+                        variants={reveal}
+                        custom={0}
+                        initial="hidden"
+                        animate="visible"
+                    >
+                        <span className="rps-card-label">Setup / 01</span>
+                        <button
+                            type="button"
+                            onClick={() => setIsProfileOpen(true)}
+                            className="rps-profile-button focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 active:scale-[0.98]"
+                            title={
+                                isLoggedIn && activeUserDisplayName
+                                    ? `Profile: ${activeUserDisplayName}`
+                                    : "View Profile"
+                            }
+                            aria-label="Open user profile"
                         >
-                            <span className="rps-card-label">Setup / 01</span>
-                            <button
-                                type="button"
-                                onClick={() => setIsProfileOpen(true)}
-                                className="rps-profile-button focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 active:scale-[0.98]"
-                                title={
-                                    isLoggedIn && activeUserDisplayName
-                                        ? `Profile: ${activeUserDisplayName}`
-                                        : "View Profile"
-                                }
-                                aria-label="Open user profile"
-                            >
-                                <span
-                                    className={`profile-status-dot ${isLoggedIn ? "active" : "idle"}`}
-                                />
-                                <span>
-                                    {isLoggedIn && activeUserDisplayName
-                                        ? activeUserDisplayName
-                                        : "Profile"}
-                                </span>
-                            </button>
-                        </motion.div>
+                            <span
+                                className={`profile-status-dot ${isLoggedIn ? "active" : "idle"}`}
+                            />
+                            <span>
+                                {isLoggedIn && activeUserDisplayName
+                                    ? activeUserDisplayName
+                                    : "Profile"}
+                            </span>
+                        </button>
+                    </motion.div>
 
-                        <motion.h2
-                            id="landing-title"
-                            className="rps-welcome"
-                            variants={reveal}
-                            custom={1}
-                            initial="hidden"
-                            animate="visible"
-                        >
-                            {isLoggedIn && activeUserDisplayName
-                                ? `Welcome, ${activeUserDisplayName}`
-                                : "Ready to play?"}
-                        </motion.h2>
-                        <motion.p
-                            className="rps-intro"
-                            variants={reveal}
-                            custom={2}
-                            initial="hidden"
-                            animate="visible"
-                        >
-                            {isLoggedIn && activeUserDisplayName
-                                ? "Your room is waiting. Confirm your setup before you play."
-                                : "Set your name and give the room access to your camera and microphone."}
-                        </motion.p>
+                    <motion.h2
+                        id="landing-title"
+                        className="rps-welcome"
+                        variants={reveal}
+                        custom={1}
+                        initial="hidden"
+                        animate="visible"
+                    >
+                        {isLoggedIn && activeUserDisplayName
+                            ? `Welcome, ${activeUserDisplayName}`
+                            : "Ready to play?"}
+                    </motion.h2>
+                    <motion.p
+                        className="rps-intro"
+                        variants={reveal}
+                        custom={2}
+                        initial="hidden"
+                        animate="visible"
+                    >
+                        {isLoggedIn && activeUserDisplayName
+                            ? "Your room is waiting. Confirm your setup before you play."
+                            : "Set your name and give the room access to your camera and microphone."}
+                    </motion.p>
 
                         {isLoggedIn && activeUserDisplayName && (
                             <motion.div
@@ -456,7 +454,6 @@ export function LandingPage({ onStart }: LandingPageProps) {
                                 <span aria-hidden="true">↗</span>
                             </button>
                         </motion.form>
-                    </CardContent>
                 </motion.div>
             </section>
 
