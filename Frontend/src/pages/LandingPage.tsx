@@ -5,7 +5,7 @@ import { Check, Mic, Video } from "lucide-react";
 import { initPlayer } from "../service/service";
 import { useNickname } from "../context/NicknameContext";
 import { ProfileModal } from "../components/ProfileModal";
-import { Card, CardContent } from "../components/ui/card";
+import { CardContent } from "../components/ui/card";
 
 interface LandingPageProps {
     onStart: (nickname: string) => void;
@@ -161,7 +161,7 @@ export function LandingPage({ onStart }: LandingPageProps) {
     };
 
     return (
-        <div className="landing-layout min-h-screen flex flex-col items-center justify-center overflow-hidden">
+        <main className="h-screen w-screen overflow-hidden flex flex-col items-center justify-center bg-background text-foreground">
             {/* Top Navigation Bar with Logo and Top-Right Profile Section */}
             <motion.header
                 className="landing-top-bar"
@@ -179,7 +179,7 @@ export function LandingPage({ onStart }: LandingPageProps) {
                     <button
                         type="button"
                         onClick={() => setIsProfileOpen(true)}
-                        className="profile-top-button"
+                        className="profile-top-button focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
                         title={
                             isLoggedIn && activeUserDisplayName
                                 ? `Profile: ${activeUserDisplayName}`
@@ -212,8 +212,14 @@ export function LandingPage({ onStart }: LandingPageProps) {
                 </div>
             </motion.header>
 
-            <main className="landing-page">
-                <Card className="landing-card" aria-labelledby="landing-title">
+            <section className="landing-page" aria-labelledby="landing-title">
+                <motion.div
+                    className="landing-card ui-card bg-zinc-900/40 backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl p-8 w-full max-w-md"
+                    aria-labelledby="landing-title"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, ease: "easeOut" }}
+                >
                     <CardContent>
                     <motion.p
                         className="eyebrow"
@@ -226,6 +232,7 @@ export function LandingPage({ onStart }: LandingPageProps) {
                     </motion.p>
                     <motion.h1
                         id="landing-title"
+                        className="text-3xl font-semibold tracking-tight text-zinc-100"
                         custom={1}
                         variants={reveal}
                         initial="hidden"
@@ -237,7 +244,7 @@ export function LandingPage({ onStart }: LandingPageProps) {
                     </motion.h1>
 
                     <motion.p
-                        className="landing-copy"
+                        className="landing-copy text-sm text-zinc-400"
                         custom={2}
                         variants={reveal}
                         initial="hidden"
@@ -266,7 +273,7 @@ export function LandingPage({ onStart }: LandingPageProps) {
                             <button
                                 type="button"
                                 onClick={() => setIsProfileOpen(true)}
-                                className="continuity-profile-link"
+                                className="continuity-profile-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
                             >
                                 Manage Profile
                             </button>
@@ -297,7 +304,7 @@ export function LandingPage({ onStart }: LandingPageProps) {
                                 </div>
                             </div>
                         ) : (
-                            <div className="permission-prompt-box">
+                            <div className="permission-prompt-box border border-dashed border-zinc-700 bg-zinc-950/50 rounded-lg p-6">
                                 <div className="permission-icon-row">
                                     <span className="permission-icon" aria-hidden="true">
                                         <Video size={24} />
@@ -315,7 +322,7 @@ export function LandingPage({ onStart }: LandingPageProps) {
                                     type="button"
                                     onClick={requestMediaPermissions}
                                     disabled={permissionStatus === "requesting"}
-                                    className="permission-button"
+                                    className="permission-button focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                     {permissionStatus === "requesting"
                                         ? "Requesting Access..."
@@ -364,6 +371,7 @@ export function LandingPage({ onStart }: LandingPageProps) {
                                 setApiError(null);
                             }}
                             placeholder="Enter your nickname"
+                            className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
                             autoComplete="nickname"
                             autoFocus={!isLoggedIn}
                             aria-invalid={Boolean(validationError)}
@@ -387,7 +395,7 @@ export function LandingPage({ onStart }: LandingPageProps) {
                         )}
                         <button
                             type="submit"
-                            className="primary-button"
+                            className="primary-button bg-white text-zinc-900 hover:bg-zinc-200 transition-colors font-medium rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                             disabled={isSubmitting || permissionStatus === "requesting"}
                         >
                             {isSubmitting
@@ -398,14 +406,14 @@ export function LandingPage({ onStart }: LandingPageProps) {
                         </button>
                     </motion.form>
                     </CardContent>
-                </Card>
-            </main>
+                </motion.div>
+            </section>
 
             {/* Profile Modal */}
             <ProfileModal
                 isOpen={isProfileOpen}
                 onClose={() => setIsProfileOpen(false)}
             />
-        </div>
+        </main>
     );
 }
