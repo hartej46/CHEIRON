@@ -160,7 +160,7 @@ export function LandingPage({ onStart }: LandingPageProps) {
     };
 
     return (
-        <main className="min-h-screen w-full grid grid-cols-1 lg:grid-cols-2 bg-zinc-950 text-foreground overflow-x-hidden">
+        <main className="min-h-screen w-full grid grid-cols-1 lg:grid-cols-2 bg-zinc-950 text-white overflow-x-hidden">
             <section className="rps-hero" aria-labelledby="rps-title">
                 <div className="rps-hero-grid" aria-hidden="true" />
                 <motion.header
@@ -243,11 +243,11 @@ export function LandingPage({ onStart }: LandingPageProps) {
             </section>
 
             <section
-                className="rps-action-area flex h-full flex-col justify-center px-8 lg:px-24"
+                className="rps-action-area"
                 aria-labelledby="landing-title"
             >
                 <motion.div
-                    className="rps-setup-content"
+                    className="rps-setup-content flex h-full w-full max-w-2xl flex-col justify-center px-8 lg:px-24 xl:px-32"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, ease: "easeOut" }}
@@ -397,9 +397,9 @@ export function LandingPage({ onStart }: LandingPageProps) {
                             )}
                         </AnimatePresence>
 
-                        <motion.form
-                            onSubmit={handleSubmit}
-                            className="rps-nickname-form"
+                    <motion.form onSubmit={handleSubmit} className="rps-nickname-form">
+                        <motion.div
+                            className="rps-input-field"
                             variants={reveal}
                             custom={5}
                             initial="hidden"
@@ -441,6 +441,13 @@ export function LandingPage({ onStart }: LandingPageProps) {
                                     {apiError}
                                 </p>
                             )}
+                        </motion.div>
+                        <motion.div
+                            variants={reveal}
+                            custom={6}
+                            initial="hidden"
+                            animate="visible"
+                        >
                             <button
                                 type="submit"
                                 className="primary-button rps-continue-button focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
@@ -453,7 +460,8 @@ export function LandingPage({ onStart }: LandingPageProps) {
                                       : "Start chatting"}
                                 <span aria-hidden="true">↗</span>
                             </button>
-                        </motion.form>
+                        </motion.div>
+                    </motion.form>
                 </motion.div>
             </section>
 
