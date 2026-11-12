@@ -161,7 +161,7 @@ export function LandingPage({ onStart }: LandingPageProps) {
     };
 
     return (
-        <main className="grid h-screen w-screen grid-cols-1 lg:grid-cols-2 overflow-hidden bg-zinc-950">
+        <main className="min-h-screen w-full overflow-x-hidden grid grid-cols-1 lg:grid-cols-2 bg-zinc-950">
             <section className="rps-hero" aria-labelledby="rps-title">
                 <div className="rps-hero-grid" aria-hidden="true" />
                 <motion.header
@@ -186,7 +186,7 @@ export function LandingPage({ onStart }: LandingPageProps) {
                     </motion.p>
                     <motion.h1
                         id="rps-title"
-                        className="rps-title"
+                        className="rps-title text-6xl md:text-8xl lg:text-[7vw] leading-none tracking-tighter"
                         variants={reveal}
                         custom={1}
                         initial="hidden"
@@ -243,7 +243,10 @@ export function LandingPage({ onStart }: LandingPageProps) {
                 </div>
             </section>
 
-            <section className="rps-action-area" aria-labelledby="landing-title">
+            <section
+                className="rps-action-area flex h-full min-h-[600px] flex-col items-center justify-center p-4 lg:p-12"
+                aria-labelledby="landing-title"
+            >
                 <motion.div
                     className="rps-setup-card"
                     initial={{ opacity: 0, y: 20 }}

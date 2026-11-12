@@ -938,8 +938,7 @@ h1 {
     position: relative;
     isolation: isolate;
     width: 100%;
-    height: 100vh;
-    min-height: 0;
+    min-height: 100vh;
     padding: 0;
     background:
         radial-gradient(circle at 15% 15%, rgba(80, 139, 173, 0.2), transparent 34%),
@@ -1171,9 +1170,8 @@ h1 {
 #root > main {
     display: grid;
     width: 100%;
-    height: 100vh;
-    min-height: 0;
-    overflow: hidden;
+    min-height: 100vh;
+    overflow-x: hidden;
     background: var(--color-background);
     color: var(--color-ink);
 }
@@ -1182,10 +1180,10 @@ h1 {
     position: relative;
     display: flex;
     min-width: 0;
-    min-height: 0;
+    min-height: 100%;
     flex-direction: column;
     justify-content: space-between;
-    overflow: hidden;
+    overflow: visible;
     padding: clamp(24px, 4vw, 56px);
     isolation: isolate;
     background:
@@ -1260,10 +1258,7 @@ h1 {
     max-width: 7ch;
     margin: 0;
     color: var(--color-hero-ink);
-    font-size: clamp(58px, 8vw, 116px);
     font-weight: 800;
-    letter-spacing: -0.07em;
-    line-height: 0.86;
     overflow-wrap: break-word;
     min-width: 0;
 }
@@ -1335,10 +1330,10 @@ h1 {
 .rps-action-area {
     display: flex;
     min-width: 0;
-    min-height: 0;
+    min-height: 600px;
     align-items: center;
     justify-content: center;
-    overflow: auto;
+    overflow: visible;
     padding: clamp(20px, 4vw, 64px);
     background:
         radial-gradient(circle at 72% 20%, rgba(68, 61, 143, 0.15), transparent 40%),
@@ -1564,7 +1559,7 @@ h1 {
 
 @media (max-width: 1023px) {
     #root > main {
-        overflow: hidden;
+        overflow-x: hidden;
     }
 
     .rps-hero {
@@ -1574,10 +1569,6 @@ h1 {
 
     .rps-hero-content {
         padding: 36px 0 54px;
-    }
-
-    .rps-title {
-        font-size: clamp(54px, 12vw, 88px);
     }
 
     .rps-symbol-stage {
