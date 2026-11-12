@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import type { FormEvent } from "react";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
-import { Check, Mic, Video } from "lucide-react";
+import { Check, Circle, Hand, Mic, Scissors, Video } from "lucide-react";
 import { initPlayer } from "../service/service";
 import { useNickname } from "../context/NicknameContext";
 import { ProfileModal } from "../components/ProfileModal";
@@ -161,255 +161,302 @@ export function LandingPage({ onStart }: LandingPageProps) {
     };
 
     return (
-        <main className="h-screen w-screen overflow-hidden flex flex-col items-center justify-center bg-background text-foreground">
-            {/* Top Navigation Bar with Logo and Top-Right Profile Section */}
-            <motion.header
-                className="landing-top-bar"
-                initial={{ opacity: 0, y: -12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.45, ease: "easeOut" }}
-            >
-                <div className="brand-logo-group">
-                    <span className="brand-title">CHEIRON</span>
-                    <span className="brand-divider">/</span>
-                    <span className="brand-subtitle">minimalist video</span>
-                </div>
+        <main className="grid h-screen w-screen grid-cols-1 lg:grid-cols-2 overflow-hidden bg-zinc-950">
+            <section className="rps-hero" aria-labelledby="rps-title">
+                <div className="rps-hero-grid" aria-hidden="true" />
+                <motion.header
+                    className="rps-hero-header"
+                    initial={{ opacity: 0, y: -12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.45, ease: "easeOut" }}
+                >
+                    <span className="rps-wordmark">CHEIRON</span>
+                    <span className="rps-mode">live room / 01</span>
+                </motion.header>
 
-                <div className="top-bar-right">
-                    <button
-                        type="button"
-                        onClick={() => setIsProfileOpen(true)}
-                        className="profile-top-button focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
-                        title={
-                            isLoggedIn && activeUserDisplayName
-                                ? `Profile: ${activeUserDisplayName}`
-                                : "View Profile"
-                        }
-                        aria-label="Open user profile"
+                <div className="rps-hero-content">
+                    <motion.p
+                        className="rps-kicker"
+                        variants={reveal}
+                        custom={0}
+                        initial="hidden"
+                        animate="visible"
                     >
-                        <span
-                            className={`profile-status-dot ${isLoggedIn ? "active" : "idle"}`}
-                        />
-                        <span className="profile-top-nickname">
-                            {isLoggedIn && activeUserDisplayName
-                                ? activeUserDisplayName
-                                : "Profile"}
-                        </span>
-                        <svg
-                            className="profile-icon"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            aria-hidden="true"
-                        >
-                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                            <circle cx="12" cy="7" r="4" />
-                        </svg>
-                    </button>
-                </div>
-            </motion.header>
+                        Real-time hand play
+                    </motion.p>
+                    <motion.h1
+                        id="rps-title"
+                        className="rps-title"
+                        variants={reveal}
+                        custom={1}
+                        initial="hidden"
+                        animate="visible"
+                    >
+                        Rock.
+                        <br />
+                        Paper.
+                        <br />
+                        Scissors.
+                    </motion.h1>
+                    <motion.p
+                        className="rps-subtitle"
+                        variants={reveal}
+                        custom={2}
+                        initial="hidden"
+                        animate="visible"
+                    >
+                        Powered by <span>AI hand tracking</span>
+                    </motion.p>
 
-            <section className="landing-page" aria-labelledby="landing-title">
+                    <div className="rps-symbol-stage" aria-label="Rock, paper, and scissors">
+                        {[
+                            { label: "Rock", Icon: Circle },
+                            { label: "Paper", Icon: Hand },
+                            { label: "Scissors", Icon: Scissors },
+                        ].map(({ label, Icon }, index) => (
+                            <motion.div
+                                className={`rps-symbol rps-symbol-${index + 1}`}
+                                key={label}
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: [0, -20, 0] }}
+                                transition={{
+                                    opacity: { delay: 0.35 + index * 0.12, duration: 0.45 },
+                                    y: {
+                                        delay: 0.8 + index * 0.22,
+                                        duration: 4,
+                                        repeat: Infinity,
+                                        ease: "easeInOut",
+                                    },
+                                }}
+                            >
+                                <Icon strokeWidth={1.4} aria-hidden="true" />
+                                <span>{label}</span>
+                            </motion.div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="rps-hero-footer">
+                    <span>Choose your move</span>
+                    <span className="rps-footer-line" aria-hidden="true" />
+                    <span>Enter the arena</span>
+                </div>
+            </section>
+
+            <section className="rps-action-area" aria-labelledby="landing-title">
                 <motion.div
-                    className="landing-card ui-card bg-zinc-900/40 backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl p-8 w-full max-w-md"
-                    aria-labelledby="landing-title"
+                    className="rps-setup-card"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, ease: "easeOut" }}
                 >
                     <CardContent>
-                    <motion.p
-                        className="eyebrow"
-                        custom={0}
-                        variants={reveal}
-                        initial="hidden"
-                        animate="visible"
-                    >
-                        CHEIRON / VIDEO CHAT
-                    </motion.p>
-                    <motion.h1
-                        id="landing-title"
-                        className="text-3xl font-semibold tracking-tight text-zinc-100"
-                        custom={1}
-                        variants={reveal}
-                        initial="hidden"
-                        animate="visible"
-                    >
-                        {isLoggedIn && activeUserDisplayName
-                            ? `Welcome, ${activeUserDisplayName}.`
-                            : "Talk to someone new."}
-                    </motion.h1>
-
-                    <motion.p
-                        className="landing-copy text-sm text-zinc-400"
-                        custom={2}
-                        variants={reveal}
-                        initial="hidden"
-                        animate="visible"
-                    >
-                        {isLoggedIn && activeUserDisplayName
-                            ? "Your session is active. Enable camera and microphone to continue chatting."
-                            : "Camera and microphone access are required before entering the room."}
-                    </motion.p>
-
-                    {/* Active session continuity badge if logged in */}
-                    {isLoggedIn && activeUserDisplayName && (
                         <motion.div
-                            className="session-continuity-pill"
-                            custom={3}
+                            className="rps-card-topline"
                             variants={reveal}
+                            custom={0}
                             initial="hidden"
                             animate="visible"
                         >
-                            <div className="continuity-status">
-                                <span className="pulse-dot green" />
-                                <span>
-                                    Continuing as <strong>{activeUserDisplayName}</strong>
-                                </span>
-                            </div>
+                            <span className="rps-card-label">Setup / 01</span>
                             <button
                                 type="button"
                                 onClick={() => setIsProfileOpen(true)}
-                                className="continuity-profile-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
+                                className="rps-profile-button focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 active:scale-[0.98]"
+                                title={
+                                    isLoggedIn && activeUserDisplayName
+                                        ? `Profile: ${activeUserDisplayName}`
+                                        : "View Profile"
+                                }
+                                aria-label="Open user profile"
                             >
-                                Manage Profile
+                                <span
+                                    className={`profile-status-dot ${isLoggedIn ? "active" : "idle"}`}
+                                />
+                                <span>
+                                    {isLoggedIn && activeUserDisplayName
+                                        ? activeUserDisplayName
+                                        : "Profile"}
+                                </span>
                             </button>
                         </motion.div>
-                    )}
 
-                    {/* Media Permission Status & Preview */}
-                    <motion.div
-                        className="permission-card"
-                        custom={4}
-                        variants={reveal}
-                        initial="hidden"
-                        animate="visible"
-                    >
-                        {permissionStatus === "granted" && previewStream ? (
-                            <div className="preview-container">
-                                <video
-                                    ref={videoRef}
-                                    autoPlay
-                                    muted
-                                    playsInline
-                                    className="preview-video"
-                                    aria-label="Camera preview"
-                                />
-                                <div className="preview-badge success">
-                                    <Check size={13} />
-                                    Camera & mic active
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="permission-prompt-box border border-dashed border-zinc-700 bg-zinc-950/50 rounded-lg p-6">
-                                <div className="permission-icon-row">
-                                    <span className="permission-icon" aria-hidden="true">
-                                        <Video size={24} />
-                                    </span>
-                                    <span className="permission-icon" aria-hidden="true">
-                                        <Mic size={24} />
-                                    </span>
-                                </div>
-                                <p className="permission-text">
-                                    {permissionStatus === "denied"
-                                        ? "Permissions blocked. Please allow camera and microphone in your browser to enter."
-                                        : "Grant camera & microphone permission to test your setup before entering."}
-                                </p>
-                                <button
-                                    type="button"
-                                    onClick={requestMediaPermissions}
-                                    disabled={permissionStatus === "requesting"}
-                                    className="permission-button focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                    {permissionStatus === "requesting"
-                                        ? "Requesting Access..."
-                                        : permissionStatus === "denied"
-                                          ? "Try Again"
-                                          : "Enable Camera & Mic"}
-                                </button>
-                            </div>
-                        )}
-                    </motion.div>
-
-                    <AnimatePresence initial={false}>
-                    {mediaError && (
+                        <motion.h2
+                            id="landing-title"
+                            className="rps-welcome"
+                            variants={reveal}
+                            custom={1}
+                            initial="hidden"
+                            animate="visible"
+                        >
+                            {isLoggedIn && activeUserDisplayName
+                                ? `Welcome, ${activeUserDisplayName}`
+                                : "Ready to play?"}
+                        </motion.h2>
                         <motion.p
-                            className="form-error media-block-error"
-                            role="alert"
-                            initial={{ opacity: 0, y: -8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -8 }}
-                            transition={{ duration: 0.2 }}
+                            className="rps-intro"
+                            variants={reveal}
+                            custom={2}
+                            initial="hidden"
+                            animate="visible"
                         >
-                            {mediaError}
+                            {isLoggedIn && activeUserDisplayName
+                                ? "Your room is waiting. Confirm your setup before you play."
+                                : "Set your name and give the room access to your camera and microphone."}
                         </motion.p>
-                    )}
-                    </AnimatePresence>
 
-                    <motion.form
-                        onSubmit={handleSubmit}
-                        className="nickname-form"
-                        custom={5}
-                        variants={reveal}
-                        initial="hidden"
-                        animate="visible"
-                    >
-                        <label htmlFor="nickname">
-                            {isLoggedIn ? "Nickname (Editable)" : "Nickname"}
-                        </label>
-                        <input
-                            id="nickname"
-                            name="nickname"
-                            type="text"
-                            value={nicknameInput}
-                            onChange={(event) => {
-                                setUserTypedNickname(event.target.value);
-                                setValidationError(null);
-                                setApiError(null);
-                            }}
-                            placeholder="Enter your nickname"
-                            className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
-                            autoComplete="nickname"
-                            autoFocus={!isLoggedIn}
-                            aria-invalid={Boolean(validationError)}
-                            aria-describedby={
-                                validationError
-                                    ? "nickname-error"
-                                    : apiError
-                                      ? "nickname-api-error"
-                                      : undefined
-                            }
-                        />
-                        {validationError && (
-                            <p id="nickname-error" className="form-error" role="alert">
-                                {validationError}
-                            </p>
+                        {isLoggedIn && activeUserDisplayName && (
+                            <motion.div
+                                className="rps-session-note"
+                                variants={reveal}
+                                custom={3}
+                                initial="hidden"
+                                animate="visible"
+                            >
+                                <Check size={14} aria-hidden="true" />
+                                Continuing as <strong>{activeUserDisplayName}</strong>
+                            </motion.div>
                         )}
-                        {apiError && (
-                            <p id="nickname-api-error" className="form-error" role="alert">
-                                {apiError}
-                            </p>
-                        )}
-                        <button
-                            type="submit"
-                            className="primary-button bg-white text-zinc-900 hover:bg-zinc-200 transition-colors font-medium rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-                            disabled={isSubmitting || permissionStatus === "requesting"}
+
+                        <motion.div
+                            className={`rps-diagnostics ${permissionStatus === "prompt" ? "is-pending" : ""}`}
+                            variants={reveal}
+                            custom={4}
+                            initial="hidden"
+                            animate="visible"
                         >
-                            {isSubmitting
-                                ? "Starting..."
-                                : isLoggedIn
-                                  ? "Continue to Video Chat"
-                                  : "Start Chatting"}
-                        </button>
-                    </motion.form>
+                            <div className="rps-diagnostics-heading">
+                                <span className="rps-diagnostics-icon">
+                                    <Video size={16} aria-hidden="true" />
+                                    <Mic size={16} aria-hidden="true" />
+                                </span>
+                                <div>
+                                    <strong>System diagnostics</strong>
+                                    <span>
+                                        {permissionStatus === "granted"
+                                            ? "Hardware is ready"
+                                            : permissionStatus === "requesting"
+                                              ? "Waiting for browser access"
+                                              : "Camera and microphone check"}
+                                    </span>
+                                </div>
+                                <span className={`rps-diagnostics-status ${permissionStatus}`} />
+                            </div>
+
+                            {permissionStatus === "granted" && previewStream ? (
+                                <div className="preview-container">
+                                    <video
+                                        ref={videoRef}
+                                        autoPlay
+                                        muted
+                                        playsInline
+                                        className="preview-video"
+                                        aria-label="Camera preview"
+                                    />
+                                    <div className="preview-badge success">
+                                        <Check size={13} />
+                                        Camera & mic active
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <p className="permission-text">
+                                        {permissionStatus === "denied"
+                                            ? "Access is blocked. Allow camera and microphone permissions to continue."
+                                            : "Allow access to test your setup before entering the room."}
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={requestMediaPermissions}
+                                        disabled={permissionStatus === "requesting"}
+                                        className="permission-button focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                        {permissionStatus === "requesting"
+                                            ? "Requesting access..."
+                                            : permissionStatus === "denied"
+                                              ? "Try again"
+                                              : "Enable camera & mic"}
+                                    </button>
+                                </>
+                            )}
+                        </motion.div>
+
+                        <AnimatePresence initial={false}>
+                            {mediaError && (
+                                <motion.p
+                                    className="form-error media-block-error"
+                                    role="alert"
+                                    initial={{ opacity: 0, y: -8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -8 }}
+                                    transition={{ duration: 0.2 }}
+                                >
+                                    {mediaError}
+                                </motion.p>
+                            )}
+                        </AnimatePresence>
+
+                        <motion.form
+                            onSubmit={handleSubmit}
+                            className="rps-nickname-form"
+                            variants={reveal}
+                            custom={5}
+                            initial="hidden"
+                            animate="visible"
+                        >
+                            <label htmlFor="nickname">
+                                {isLoggedIn ? "Nickname (editable)" : "Choose a nickname"}
+                            </label>
+                            <input
+                                id="nickname"
+                                name="nickname"
+                                type="text"
+                                value={nicknameInput}
+                                onChange={(event) => {
+                                    setUserTypedNickname(event.target.value);
+                                    setValidationError(null);
+                                    setApiError(null);
+                                }}
+                                placeholder="Enter your nickname"
+                                className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
+                                autoComplete="nickname"
+                                autoFocus={!isLoggedIn}
+                                aria-invalid={Boolean(validationError)}
+                                aria-describedby={
+                                    validationError
+                                        ? "nickname-error"
+                                        : apiError
+                                          ? "nickname-api-error"
+                                          : undefined
+                                }
+                            />
+                            {validationError && (
+                                <p id="nickname-error" className="form-error" role="alert">
+                                    {validationError}
+                                </p>
+                            )}
+                            {apiError && (
+                                <p id="nickname-api-error" className="form-error" role="alert">
+                                    {apiError}
+                                </p>
+                            )}
+                            <button
+                                type="submit"
+                                className="primary-button rps-continue-button focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                                disabled={isSubmitting || permissionStatus === "requesting"}
+                            >
+                                {isSubmitting
+                                    ? "Starting..."
+                                    : isLoggedIn
+                                      ? "Continue to video chat"
+                                      : "Start chatting"}
+                                <span aria-hidden="true">↗</span>
+                            </button>
+                        </motion.form>
                     </CardContent>
                 </motion.div>
             </section>
 
-            {/* Profile Modal */}
             <ProfileModal
                 isOpen={isProfileOpen}
                 onClose={() => setIsProfileOpen(false)}
