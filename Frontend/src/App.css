@@ -61,7 +61,7 @@ h1 {
     padding: 20px 16px;
     text-align: center;
     background: #fafafa;
-    transition: all 0.2s ease;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
 .permission-prompt-box:hover {
@@ -806,7 +806,10 @@ h1 {
     font-weight: 500;
     color: #27272a;
     cursor: pointer;
-    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: background-color 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+        border-color 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+        transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+        box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .profile-top-button:hover {
@@ -928,6 +931,211 @@ h1 {
     animation: slideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
     max-height: 90vh;
     overflow-y: auto;
+}
+
+/* Hallmark redesign: atmospheric dark setup surface. */
+.landing-layout {
+    position: relative;
+    isolation: isolate;
+    min-height: 100vh;
+    padding: 0;
+    background:
+        radial-gradient(circle at 15% 15%, rgba(80, 139, 173, 0.2), transparent 34%),
+        radial-gradient(circle at 85% 85%, rgba(91, 177, 142, 0.13), transparent 30%),
+        #0a0f18;
+}
+
+.landing-layout::before {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image: linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    background-size: 64px 64px;
+    content: "";
+    mask-image: linear-gradient(to bottom, black, transparent 80%);
+}
+
+.landing-top-bar {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 2;
+    padding: 24px clamp(20px, 5vw, 72px);
+    background: transparent;
+    border-bottom: 1px solid transparent;
+}
+
+.brand-logo-group,
+.profile-top-button {
+    color: var(--color-ink);
+}
+
+.brand-subtitle,
+.brand-divider,
+.profile-icon {
+    color: var(--color-muted);
+}
+
+.profile-top-button {
+    border-color: var(--color-line);
+    background: rgba(255, 255, 255, 0.06);
+    transition: background-color 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+.profile-top-button:hover {
+    border-color: rgba(139, 233, 193, 0.45);
+    background: rgba(139, 233, 193, 0.12);
+    box-shadow: 0 0 24px rgba(139, 233, 193, 0.12);
+}
+
+.landing-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 100vh;
+    padding: 84px 20px 28px;
+}
+
+.ui-card {
+    width: min(100%, 520px);
+    border: 1px solid var(--color-line);
+    border-radius: 28px;
+    background: linear-gradient(145deg, rgba(28, 38, 55, 0.92), rgba(15, 21, 33, 0.88));
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+}
+
+.ui-card-content {
+    padding: clamp(24px, 5vw, 42px);
+}
+
+.landing-card h1 {
+    max-width: 12ch;
+    color: var(--color-ink);
+    font-size: clamp(34px, 6vw, 56px);
+}
+
+.eyebrow {
+    color: var(--color-accent);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: none;
+}
+
+.landing-copy {
+    color: var(--color-muted);
+}
+
+.permission-prompt-box {
+    border: 1px solid var(--color-line);
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.permission-prompt-box:hover {
+    border-color: rgba(139, 233, 193, 0.4);
+    background: rgba(139, 233, 193, 0.07);
+}
+
+.permission-icon-row {
+    color: var(--color-accent);
+}
+
+.permission-text,
+.nickname-form label {
+    color: var(--color-muted);
+}
+
+.permission-button,
+.primary-button {
+    border: 1px solid rgba(139, 233, 193, 0.55);
+    background: var(--color-accent);
+    color: #0b1713;
+    box-shadow: 0 8px 24px rgba(139, 233, 193, 0.14);
+    transition: background-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.permission-button:hover:not(:disabled),
+.primary-button:hover:not(:disabled) {
+    background: var(--color-accent-strong);
+    box-shadow: 0 12px 30px rgba(139, 233, 193, 0.24);
+    transform: translateY(-2px);
+}
+
+.nickname-form input {
+    border-color: var(--color-line);
+    background: rgba(5, 9, 15, 0.4);
+    color: var(--color-ink);
+    transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+}
+
+.nickname-form input::placeholder {
+    color: #6f7d92;
+}
+
+.nickname-form input:focus {
+    border-color: var(--color-accent);
+    background: rgba(5, 9, 15, 0.62);
+    box-shadow: 0 0 0 3px rgba(139, 233, 193, 0.14);
+}
+
+.form-error,
+.media-error {
+    color: var(--color-danger);
+}
+
+.media-block-error {
+    border-color: rgba(255, 154, 154, 0.22);
+    background: rgba(255, 154, 154, 0.08);
+}
+
+.session-continuity-pill {
+    border-color: rgba(139, 233, 193, 0.22);
+    background: rgba(139, 233, 193, 0.08);
+    color: var(--color-accent);
+}
+
+.continuity-profile-link {
+    color: var(--color-accent);
+}
+
+.landing-layout button:focus-visible,
+.landing-layout input:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+}
+
+@media (max-width: 600px) {
+    .landing-top-bar {
+        padding: 18px 16px;
+    }
+
+    .brand-subtitle,
+    .brand-divider {
+        display: none;
+    }
+
+    .landing-page {
+        padding: 72px 14px 18px;
+    }
+
+    .ui-card-content {
+        padding: 26px 20px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .landing-layout *,
+    .landing-layout *::before,
+    .landing-layout *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+    }
 }
 
 @keyframes slideUp {

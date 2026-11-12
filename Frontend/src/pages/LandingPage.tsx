@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import type { FormEvent } from "react";
-import { Video, Mic } from "lucide-react";
+import { AnimatePresence, motion, type Variants } from "framer-motion";
+import { Check, Mic, Video } from "lucide-react";
 import { initPlayer } from "../service/service";
 import { useNickname } from "../context/NicknameContext";
 import { ProfileModal } from "../components/ProfileModal";
+import { Card, CardContent } from "../components/ui/card";
 
 interface LandingPageProps {
     onStart: (nickname: string) => void;
@@ -145,10 +147,28 @@ export function LandingPage({ onStart }: LandingPageProps) {
     const activeUserDisplayName =
         userData?.nickname || contextNickname || (isLoggedIn ? "Guest" : null);
 
+    const reveal: Variants = {
+        hidden: { opacity: 0, y: 18 },
+        visible: (index = 0) => ({
+            opacity: 1,
+            y: 0,
+            transition: {
+                delay: index * 0.08,
+                duration: 0.55,
+                ease: [0.22, 1, 0.36, 1] as const,
+            },
+        }),
+    };
+
     return (
-        <div className="landing-layout">
+        <div className="landing-layout min-h-screen flex flex-col items-center justify-center overflow-hidden">
             {/* Top Navigation Bar with Logo and Top-Right Profile Section */}
-            <header className="landing-top-bar">
+            <motion.header
+                className="landing-top-bar"
+                initial={{ opacity: 0, y: -12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.45, ease: "easeOut" }}
+            >
                 <div className="brand-logo-group">
                     <span className="brand-title">CHEIRON</span>
                     <span className="brand-divider">/</span>
@@ -190,26 +210,53 @@ export function LandingPage({ onStart }: LandingPageProps) {
                         </svg>
                     </button>
                 </div>
-            </header>
+            </motion.header>
 
             <main className="landing-page">
-                <section className="landing-card" aria-labelledby="landing-title">
-                    <p className="eyebrow">CHEIRON / VIDEO CHAT</p>
-                    <h1 id="landing-title">
+                <Card className="landing-card" aria-labelledby="landing-title">
+                    <CardContent>
+                    <motion.p
+                        className="eyebrow"
+                        custom={0}
+                        variants={reveal}
+                        initial="hidden"
+                        animate="visible"
+                    >
+                        CHEIRON / VIDEO CHAT
+                    </motion.p>
+                    <motion.h1
+                        id="landing-title"
+                        custom={1}
+                        variants={reveal}
+                        initial="hidden"
+                        animate="visible"
+                    >
                         {isLoggedIn && activeUserDisplayName
                             ? `Welcome, ${activeUserDisplayName}.`
                             : "Talk to someone new."}
-                    </h1>
+                    </motion.h1>
 
-                    <p className="landing-copy">
+                    <motion.p
+                        className="landing-copy"
+                        custom={2}
+                        variants={reveal}
+                        initial="hidden"
+                        animate="visible"
+                    >
                         {isLoggedIn && activeUserDisplayName
                             ? "Your session is active. Enable camera and microphone to continue chatting."
                             : "Camera and microphone access are required before entering the room."}
-                    </p>
+                    </motion.p>
 
                     {/* Active session continuity badge if logged in */}
                     {isLoggedIn && activeUserDisplayName && (
-                        <div className="session-continuity-pill">
+                        <motion.div
+                            className="session-continuity-pill"
+                            custom={3}
+                            variants={reveal}
+                            initial="hidden"
+                            animate="visible"
+                        >
                             <div className="continuity-status">
                                 <span className="pulse-dot green" />
                                 <span>
@@ -223,11 +270,17 @@ export function LandingPage({ onStart }: LandingPageProps) {
                             >
                                 Manage Profile
                             </button>
-                        </div>
+                        </motion.div>
                     )}
 
                     {/* Media Permission Status & Preview */}
-                    <div className="permission-card">
+                    <motion.div
+                        className="permission-card"
+                        custom={4}
+                        variants={reveal}
+                        initial="hidden"
+                        animate="visible"
+                    >
                         {permissionStatus === "granted" && previewStream ? (
                             <div className="preview-container">
                                 <video
@@ -239,8 +292,8 @@ export function LandingPage({ onStart }: LandingPageProps) {
                                     aria-label="Camera preview"
                                 />
                                 <div className="preview-badge success">
-                                    <span className="pulse-dot green" />
-                                    Camera & Mic Active
+                                    <Check size={13} />
+                                    Camera & mic active
                                 </div>
                             </div>
                         ) : (
@@ -272,15 +325,31 @@ export function LandingPage({ onStart }: LandingPageProps) {
                                 </button>
                             </div>
                         )}
-                    </div>
+                    </motion.div>
 
+                    <AnimatePresence initial={false}>
                     {mediaError && (
-                        <p className="form-error media-block-error" role="alert">
+                        <motion.p
+                            className="form-error media-block-error"
+                            role="alert"
+                            initial={{ opacity: 0, y: -8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -8 }}
+                            transition={{ duration: 0.2 }}
+                        >
                             {mediaError}
-                        </p>
+                        </motion.p>
                     )}
+                    </AnimatePresence>
 
-                    <form onSubmit={handleSubmit} className="nickname-form">
+                    <motion.form
+                        onSubmit={handleSubmit}
+                        className="nickname-form"
+                        custom={5}
+                        variants={reveal}
+                        initial="hidden"
+                        animate="visible"
+                    >
                         <label htmlFor="nickname">
                             {isLoggedIn ? "Nickname (Editable)" : "Nickname"}
                         </label>
@@ -327,8 +396,9 @@ export function LandingPage({ onStart }: LandingPageProps) {
                                   ? "Continue to Video Chat"
                                   : "Start Chatting"}
                         </button>
-                    </form>
-                </section>
+                    </motion.form>
+                    </CardContent>
+                </Card>
             </main>
 
             {/* Profile Modal */}
@@ -339,4 +409,3 @@ export function LandingPage({ onStart }: LandingPageProps) {
         </div>
     );
 }
-
