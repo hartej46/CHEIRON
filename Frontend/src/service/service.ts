@@ -45,7 +45,7 @@ export const initPlayer = async (
         }
         throw new Error("Unable to connect to server. Please refresh your page.");
     } catch (error: unknown) {
-        console.error("[initPlayer error]", error);
+        // initPlayer network/API error — propagated to the caller
         let msg = "Unable to connect to server. Please refresh your page.";
         if (error instanceof AxiosError) {
             msg = (error.response?.data as ApiErrorResponse)?.message || msg;
