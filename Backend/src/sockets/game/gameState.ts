@@ -320,6 +320,17 @@ export async function evaluateRound(room: RoomState, io_server: Server) {
             
         const evaluation = evaluateMoves(p1_move, p2_move);
 
+        io_server.to(room.roomId).emit("gesture_result", {
+            round: room.round,
+            playerId: room.player_1.id,
+            gesture: String(p1_move || "none").toLowerCase(),
+        });
+        io_server.to(room.roomId).emit("gesture_result", {
+            round: room.round,
+            playerId: room.player_2.id,
+            gesture: String(p2_move || "none").toLowerCase(),
+        });
+
         if (evaluation.winner === "player_1") {
             room.player_1.score += 1;
         } else if (evaluation.winner === "player_2") {

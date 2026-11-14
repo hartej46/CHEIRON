@@ -41,6 +41,7 @@ const HAND_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
 const HAND_HIGHLIGHT_LANDMARKS = [0, 4, 8, 12, 16, 20];
 const LANDMARK_VALUE_COUNT = 63;
 const BLACKOUT_DURATION_SECONDS = 5;
+type Gesture = "rock" | "paper" | "scissors" | "none";
 
 export function VideoRoom() {
     const { nickname, setUserData } = useNickname();
@@ -66,6 +67,8 @@ export function VideoRoom() {
     const captureTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const captureSamplesRef = useRef<number[][]>([]);
     const evaluationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const evaluatedRoundRef = useRef<number | null>(null);
+    const currentRoundRef = useRef(0);
 
     // Media State
     const [hasMediaPermissions, setHasMediaPermissions] = useState<boolean | null>(null);
@@ -83,6 +86,8 @@ export function VideoRoom() {
     const [timer, setTimer] = useState(0);
     const [round, setRound] = useState(0);
     const [scores, setScores] = useState({ user: 0, opponent: 0 });
+    const [localGesture, setLocalGesture] = useState<Gesture | null>(null);
+    const [opponentGesture, setOpponentGesture] = useState<Gesture | null>(null);
     const [matchWinner, setMatchWinner] = useState<string | null>(null);
     const [lastRoundResult, setLastRoundResult] = useState<{
         winner: "user" | "opponent" | "draw";
@@ -171,17 +176,14 @@ export function VideoRoom() {
                     canvas.width = video.videoWidth;
                     canvas.height = video.videoHeight;
 
-                    if (gamePhaseRef.current !== "blackout") {
-                        detectionFrameRef.current = requestAnimationFrame(detectFrame);
-                        return;
-                    }
-
                     const result = landmarker.detectForVideo(video, performance.now());
                     const landmarks = result.landmarks[0];
 
-                    latestCoordinatesRef.current = landmarks
-                        ? landmarks.flatMap(({ x, y, z }) => [x, y, z])
-                        : null;
+                    if (gamePhaseRef.current === "blackout") {
+                        latestCoordinatesRef.current = landmarks
+                            ? landmarks.flatMap(({ x, y, z }) => [x, y, z])
+                            : null;
+                    }
 
                     if (landmarks) {
                         setCaptureError((prev) => (prev ? null : prev));
@@ -352,6 +354,40 @@ export function VideoRoom() {
         };
     }, [gamePhase]);
 
+    useEffect(() => {
+        if (!localGesture || !opponentGesture || evaluatedRoundRef.current === round) {
+            return;
+        }
+
+        evaluatedRoundRef.current = round;
+        const userWon =
+            (localGesture === "rock" && opponentGesture === "scissors") ||
+            (localGesture === "paper" && opponentGesture === "rock") ||
+            (localGesture === "scissors" && opponentGesture === "paper");
+        const winner: "user" | "opponent" | "draw" =
+            localGesture === opponentGesture
+                ? "draw"
+                : userWon
+                  ? "user"
+                  : "opponent";
+
+        setScores((previousScores) =>
+            winner === "user"
+                ? { ...previousScores, user: previousScores.user + 1 }
+                : winner === "opponent"
+                  ? { ...previousScores, opponent: previousScores.opponent + 1 }
+                  : previousScores
+        );
+        setLastRoundResult({
+            winner,
+            userMove: localGesture,
+            opponentMove: opponentGesture,
+            reason: winner === "draw" ? "Both players chose the same gesture." : "Gesture evaluation complete.",
+            round,
+        });
+        setGamePhase("reveal");
+    }, [localGesture, opponentGesture, round]);
+
 
 
     // Format duration MM:SS
@@ -365,6 +401,9 @@ export function VideoRoom() {
     useEffect(() => {
         if (videoRef.current && streamRef.current) {
             videoRef.current.srcObject = streamRef.current;
+            void videoRef.current.play().catch(() => {
+                setConnectionStatus("Click the page to allow local video playback.");
+            });
         }
     }, [hasMediaPermissions]);
 
@@ -410,7 +449,11 @@ export function VideoRoom() {
         setGamePhase("waiting");
         setTimer(0);
         setRound(0);
+        currentRoundRef.current = 0;
         setScores({ user: 0, opponent: 0 });
+        setLocalGesture(null);
+        setOpponentGesture(null);
+        evaluatedRoundRef.current = null;
         setMatchWinner(null);
         setLastRoundResult(null);
     }, []);
@@ -429,12 +472,16 @@ export function VideoRoom() {
         }
 
         connection.ontrack = (event) => {
+            const eventStream = event.streams[0];
             const incomingStream =
-                event.streams[0] ||
+                eventStream ||
                 remoteStreamRef.current ||
                 new MediaStream();
             if (!incomingStream.getTracks().some((track) => track.id === event.track.id)) {
                 incomingStream.addTrack(event.track);
+            }
+            if (remoteVideoRef.current && eventStream) {
+                remoteVideoRef.current.srcObject = eventStream;
             }
             remoteStreamRef.current = incomingStream;
             setRemoteStream(incomingStream);
@@ -646,7 +693,11 @@ export function VideoRoom() {
                 setGamePhase("warmup");
                 setTimer(data.durationSeconds || 10);
                 setRound(0);
+                currentRoundRef.current = 0;
                 setScores({ user: 0, opponent: 0 });
+                setLocalGesture(null);
+                setOpponentGesture(null);
+                evaluatedRoundRef.current = null;
                 setMatchWinner(null);
                 setLastRoundResult(null);
                 setCaptureError(null);
@@ -659,11 +710,49 @@ export function VideoRoom() {
                     evaluationTimeoutRef.current = null;
                 }
                 setGamePhase("countdown");
-                setRound(Math.min(data.round, 5));
+                setLocalGesture(null);
+                setOpponentGesture(null);
+                evaluatedRoundRef.current = null;
+                const nextRound = Math.min(data.round, 5);
+                setRound(nextRound);
+                currentRoundRef.current = nextRound;
                 setTimer(5);
                 setCaptureError(null);
                 setConnectionStatus(`Round ${Math.min(data.round, 5)} of 5: Position your hand!`);
             });
+
+            socket.on(
+                "gesture_result",
+                ({
+                    round: resultRound,
+                    playerId,
+                    gesture,
+                }: {
+                    round: number;
+                    playerId: string;
+                    gesture: string;
+                }) => {
+                    if (resultRound !== currentRoundRef.current) {
+                        return;
+                    }
+                    const normalizedGesture = gesture.toLowerCase().trim();
+                    if (
+                        normalizedGesture !== "rock" &&
+                        normalizedGesture !== "paper" &&
+                        normalizedGesture !== "scissors" &&
+                        normalizedGesture !== "none"
+                    ) {
+                        console.error("Ignoring invalid gesture result.", gesture);
+                        return;
+                    }
+
+                    if (playerId === socket.id) {
+                        setLocalGesture(normalizedGesture);
+                    } else {
+                        setOpponentGesture(normalizedGesture);
+                    }
+                }
+            );
 
             socket.on("roundResults", (data: {
                 round?: number;
@@ -702,23 +791,6 @@ export function VideoRoom() {
                     roundWinner = userWon ? "user" : "opponent";
                 }
                 if (data.winner === "draw") roundWinner = "draw";
-
-                setScores((previousScores) => {
-                    if (
-                        typeof data.p1_score === "number" &&
-                        typeof data.p2_score === "number"
-                    ) {
-                        return {
-                            user: isPlayer1 ? data.p1_score : data.p2_score,
-                            opponent: isPlayer1 ? data.p2_score : data.p1_score,
-                        };
-                    }
-                    return roundWinner === "user"
-                        ? { ...previousScores, user: previousScores.user + 1 }
-                        : roundWinner === "opponent"
-                          ? { ...previousScores, opponent: previousScores.opponent + 1 }
-                          : previousScores;
-                });
 
                 setLastRoundResult({
                     winner: roundWinner,
@@ -1083,6 +1155,12 @@ export function VideoRoom() {
                                     ref={remoteVideoRef}
                                     autoPlay
                                     playsInline
+                                    onLoadedMetadata={() => {
+                                        if (remoteVideoRef.current && remoteStreamRef.current) {
+                                            remoteVideoRef.current.srcObject = remoteStreamRef.current;
+                                            void remoteVideoRef.current.play().catch(() => undefined);
+                                        }
+                                    }}
                                     className={`stream-video remote-video ${gamePhase === "blackout" ? "blind-blackout" : ""}`}
                                 />
                                 {gamePhase === "blackout" && (
@@ -1155,6 +1233,12 @@ export function VideoRoom() {
                             autoPlay
                             muted
                             playsInline
+                            onLoadedMetadata={() => {
+                                if (videoRef.current && streamRef.current) {
+                                    videoRef.current.srcObject = streamRef.current;
+                                    void videoRef.current.play().catch(() => undefined);
+                                }
+                            }}
                             className={`stream-video local-video active ${gamePhase === "round_break" ? "camera-dimmed" : ""}`}
                             aria-label="Your local camera stream"
                         />
