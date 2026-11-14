@@ -40,6 +40,7 @@ const HAND_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
 
 const HAND_HIGHLIGHT_LANDMARKS = [0, 4, 8, 12, 16, 20];
 const LANDMARK_VALUE_COUNT = 63;
+const BLACKOUT_DURATION_SECONDS = 5;
 
 export function VideoRoom() {
     const { nickname, setUserData } = useNickname();
@@ -58,9 +59,9 @@ export function VideoRoom() {
     const roomIdRef = useRef<string | null>(null);
     const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
     const latestCoordinatesRef = useRef<number[] | null>(null);
+    const gamePhaseRef = useRef<"waiting" | "warmup" | "countdown" | "blackout" | "evaluation" | "round_break" | "game_over">("waiting");
     const landmarkerRef = useRef<HandLandmarker | null>(null);
     const detectionFrameRef = useRef<number | null>(null);
-    const isRoundActiveRef = useRef(false);
     const captureIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const captureTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const captureSamplesRef = useRef<number[][]>([]);
@@ -77,7 +78,7 @@ export function VideoRoom() {
     const [opponentNickname, setOpponentNickname] = useState<string | null>(null);
     const [callDuration, setCallDuration] = useState(0);
     const [gamePhase, setGamePhase] = useState<
-        "waiting" | "warmup" | "countdown" | "action" | "blind" | "evaluation" | "round_break" | "game_over"
+        "waiting" | "warmup" | "countdown" | "blackout" | "evaluation" | "round_break" | "game_over"
     >("waiting");
     const [timer, setTimer] = useState(0);
     const [round, setRound] = useState(0);
@@ -96,8 +97,8 @@ export function VideoRoom() {
     const [captureError, setCaptureError] = useState<string | null>(null);
 
     useEffect(() => {
-        isRoundActiveRef.current = gamePhase === "countdown" || gamePhase === "blind";
-        if (!isRoundActiveRef.current) {
+        gamePhaseRef.current = gamePhase;
+        if (gamePhase !== "blackout") {
             latestCoordinatesRef.current = null;
         }
     }, [gamePhase]);
@@ -172,14 +173,17 @@ export function VideoRoom() {
                     canvas.width = video.videoWidth;
                     canvas.height = video.videoHeight;
 
+                    if (gamePhaseRef.current !== "blackout") {
+                        detectionFrameRef.current = requestAnimationFrame(detectFrame);
+                        return;
+                    }
+
                     const result = landmarker.detectForVideo(video, performance.now());
                     const landmarks = result.landmarks[0];
 
-                    if (isRoundActiveRef.current) {
-                        latestCoordinatesRef.current = landmarks
-                            ? landmarks.flatMap(({ x, y, z }) => [x, y, z])
-                            : null;
-                    }
+                    latestCoordinatesRef.current = landmarks
+                        ? landmarks.flatMap(({ x, y, z }) => [x, y, z])
+                        : null;
 
                     if (landmarks) {
                         setCaptureError((prev) => (prev ? null : prev));
@@ -256,9 +260,14 @@ export function VideoRoom() {
         };
     }, [callState, remoteStream]);
 
-    // Countdown is the only phase that runs before the blind capture transition.
+    // Keep the visible timer synchronized for each timed game phase.
     useEffect(() => {
-        if (gamePhase !== "warmup" && gamePhase !== "countdown" && gamePhase !== "round_break") return;
+        if (
+            gamePhase !== "warmup" &&
+            gamePhase !== "countdown" &&
+            gamePhase !== "blackout" &&
+            gamePhase !== "round_break"
+        ) return;
 
         const interval = setInterval(() => {
             setTimer((prev) => (prev > 0 ? prev - 1 : 0));
@@ -276,13 +285,14 @@ export function VideoRoom() {
         return () => clearTimeout(dismissTimer);
     }, [captureError]);
 
-    // Start the blackout capture window and submit once after one second.
+    // Enter the exact five-second blackout window after the ready countdown.
     useEffect(() => {
         if (gamePhase !== "countdown" || timer !== 0) return;
 
         const transitionTimeout = setTimeout(() => {
-            setGamePhase("blind");
+            setGamePhase("blackout");
             setIsBlindPhase(true);
+            setTimer(BLACKOUT_DURATION_SECONDS);
         }, 0);
 
         if (!socketRef.current || !roomIdRef.current) {
@@ -293,7 +303,7 @@ export function VideoRoom() {
     }, [gamePhase, timer]);
 
     useEffect(() => {
-        if (gamePhase !== "blind") return;
+        if (gamePhase !== "blackout") return;
 
         captureSamplesRef.current = [];
 
@@ -316,20 +326,23 @@ export function VideoRoom() {
                 roomId: roomIdRef.current,
                 coordinates,
             });
+            setIsBlindPhase(false);
+            setGamePhase("evaluation");
+            setTimer(0);
         };
 
         const captureFrame = () => {
             const coordinates = latestCoordinatesRef.current;
             if (coordinates && coordinates.length === LANDMARK_VALUE_COUNT) {
                 captureSamplesRef.current.push([...coordinates]);
-                if (captureSamplesRef.current.length >= 5) {
-                    submitCapturedCoordinates();
-                }
             }
         };
 
         captureIntervalRef.current = setInterval(captureFrame, 200);
-        captureTimeoutRef.current = setTimeout(submitCapturedCoordinates, 1000);
+        captureTimeoutRef.current = setTimeout(
+            submitCapturedCoordinates,
+            BLACKOUT_DURATION_SECONDS * 1000
+        );
 
         return () => {
             if (captureIntervalRef.current !== null) {
@@ -422,7 +435,13 @@ export function VideoRoom() {
         }
 
         connection.ontrack = (event) => {
-            const incomingStream = event.streams[0] || new MediaStream([event.track]);
+            const incomingStream =
+                event.streams[0] ||
+                remoteStreamRef.current ||
+                new MediaStream();
+            if (!incomingStream.getTracks().some((track) => track.id === event.track.id)) {
+                incomingStream.addTrack(event.track);
+            }
             remoteStreamRef.current = incomingStream;
             setRemoteStream(incomingStream);
             setCallState("connected");
@@ -673,8 +692,8 @@ export function VideoRoom() {
                 setCaptureError(null);
                 // Keep the opponent hidden for a short evaluation transition so the
                 // move reveal happens only after both results are ready.
-                setIsBlindPhase(true);
-                setIsEvaluationBlackout(true);
+                setIsBlindPhase(false);
+                setIsEvaluationBlackout(false);
                 setGamePhase("evaluation");
 
                 const isPlayer1 = socket.id === data.p1_id;
@@ -1149,9 +1168,9 @@ export function VideoRoom() {
                                 {timer}
                             </div>
                         )}
-                        {gamePhase === "blind" && (
+                        {gamePhase === "blackout" && (
                             <div className="blind-capture-overlay" aria-live="assertive">
-                                <span>Capture complete</span>
+                                <span>Scanning hand... {timer}s</span>
                             </div>
                         )}
                         {captureError && (

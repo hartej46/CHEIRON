@@ -23,7 +23,7 @@ export interface RoomState {
 
 export const MAX_ROUNDS = 5;
 export const ROUND_DURATION_MS = 5000;
-export const BLIND_PHASE_MS = 3500;
+export const BLIND_PHASE_MS = 5000;
 export const BREAK_BUFFER_MS = 5000; // 5-second buffer between rounds
 
 export const activeRooms = new Map<string, RoomState>();
@@ -138,7 +138,7 @@ export function startNextRound(roomId: string, io_server: Server) {
         }
     }, BLIND_PHASE_MS);
 
-    // Safety timeout: 5s round + 2.5s network grace
+    // Safety timeout: 5s ready countdown + 5s blackout + 2.5s network grace
     room.roundTimeout = setTimeout(() => {
         const current = activeRooms.get(roomId);
         if (current && current.status === "in_progress" && current.round === room.round) {
@@ -149,7 +149,7 @@ export function startNextRound(roomId: string, io_server: Server) {
             io_server.to(roomId).emit("round_error", { message: "Round timed out, retrying..." });
             startNextRound(roomId, io_server);
         }
-    }, ROUND_DURATION_MS + 2500);
+    }, ROUND_DURATION_MS + BLIND_PHASE_MS + 2500);
 }
 
 export async function submitCoordinates(
