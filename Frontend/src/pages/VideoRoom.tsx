@@ -59,7 +59,7 @@ export function VideoRoom() {
     const roomIdRef = useRef<string | null>(null);
     const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
     const latestCoordinatesRef = useRef<number[] | null>(null);
-    const gamePhaseRef = useRef<"waiting" | "warmup" | "countdown" | "blackout" | "evaluation" | "round_break" | "game_over">("waiting");
+    const gamePhaseRef = useRef<"waiting" | "warmup" | "countdown" | "blackout" | "reveal" | "round_break" | "game_over">("waiting");
     const landmarkerRef = useRef<HandLandmarker | null>(null);
     const detectionFrameRef = useRef<number | null>(null);
     const captureIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -78,14 +78,12 @@ export function VideoRoom() {
     const [opponentNickname, setOpponentNickname] = useState<string | null>(null);
     const [callDuration, setCallDuration] = useState(0);
     const [gamePhase, setGamePhase] = useState<
-        "waiting" | "warmup" | "countdown" | "blackout" | "evaluation" | "round_break" | "game_over"
+        "waiting" | "warmup" | "countdown" | "blackout" | "reveal" | "round_break" | "game_over"
     >("waiting");
     const [timer, setTimer] = useState(0);
     const [round, setRound] = useState(0);
     const [scores, setScores] = useState({ user: 0, opponent: 0 });
     const [matchWinner, setMatchWinner] = useState<string | null>(null);
-    const [isBlindPhase, setIsBlindPhase] = useState(false);
-    const [isEvaluationBlackout, setIsEvaluationBlackout] = useState(false);
     const [lastRoundResult, setLastRoundResult] = useState<{
         winner: "user" | "opponent" | "draw";
         userMove: string;
@@ -291,7 +289,6 @@ export function VideoRoom() {
 
         const transitionTimeout = setTimeout(() => {
             setGamePhase("blackout");
-            setIsBlindPhase(true);
             setTimer(BLACKOUT_DURATION_SECONDS);
         }, 0);
 
@@ -326,8 +323,7 @@ export function VideoRoom() {
                 roomId: roomIdRef.current,
                 coordinates,
             });
-            setIsBlindPhase(false);
-            setGamePhase("evaluation");
+            setGamePhase("reveal");
             setTimer(0);
         };
 
@@ -416,8 +412,6 @@ export function VideoRoom() {
         setRound(0);
         setScores({ user: 0, opponent: 0 });
         setMatchWinner(null);
-        setIsBlindPhase(false);
-        setIsEvaluationBlackout(false);
         setLastRoundResult(null);
     }, []);
 
@@ -644,7 +638,6 @@ export function VideoRoom() {
                 roomIdRef.current = null;
                 setCallState("stopped");
                 setCaptureError(null);
-                setIsBlindPhase(false);
                 setLastRoundResult(null);
                 setConnectionStatus("Opponent disconnected. Find a new partner when ready.");
             });
@@ -653,7 +646,6 @@ export function VideoRoom() {
                 setGamePhase("warmup");
                 setTimer(data.durationSeconds || 10);
                 setRound(0);
-                setIsBlindPhase(false);
                 setScores({ user: 0, opponent: 0 });
                 setMatchWinner(null);
                 setLastRoundResult(null);
@@ -667,7 +659,6 @@ export function VideoRoom() {
                     evaluationTimeoutRef.current = null;
                 }
                 setGamePhase("countdown");
-                setIsBlindPhase(false);
                 setRound(Math.min(data.round, 5));
                 setTimer(5);
                 setCaptureError(null);
@@ -690,25 +681,44 @@ export function VideoRoom() {
                 isFinalRound?: boolean;
             }) => {
                 setCaptureError(null);
-                // Keep the opponent hidden for a short evaluation transition so the
-                // move reveal happens only after both results are ready.
-                setIsBlindPhase(false);
-                setIsEvaluationBlackout(false);
-                setGamePhase("evaluation");
+                setGamePhase("reveal");
 
-                const isPlayer1 = socket.id === data.p1_id;
-                const myScore = isPlayer1 ? (data.p1_score ?? 0) : (data.p2_score ?? 0);
-                const oppScore = isPlayer1 ? (data.p2_score ?? 0) : (data.p1_score ?? 0);
-                setScores({ user: myScore, opponent: oppScore });
+                const isPlayer1 = data.p1_id ? socket.id === data.p1_id : true;
 
                 const myMove = isPlayer1 ? data.p1_move : data.p2_move;
                 const oppMove = isPlayer1 ? data.p2_move : data.p1_move;
                 let roundWinner: "user" | "opponent" | "draw" = "draw";
-                if (data.winner === "player_1") {
-                    roundWinner = isPlayer1 ? "user" : "opponent";
-                } else if (data.winner === "player_2") {
-                    roundWinner = !isPlayer1 ? "user" : "opponent";
+                const normalizedMyMove = (myMove || "none").toLowerCase().trim();
+                const normalizedOppMove = (oppMove || "none").toLowerCase().trim();
+                const userWon =
+                    (normalizedMyMove === "rock" && normalizedOppMove === "scissors") ||
+                    (normalizedMyMove === "paper" && normalizedOppMove === "rock") ||
+                    (normalizedMyMove === "scissors" && normalizedOppMove === "paper");
+                if (normalizedOppMove === "none" && normalizedMyMove !== "none") {
+                    roundWinner = "user";
+                } else if (normalizedMyMove === "none" && normalizedOppMove !== "none") {
+                    roundWinner = "opponent";
+                } else if (normalizedMyMove !== normalizedOppMove) {
+                    roundWinner = userWon ? "user" : "opponent";
                 }
+                if (data.winner === "draw") roundWinner = "draw";
+
+                setScores((previousScores) => {
+                    if (
+                        typeof data.p1_score === "number" &&
+                        typeof data.p2_score === "number"
+                    ) {
+                        return {
+                            user: isPlayer1 ? data.p1_score : data.p2_score,
+                            opponent: isPlayer1 ? data.p2_score : data.p1_score,
+                        };
+                    }
+                    return roundWinner === "user"
+                        ? { ...previousScores, user: previousScores.user + 1 }
+                        : roundWinner === "opponent"
+                          ? { ...previousScores, opponent: previousScores.opponent + 1 }
+                          : previousScores;
+                });
 
                 setLastRoundResult({
                     winner: roundWinner,
@@ -732,8 +742,6 @@ export function VideoRoom() {
 
                 evaluationTimeoutRef.current = window.setTimeout(() => {
                     evaluationTimeoutRef.current = null;
-                    setIsBlindPhase(false);
-                    setIsEvaluationBlackout(false);
                     setGamePhase("round_break");
                     setTimer(data.nextRoundIn ?? 5);
                     setConnectionStatus(outcome);
@@ -744,15 +752,21 @@ export function VideoRoom() {
                 winner: string;
                 p1_score: number;
                 p2_score: number;
+                p1_id?: string;
+                p2_id?: string;
                 totalRounds?: number;
             }) => {
                 if (evaluationTimeoutRef.current !== null) {
                     clearTimeout(evaluationTimeoutRef.current);
                     evaluationTimeoutRef.current = null;
                 }
-                setIsBlindPhase(false);
-                setIsEvaluationBlackout(false);
                 setGamePhase("game_over");
+                if (data.p1_id && data.p2_id) {
+                    setScores({
+                        user: socket.id === data.p1_id ? data.p1_score : data.p2_score,
+                        opponent: socket.id === data.p1_id ? data.p2_score : data.p1_score,
+                    });
+                }
                 setMatchWinner(data.winner);
                 setConnectionStatus("Match Finished!");
             });
@@ -909,10 +923,10 @@ export function VideoRoom() {
                 </div>
             )}
 
-            {isConnected && (gamePhase === "evaluation" || gamePhase === "round_break") && (
+            {isConnected && (gamePhase === "reveal" || gamePhase === "round_break") && (
                 <div
                     className={`game-status-banner break-banner ${
-                        gamePhase === "evaluation"
+                        gamePhase === "reveal"
                             ? "evaluation-banner"
                             :
                         lastRoundResult?.winner === "user"
@@ -924,7 +938,7 @@ export function VideoRoom() {
                     role="status"
                 >
                     <span className="banner-icon">
-                        {gamePhase === "evaluation" ? (
+                        {gamePhase === "reveal" ? (
                             <Hourglass size={18} />
                         ) : lastRoundResult?.winner === "user" ? (
                             <Trophy size={18} />
@@ -935,9 +949,9 @@ export function VideoRoom() {
                         )}
                     </span>
                     <span className="banner-text">
-                        {gamePhase === "evaluation" ? (
+                        {gamePhase === "reveal" ? (
                             <>
-                                <strong>Evaluating round {lastRoundResult?.round || round}...</strong>
+                                <strong>Revealing round {lastRoundResult?.round || round}...</strong>
                             </>
                         ) : lastRoundResult?.winner === "user" ? (
                             <>
@@ -1058,7 +1072,7 @@ export function VideoRoom() {
                         )}
                     </div>
 
-                    <div className={`video-viewport remote-viewport ${isBlindPhase ? "blind-active" : ""} ${
+                    <div className={`video-viewport remote-viewport ${gamePhase === "blackout" ? "blind-active" : ""} ${
                         gamePhase === "round_break" && lastRoundResult?.winner === "user"
                             ? "result-loser"
                             : ""
@@ -1069,20 +1083,18 @@ export function VideoRoom() {
                                     ref={remoteVideoRef}
                                     autoPlay
                                     playsInline
-                                    className={`stream-video remote-video ${isBlindPhase ? "blind-blackout" : ""}`}
+                                    className={`stream-video remote-video ${gamePhase === "blackout" ? "blind-blackout" : ""}`}
                                 />
-                                {isBlindPhase && (
+                                {gamePhase === "blackout" && (
                                     <div className="blind-conceal-overlay" aria-live="assertive">
                                         <div className="blind-lock-symbol">
                                             <Lock size={44} strokeWidth={2.2} />
                                         </div>
                                         <p className="blind-lock-title">
-                                            {isEvaluationBlackout ? "Evaluating..." : "Opponent hidden"}
+                                            Opponent hidden
                                         </p>
                                         <p className="blind-lock-subtitle">
-                                            {isEvaluationBlackout
-                                                ? "Revealing results..."
-                                                : "Lock in your move!"}
+                                            Lock in your move!
                                         </p>
                                     </div>
                                 )}

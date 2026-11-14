@@ -86,6 +86,8 @@ export function finishMatch(room: RoomState, io_server: Server) {
         winner: match_winner,
         p1_score: room.player_1.score,
         p2_score: room.player_2.score,
+        p1_id: room.player_1.id,
+        p2_id: room.player_2.id,
         totalRounds: room.round,
     });
 
