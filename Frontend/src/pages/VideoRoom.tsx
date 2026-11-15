@@ -1083,7 +1083,21 @@ export function VideoRoom() {
                     }`}>
                         <>
                             <video
-                                ref={remoteVideoRef}
+                                ref={(element) => {
+                                    remoteVideoRef.current = element;
+                                    if (
+                                        element &&
+                                        remoteStreamRef.current &&
+                                        element.srcObject !== remoteStreamRef.current
+                                    ) {
+                                        element.srcObject = remoteStreamRef.current;
+                                        void element.play().catch(() => {
+                                            setConnectionStatus(
+                                                "Click the page to allow remote video playback."
+                                            );
+                                        });
+                                    }
+                                }}
                                 autoPlay
                                 playsInline
                                 className="stream-video remote-video"
