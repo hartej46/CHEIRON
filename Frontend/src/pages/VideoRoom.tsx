@@ -1086,7 +1086,7 @@ export function VideoRoom() {
                                 ref={remoteVideoRef}
                                 autoPlay
                                 playsInline
-                                className={`stream-video remote-video ${gamePhase === "blackout" ? "blind-blackout" : ""}`}
+                                className="stream-video remote-video"
                             />
                             {!remoteStream && (
                                 <div className="searching-placeholder">
@@ -1180,7 +1180,7 @@ export function VideoRoom() {
                             </div>
                         )}
                         {gamePhase === "blackout" && (
-                            <div className="blind-capture-overlay" aria-live="assertive">
+                            <div className="blind-capture-status" aria-live="assertive">
                                 <span>Scanning hand... {timer}s</span>
                             </div>
                         )}

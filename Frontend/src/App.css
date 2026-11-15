@@ -609,20 +609,24 @@ h1 {
     z-index: 3;
 }
 
-.blind-capture-overlay {
+.blind-capture-status {
     align-items: center;
-    background: #000;
     color: #fff;
     display: flex;
     inset: 0;
     justify-content: center;
+    pointer-events: none;
     position: absolute;
     z-index: 6;
 }
 
-.blind-capture-overlay span {
+.blind-capture-status span {
+    background: rgba(9, 9, 11, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
     font-size: 18px;
     font-weight: 600;
+    padding: 10px 18px;
 }
 
 .resume-button {
@@ -2095,12 +2099,6 @@ h1 {
 
 .remote-viewport.blind-active {
     background: #09090b;
-}
-
-.stream-video.remote-video.blind-blackout {
-    opacity: 0;
-    filter: brightness(0);
-    transition: opacity 0.2s ease, filter 0.2s ease;
 }
 
 .blind-conceal-overlay {
