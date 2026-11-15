@@ -27,7 +27,12 @@ const ICE_SERVERS: RTCConfiguration = {
     iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:stun2.l.google.com:19302" },
+        { urls: "stun:stun3.l.google.com:19302" },
+        { urls: "stun:stun4.l.google.com:19302" },
+        { urls: "stun:stun.services.mozilla.com" },
     ],
+    iceCandidatePoolSize: 10,
 };
 
 const HAND_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
@@ -93,6 +98,7 @@ export function VideoRoom() {
     } | null>(null);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [captureError, setCaptureError] = useState<string | null>(null);
+    const [isRemoteAudioMuted, setIsRemoteAudioMuted] = useState(false);
 
     useEffect(() => {
         gamePhaseRef.current = gamePhase;
@@ -349,6 +355,26 @@ export function VideoRoom() {
         };
     }, [gamePhase]);
 
+    // Safe helper to play remote video with autoplay policy fallback
+    const playRemoteVideo = useCallback((videoEl: HTMLVideoElement) => {
+        videoEl.play().catch(() => {
+            // Autoplay policy prevented playback with audio; mute and retry immediately
+            videoEl.muted = true;
+            setIsRemoteAudioMuted(true);
+            void videoEl.play().catch(() => {
+                setConnectionStatus("Click video to enable playback.");
+            });
+        });
+    }, []);
+
+    const handleUnmuteRemote = useCallback(() => {
+        if (remoteVideoRef.current) {
+            remoteVideoRef.current.muted = false;
+            void remoteVideoRef.current.play().catch(() => undefined);
+            setIsRemoteAudioMuted(false);
+        }
+    }, []);
+
     // Format duration MM:SS
     const formatDuration = (totalSeconds: number) => {
         const mins = Math.floor(totalSeconds / 60);
@@ -369,18 +395,14 @@ export function VideoRoom() {
     // Attach remote stream to remote video element
     useEffect(() => {
         if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = remoteStream;
+            if (remoteStream && remoteVideoRef.current.srcObject !== remoteStream) {
+                remoteVideoRef.current.srcObject = remoteStream;
+            }
             if (remoteStream) {
-                void remoteVideoRef.current.play().catch(() => {
-                    if (!remoteVideoRef.current) return;
-                    remoteVideoRef.current.muted = true;
-                    void remoteVideoRef.current.play().catch(() => {
-                        setConnectionStatus("Unable to start the remote video stream.");
-                    });
-                });
+                playRemoteVideo(remoteVideoRef.current);
             }
         }
-    }, [remoteStream]);
+    }, [remoteStream, playRemoteVideo]);
 
     // Helper: Teardown PeerConnection
     const teardownPeerConnection = useCallback(() => {
@@ -410,6 +432,7 @@ export function VideoRoom() {
         setRemoteStream(null);
         setOpponentNickname(null);
         setCallDuration(0);
+        setIsRemoteAudioMuted(false);
         setGamePhase("waiting");
         setTimer(0);
         setRound(0);
@@ -420,31 +443,53 @@ export function VideoRoom() {
 
     // Setup WebRTC PeerConnection
     const setupPeerConnection = useCallback(() => {
-        if (peerConnectionRef.current) return peerConnectionRef.current;
+        let connection = peerConnectionRef.current;
+        if (!connection) {
+            connection = new RTCPeerConnection(ICE_SERVERS);
+            peerConnectionRef.current = connection;
+        }
 
-        const connection = new RTCPeerConnection(ICE_SERVERS);
-        peerConnectionRef.current = connection;
-
+        // Ensure all local tracks are added to the peer connection
         if (streamRef.current) {
+            const senders = connection.getSenders();
             streamRef.current.getTracks().forEach((track) => {
-                connection.addTrack(track, streamRef.current!);
+                const alreadyAdded = senders.some((s) => s.track?.id === track.id);
+                if (!alreadyAdded) {
+                    connection.addTrack(track, streamRef.current!);
+                }
             });
         }
 
         connection.ontrack = (event) => {
-            const eventStream = event.streams[0];
-            const incomingStream =
-                eventStream ||
-                remoteStreamRef.current ||
-                new MediaStream();
-            if (!incomingStream.getTracks().some((track) => track.id === event.track.id)) {
-                incomingStream.addTrack(event.track);
+            const incomingTrack = event.track;
+            let currentStream = remoteStreamRef.current;
+            if (!currentStream) {
+                currentStream = new MediaStream();
+                remoteStreamRef.current = currentStream;
             }
-            if (remoteVideoRef.current && eventStream) {
-                remoteVideoRef.current.srcObject = eventStream;
+
+            if (!currentStream.getTracks().some((t) => t.id === incomingTrack.id)) {
+                currentStream.addTrack(incomingTrack);
             }
-            remoteStreamRef.current = incomingStream;
-            setRemoteStream(incomingStream);
+
+            // Bind unmute event to trigger play once frames/audio are actively arriving
+            incomingTrack.onunmute = () => {
+                if (remoteVideoRef.current && remoteStreamRef.current) {
+                    if (remoteVideoRef.current.srcObject !== remoteStreamRef.current) {
+                        remoteVideoRef.current.srcObject = remoteStreamRef.current;
+                    }
+                    playRemoteVideo(remoteVideoRef.current);
+                }
+            };
+
+            if (remoteVideoRef.current) {
+                remoteVideoRef.current.srcObject = currentStream;
+                playRemoteVideo(remoteVideoRef.current);
+            }
+
+            // CRITICAL: Clone into a new MediaStream instance so React state reference changes
+            // and triggers re-renders on subsequent tracks (e.g. video after audio)
+            setRemoteStream(new MediaStream(currentStream.getTracks()));
             setCallState("connected");
             setConnectionStatus("Connected to opponent.");
 
@@ -456,7 +501,7 @@ export function VideoRoom() {
 
         connection.onconnectionstatechange = () => {
             if (connection.connectionState === "failed") {
-                setConnectionStatus("WebRTC connection failed.");
+                setConnectionStatus("WebRTC connection failed. Retrying...");
             }
         };
 
@@ -470,7 +515,7 @@ export function VideoRoom() {
         };
 
         return connection;
-    }, []);
+    }, [playRemoteVideo]);
 
     // 1. Initialize Camera & Mic first. NOTHING starts before mic and camera are active!
     const initLocalMedia = useCallback(async (): Promise<MediaStream | null> => {
@@ -584,17 +629,29 @@ export function VideoRoom() {
                 }
             );
 
+            const drainPendingCandidates = async (connection: RTCPeerConnection) => {
+                const candidates = [...pendingCandidatesRef.current];
+                pendingCandidatesRef.current = [];
+                for (const candidate of candidates) {
+                    if (!candidate || (!candidate.candidate && candidate.candidate !== "")) {
+                        continue;
+                    }
+                    try {
+                        await connection.addIceCandidate(new RTCIceCandidate(candidate));
+                    } catch (error) {
+                        console.error("Failed to add buffered ICE candidate:", error);
+                    }
+                }
+            };
+
             socket.on(
                 "webrtc_offer",
                 async ({ roomId, sdp }: { roomId: string; sdp: RTCSessionDescriptionInit }) => {
                     roomIdRef.current = roomId;
                     const connection = setupPeerConnection();
                     try {
-                        await connection.setRemoteDescription(sdp);
-                        for (const candidate of pendingCandidatesRef.current) {
-                            await connection.addIceCandidate(candidate);
-                        }
-                        pendingCandidatesRef.current = [];
+                        await connection.setRemoteDescription(new RTCSessionDescription(sdp));
+                        await drainPendingCandidates(connection);
                         const answer = await connection.createAnswer();
                         await connection.setLocalDescription(answer);
                         socket.emit("webrtc_answer", {
@@ -611,13 +668,11 @@ export function VideoRoom() {
             socket.on(
                 "webrtc_answer",
                 async ({ sdp }: { sdp: RTCSessionDescriptionInit }) => {
-                    if (!peerConnectionRef.current) return;
+                    const connection = peerConnectionRef.current;
+                    if (!connection) return;
                     try {
-                        await peerConnectionRef.current.setRemoteDescription(sdp);
-                        for (const candidate of pendingCandidatesRef.current) {
-                            await peerConnectionRef.current.addIceCandidate(candidate);
-                        }
-                        pendingCandidatesRef.current = [];
+                        await connection.setRemoteDescription(new RTCSessionDescription(sdp));
+                        await drainPendingCandidates(connection);
                     } catch (error) {
                         console.error("Failed to handle WebRTC answer:", error);
                         setConnectionStatus("Unable to complete video connection.");
@@ -628,12 +683,16 @@ export function VideoRoom() {
             socket.on(
                 "webrtc_ice_candidate",
                 async ({ candidate }: { candidate: RTCIceCandidateInit }) => {
-                    if (!peerConnectionRef.current?.remoteDescription) {
+                    if (!candidate || (!candidate.candidate && candidate.candidate !== "")) {
+                        return;
+                    }
+                    const connection = peerConnectionRef.current;
+                    if (!connection?.remoteDescription) {
                         pendingCandidatesRef.current.push(candidate);
                         return;
                     }
                     try {
-                        await peerConnectionRef.current.addIceCandidate(candidate);
+                        await connection.addIceCandidate(new RTCIceCandidate(candidate));
                     } catch (error) {
                         console.error("Failed to add ICE candidate:", error);
                     }
@@ -1095,20 +1154,24 @@ export function VideoRoom() {
                                         element.srcObject !== remoteStreamRef.current
                                     ) {
                                         element.srcObject = remoteStreamRef.current;
-                                        void element.play().catch(() => {
-                                            element.muted = true;
-                                            void element.play().catch(() => {
-                                                setConnectionStatus(
-                                                    "Unable to start the remote video stream."
-                                                );
-                                            });
-                                        });
+                                        playRemoteVideo(element);
                                     }
                                 }}
                                 autoPlay
                                 playsInline
                                 className="stream-video remote-video"
+                                style={remoteStream ? undefined : { display: "none" }}
                             />
+                            {isRemoteAudioMuted && isConnected && (
+                                <button
+                                    type="button"
+                                    onClick={handleUnmuteRemote}
+                                    className="unmute-banner-btn"
+                                    title="Click to unmute opponent"
+                                >
+                                    🔊 Click to unmute opponent
+                                </button>
+                            )}
                             {!remoteStream && (
                                 <div className="searching-placeholder">
                                     {callState === "searching" && (
