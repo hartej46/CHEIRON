@@ -41,7 +41,6 @@ const HAND_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
 const HAND_HIGHLIGHT_LANDMARKS = [0, 4, 8, 12, 16, 20];
 const LANDMARK_VALUE_COUNT = 63;
 const BLACKOUT_DURATION_SECONDS = 5;
-type Gesture = "rock" | "paper" | "scissors" | "none";
 
 export function VideoRoom() {
     const { nickname, setUserData } = useNickname();
@@ -67,8 +66,6 @@ export function VideoRoom() {
     const captureTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const captureSamplesRef = useRef<number[][]>([]);
     const evaluationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const evaluatedRoundRef = useRef<number | null>(null);
-    const currentRoundRef = useRef(0);
 
     // Media State
     const [hasMediaPermissions, setHasMediaPermissions] = useState<boolean | null>(null);
@@ -86,8 +83,6 @@ export function VideoRoom() {
     const [timer, setTimer] = useState(0);
     const [round, setRound] = useState(0);
     const [scores, setScores] = useState({ user: 0, opponent: 0 });
-    const [localGesture, setLocalGesture] = useState<Gesture | null>(null);
-    const [opponentGesture, setOpponentGesture] = useState<Gesture | null>(null);
     const [matchWinner, setMatchWinner] = useState<string | null>(null);
     const [lastRoundResult, setLastRoundResult] = useState<{
         winner: "user" | "opponent" | "draw";
@@ -354,42 +349,6 @@ export function VideoRoom() {
         };
     }, [gamePhase]);
 
-    useEffect(() => {
-        if (!localGesture || !opponentGesture || evaluatedRoundRef.current === round) {
-            return;
-        }
-
-        evaluatedRoundRef.current = round;
-        const userWon =
-            (localGesture === "rock" && opponentGesture === "scissors") ||
-            (localGesture === "paper" && opponentGesture === "rock") ||
-            (localGesture === "scissors" && opponentGesture === "paper");
-        const winner: "user" | "opponent" | "draw" =
-            localGesture === opponentGesture
-                ? "draw"
-                : userWon
-                  ? "user"
-                  : "opponent";
-
-        setScores((previousScores) =>
-            winner === "user"
-                ? { ...previousScores, user: previousScores.user + 1 }
-                : winner === "opponent"
-                  ? { ...previousScores, opponent: previousScores.opponent + 1 }
-                  : previousScores
-        );
-        setLastRoundResult({
-            winner,
-            userMove: localGesture,
-            opponentMove: opponentGesture,
-            reason: winner === "draw" ? "Both players chose the same gesture." : "Gesture evaluation complete.",
-            round,
-        });
-        setGamePhase("reveal");
-    }, [localGesture, opponentGesture, round]);
-
-
-
     // Format duration MM:SS
     const formatDuration = (totalSeconds: number) => {
         const mins = Math.floor(totalSeconds / 60);
@@ -446,14 +405,11 @@ export function VideoRoom() {
         remoteStreamRef.current = null;
         setRemoteStream(null);
         setOpponentNickname(null);
+        setCallDuration(0);
         setGamePhase("waiting");
         setTimer(0);
         setRound(0);
-        currentRoundRef.current = 0;
         setScores({ user: 0, opponent: 0 });
-        setLocalGesture(null);
-        setOpponentGesture(null);
-        evaluatedRoundRef.current = null;
         setMatchWinner(null);
         setLastRoundResult(null);
     }, []);
@@ -693,11 +649,7 @@ export function VideoRoom() {
                 setGamePhase("warmup");
                 setTimer(data.durationSeconds || 10);
                 setRound(0);
-                currentRoundRef.current = 0;
                 setScores({ user: 0, opponent: 0 });
-                setLocalGesture(null);
-                setOpponentGesture(null);
-                evaluatedRoundRef.current = null;
                 setMatchWinner(null);
                 setLastRoundResult(null);
                 setCaptureError(null);
@@ -710,49 +662,12 @@ export function VideoRoom() {
                     evaluationTimeoutRef.current = null;
                 }
                 setGamePhase("countdown");
-                setLocalGesture(null);
-                setOpponentGesture(null);
-                evaluatedRoundRef.current = null;
                 const nextRound = Math.min(data.round, 5);
                 setRound(nextRound);
-                currentRoundRef.current = nextRound;
                 setTimer(5);
                 setCaptureError(null);
                 setConnectionStatus(`Round ${Math.min(data.round, 5)} of 5: Position your hand!`);
             });
-
-            socket.on(
-                "gesture_result",
-                ({
-                    round: resultRound,
-                    playerId,
-                    gesture,
-                }: {
-                    round: number;
-                    playerId: string;
-                    gesture: string;
-                }) => {
-                    if (resultRound !== currentRoundRef.current) {
-                        return;
-                    }
-                    const normalizedGesture = gesture.toLowerCase().trim();
-                    if (
-                        normalizedGesture !== "rock" &&
-                        normalizedGesture !== "paper" &&
-                        normalizedGesture !== "scissors" &&
-                        normalizedGesture !== "none"
-                    ) {
-                        console.error("Ignoring invalid gesture result.", gesture);
-                        return;
-                    }
-
-                    if (playerId === socket.id) {
-                        setLocalGesture(normalizedGesture);
-                    } else {
-                        setOpponentGesture(normalizedGesture);
-                    }
-                }
-            );
 
             socket.on("roundResults", (data: {
                 round?: number;
@@ -773,6 +688,15 @@ export function VideoRoom() {
                 setGamePhase("reveal");
 
                 const isPlayer1 = data.p1_id ? socket.id === data.p1_id : true;
+                if (
+                    typeof data.p1_score === "number" &&
+                    typeof data.p2_score === "number"
+                ) {
+                    setScores({
+                        user: isPlayer1 ? data.p1_score : data.p2_score,
+                        opponent: isPlayer1 ? data.p2_score : data.p1_score,
+                    });
+                }
 
                 const myMove = isPlayer1 ? data.p1_move : data.p2_move;
                 const oppMove = isPlayer1 ? data.p2_move : data.p1_move;
@@ -818,6 +742,14 @@ export function VideoRoom() {
                     setTimer(data.nextRoundIn ?? 5);
                     setConnectionStatus(outcome);
                 }, 1000);
+            });
+
+            socket.on("round_error", ({ message }: { message: string }) => {
+                console.error("Round error:", message);
+                setCaptureError(message || "The round could not be evaluated.");
+                setGamePhase("round_break");
+                setTimer(0);
+                setConnectionStatus(message || "The round could not be evaluated.");
             });
 
             socket.on("match_finished", (data: {
@@ -1149,33 +1081,43 @@ export function VideoRoom() {
                             ? "result-loser"
                             : ""
                     }`}>
-                        {remoteStream ? (
-                            <>
-                                <video
-                                    ref={remoteVideoRef}
-                                    autoPlay
-                                    playsInline
-                                    onLoadedMetadata={() => {
-                                        if (remoteVideoRef.current && remoteStreamRef.current) {
-                                            remoteVideoRef.current.srcObject = remoteStreamRef.current;
-                                            void remoteVideoRef.current.play().catch(() => undefined);
-                                        }
-                                    }}
-                                    className={`stream-video remote-video ${gamePhase === "blackout" ? "blind-blackout" : ""}`}
-                                />
-                                {gamePhase === "blackout" && (
-                                    <div className="blind-conceal-overlay" aria-live="assertive">
-                                        <div className="blind-lock-symbol">
-                                            <Lock size={44} strokeWidth={2.2} />
+                        <>
+                            <video
+                                ref={remoteVideoRef}
+                                autoPlay
+                                playsInline
+                                className={`stream-video remote-video ${gamePhase === "blackout" ? "blind-blackout" : ""}`}
+                            />
+                            {!remoteStream && (
+                                <div className="searching-placeholder">
+                                    {callState === "searching" && (
+                                        <div className="radar-spinner" aria-hidden="true">
+                                            <div className="radar-circle circle-1" />
+                                            <div className="radar-circle circle-2" />
+                                            <div className="radar-circle circle-3" />
                                         </div>
-                                        <p className="blind-lock-title">
-                                            Opponent hidden
-                                        </p>
-                                        <p className="blind-lock-subtitle">
-                                            Lock in your move!
-                                        </p>
+                                    )}
+                                    <p className="connection-status-text">{connectionStatus}</p>
+                                    {callState === "stopped" && (
+                                        <button
+                                            type="button"
+                                            onClick={handleStartSearching}
+                                            className="primary-button resume-button"
+                                        >
+                                            Find Partner
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                            {gamePhase === "blackout" && (
+                                <div className="blind-conceal-overlay" aria-live="assertive">
+                                    <div className="blind-lock-symbol">
+                                        <Lock size={44} strokeWidth={2.2} />
                                     </div>
-                                )}
+                                    <p className="blind-lock-title">Opponent hidden</p>
+                                    <p className="blind-lock-subtitle">Lock in your move!</p>
+                                </div>
+                            )}
                                 {gamePhase === "round_break" && lastRoundResult?.winner === "user" && (
                                     <div className="winner-video-popover">
                                         <Trophy size={20} />
@@ -1187,28 +1129,7 @@ export function VideoRoom() {
                                         {timer}
                                     </div>
                                 )}
-                            </>
-                        ) : (
-                            <div className="searching-placeholder">
-                                {callState === "searching" && (
-                                    <div className="radar-spinner" aria-hidden="true">
-                                        <div className="radar-circle circle-1" />
-                                        <div className="radar-circle circle-2" />
-                                        <div className="radar-circle circle-3" />
-                                    </div>
-                                )}
-                                <p className="connection-status-text">{connectionStatus}</p>
-                                {callState === "stopped" && (
-                                    <button
-                                        type="button"
-                                        onClick={handleStartSearching}
-                                        className="primary-button resume-button"
-                                    >
-                                        Find Partner
-                                    </button>
-                                )}
-                            </div>
-                        )}
+                        </>
                     </div>
                 </article>
 
@@ -1233,12 +1154,6 @@ export function VideoRoom() {
                             autoPlay
                             muted
                             playsInline
-                            onLoadedMetadata={() => {
-                                if (videoRef.current && streamRef.current) {
-                                    videoRef.current.srcObject = streamRef.current;
-                                    void videoRef.current.play().catch(() => undefined);
-                                }
-                            }}
                             className={`stream-video local-video active ${gamePhase === "round_break" ? "camera-dimmed" : ""}`}
                             aria-label="Your local camera stream"
                         />
