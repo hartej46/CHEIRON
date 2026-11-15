@@ -372,7 +372,11 @@ export function VideoRoom() {
             remoteVideoRef.current.srcObject = remoteStream;
             if (remoteStream) {
                 void remoteVideoRef.current.play().catch(() => {
-                    setConnectionStatus("Click the page to allow remote video playback.");
+                    if (!remoteVideoRef.current) return;
+                    remoteVideoRef.current.muted = true;
+                    void remoteVideoRef.current.play().catch(() => {
+                        setConnectionStatus("Unable to start the remote video stream.");
+                    });
                 });
             }
         }
@@ -1092,9 +1096,12 @@ export function VideoRoom() {
                                     ) {
                                         element.srcObject = remoteStreamRef.current;
                                         void element.play().catch(() => {
-                                            setConnectionStatus(
-                                                "Click the page to allow remote video playback."
-                                            );
+                                            element.muted = true;
+                                            void element.play().catch(() => {
+                                                setConnectionStatus(
+                                                    "Unable to start the remote video stream."
+                                                );
+                                            });
                                         });
                                     }
                                 }}
