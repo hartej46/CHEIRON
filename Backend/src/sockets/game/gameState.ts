@@ -24,7 +24,7 @@ export interface RoomState {
 export const MAX_ROUNDS = 5;
 export const ROUND_DURATION_MS = 5000;
 export const BLIND_PHASE_MS = 5000;
-export const BREAK_BUFFER_MS = 5000; // 5-second buffer between rounds
+export const BREAK_BUFFER_MS = 6500; // 6.5-second buffer (1s reveal + 5s celebration + 0.5s network)
 
 export const activeRooms = new Map<string, RoomState>();
 export const socketToRoom = new Map<string, string>(); // We use this accidental close ups
@@ -140,7 +140,7 @@ export function startNextRound(roomId: string, io_server: Server) {
         }
     }, BLIND_PHASE_MS);
 
-    // Safety timeout: 5s ready countdown + 5s blackout + 2.5s network grace
+    // Safety timeout: 5s ready countdown + 5s blackout + 5.5s network/client-render grace
     room.roundTimeout = setTimeout(() => {
         const current = activeRooms.get(roomId);
         if (current && current.status === "in_progress" && current.round === room.round) {
@@ -151,19 +151,32 @@ export function startNextRound(roomId: string, io_server: Server) {
             io_server.to(roomId).emit("round_error", { message: "Round timed out, retrying..." });
             startNextRound(roomId, io_server);
         }
-    }, ROUND_DURATION_MS + BLIND_PHASE_MS + 2500);
+    }, ROUND_DURATION_MS + BLIND_PHASE_MS + 5500);
 }
 
 export async function submitCoordinates(
     roomId: string,
     socketId: string,
     coordinates: number[][],
-    io_server: Server
+    io_server: Server,
+    round?: number
 ) {
     const room = activeRooms.get(roomId);
 
     if (!room) return;
 
+    // Discard stale submissions from previous or mismatched rounds
+    if (typeof round === "number" && round !== room.round) {
+        console.warn(`[COORDINATES] Discarding coordinate batch for mismatched round ${round} (current active round is ${room.round}) from ${socketId}`);
+        return;
+    }
+
+    if (room.status !== "in_progress") {
+        console.warn(`[COORDINATES] Discarding coordinate batch for room ${roomId} with status ${room.status} from ${socketId}`);
+        return;
+    }
+
+    let validCoordinates = coordinates;
     if (
         !Array.isArray(coordinates) ||
         coordinates.some(
@@ -173,15 +186,15 @@ export async function submitCoordinates(
                 sample.some((value) => !Number.isFinite(value))
         )
     ) {
-        console.error("Rejected invalid coordinate batch.", {
+        console.warn("Invalid coordinate batch format from socket; treating as empty detection.", {
             roomId,
             socketId,
         });
-        return;
+        validCoordinates = [];
     }
 
     // Pad samples up to 5 if player provided 1 to 4 samples
-    const finalCoordinates = [...coordinates];
+    const finalCoordinates = [...validCoordinates];
     if (finalCoordinates.length > 0 && finalCoordinates.length < 5) {
         while (finalCoordinates.length < 5) {
             finalCoordinates.push([...finalCoordinates[finalCoordinates.length - 1]]);
@@ -206,7 +219,7 @@ export async function submitCoordinates(
             room.blindTimeout = undefined;
         }
 
-        console.log(`Evaluating round ${room.round} in room ${roomId} with coordinates from both players.${room.player_1.coordinates.length} samples from player 1 and ${room.player_2.coordinates.length} samples from player 2.`);
+        console.log(`Evaluating round ${room.round} in room ${roomId} with coordinates from both players. Player 1 samples: ${room.player_1.coordinates.length}, Player 2 samples: ${room.player_2.coordinates.length}.`);
         await evaluateRound(room, io_server);
     }
 }
@@ -366,7 +379,19 @@ export async function evaluateRound(room: RoomState, io_server: Server) {
 
     } catch (error) {
         console.error("Error during round evaluation:", error);
-        io_server.to(room.roomId).emit("round_error", { message: "Error during round evaluation" });
+        io_server.to(room.roomId).emit("round_error", { message: "Error during round evaluation, retrying..." });
+
+        // Recover after 3 seconds so the match does not freeze permanently
+        setTimeout(() => {
+            const current = activeRooms.get(room.roomId);
+            if (current && current.status === "evaluation") {
+                if (current.round >= MAX_ROUNDS) {
+                    finishMatch(current, io_server);
+                } else {
+                    startNextRound(room.roomId, io_server);
+                }
+            }
+        }, 3000);
         return;
     }
 }

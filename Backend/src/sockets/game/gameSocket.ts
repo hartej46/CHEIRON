@@ -148,11 +148,13 @@ export default function registerGameSockets(io_server: Server) {
         const handleCoordinateSubmission = ({
             roomId,
             coordinates,
+            round,
         }: {
             roomId: string;
             coordinates: number[][];
+            round?: number;
         }) => {
-            void submitCoordinates(roomId, socket.id, coordinates, io_server);
+            void submitCoordinates(roomId, socket.id, coordinates, io_server, round);
         };
 
         socket.on("submit_coordinates", handleCoordinateSubmission);
