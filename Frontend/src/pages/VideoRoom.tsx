@@ -99,6 +99,11 @@ export function VideoRoom() {
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [captureError, setCaptureError] = useState<string | null>(null);
     const [isRemoteAudioMuted, setIsRemoteAudioMuted] = useState(false);
+    const roundRef = useRef(round);
+
+    useEffect(() => {
+        roundRef.current = round;
+    }, [round]);
 
     useEffect(() => {
         gamePhaseRef.current = gamePhase;
@@ -324,6 +329,7 @@ export function VideoRoom() {
 
             socketRef.current?.emit("submit_coordinates", {
                 roomId: roomIdRef.current,
+                round: roundRef.current,
                 coordinates,
             });
             setGamePhase("reveal");
@@ -732,6 +738,12 @@ export function VideoRoom() {
                 setConnectionStatus(`Round ${Math.min(data.round, 5)} of 5: Position your hand!`);
             });
 
+            socket.on("round_blind_phase", (data: { round: number }) => {
+                if (data?.round && data.round !== roundRef.current) return;
+                setGamePhase((prev) => (prev === "countdown" ? "blackout" : prev));
+                setTimer(BLACKOUT_DURATION_SECONDS);
+            });
+
             socket.on("roundResults", (data: {
                 round?: number;
                 maxRounds?: number;
@@ -784,7 +796,7 @@ export function VideoRoom() {
                     userMove: myMove || "none",
                     opponentMove: oppMove || "none",
                     reason: data.reason || data.result,
-                    round: Math.min(data.round ?? round, 5),
+                    round: Math.min(data.round ?? roundRef.current ?? round, 5),
                 });
 
                 let outcome = data.reason || data.result;
@@ -810,9 +822,9 @@ export function VideoRoom() {
             socket.on("round_error", ({ message }: { message: string }) => {
                 console.error("Round error:", message);
                 setCaptureError(message || "The round could not be evaluated.");
-                setGamePhase("round_break");
-                setTimer(0);
-                setConnectionStatus(message || "The round could not be evaluated.");
+                setGamePhase("reveal");
+                setTimer(3);
+                setConnectionStatus(message || "The round could not be evaluated. Retrying...");
             });
 
             socket.on("match_finished", (data: {
