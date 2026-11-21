@@ -14,6 +14,7 @@ import {
     Video,
     VideoOff,
     Volume2,
+    VolumeX,
     User,
     LogOut,
 } from "lucide-react";
@@ -22,6 +23,7 @@ import { initPlayer, getSessionDetails } from "../service/service";
 import { ProfileModal } from "../components/ProfileModal";
 import { DuelClashStage } from "../components/DuelClashStage";
 import { getStoredToken } from "../utils/storage";
+import { soundManager } from "../utils/audio";
 import "../styles/arena.css";
 
 const ICE_SERVERS: RTCConfiguration = {
@@ -103,6 +105,8 @@ export function VideoRoom() {
     const [isRemoteAudioMuted, setIsRemoteAudioMuted] = useState(false);
     const [isMicMuted, setIsMicMuted] = useState(false);
     const [isCameraOff, setIsCameraOff] = useState(false);
+    const [sfxVolume, setSfxVolume] = useState<number>(() => soundManager.getVolume());
+    const [isSfxMuted, setIsSfxMuted] = useState<boolean>(() => soundManager.getIsMuted());
     const roundRef = useRef(round);
 
     useEffect(() => {
@@ -412,6 +416,20 @@ export function VideoRoom() {
         });
         setIsCameraOff(nextOff);
     }, [isCameraOff]);
+
+    const toggleSfxMute = useCallback(() => {
+        const muted = soundManager.toggleMute();
+        setIsSfxMuted(muted);
+    }, []);
+
+    const handleSfxVolumeChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        const val = parseFloat(event.target.value);
+        soundManager.setVolume(val);
+        setSfxVolume(val);
+        if (val > 0 && soundManager.getIsMuted()) {
+            setIsSfxMuted(soundManager.toggleMute());
+        }
+    }, []);
 
     // Format duration MM:SS
     const formatDuration = (totalSeconds: number) => {
@@ -856,6 +874,14 @@ export function VideoRoom() {
                     setGamePhase("round_break");
                     setTimer(data.nextRoundIn ?? 5);
                     setConnectionStatus(outcome);
+
+                    // Trigger sound feedback for round result
+                    if (roundWinner === "user") {
+                        soundManager.playRoundWin();
+                    } else if (roundWinner === "opponent") {
+                        soundManager.playRoundLoss();
+                    }
+                    // For whole match win, user instructed: "and for whole weinninf dont add anyhting"
                 }, 1000);
             });
 
@@ -1370,6 +1396,34 @@ export function VideoRoom() {
                 <div className="arena-dock-center" aria-hidden="true" />
 
                 <div className="arena-dock-right">
+                    {/* Sound Effects (SFX) Volume & Mute Controls */}
+                    <div className="dock-sfx-group" title="Sound Effects Volume">
+                        <button
+                            type="button"
+                            onClick={toggleSfxMute}
+                            className={`dock-sfx-btn ${isSfxMuted || sfxVolume === 0 ? "is-muted" : ""}`}
+                            aria-label={isSfxMuted ? "Unmute sound effects" : "Mute sound effects"}
+                            title={isSfxMuted ? "Unmute sound effects" : "Mute sound effects"}
+                        >
+                            {isSfxMuted || sfxVolume === 0 ? <VolumeX size={15} /> : <Volume2 size={15} />}
+                            <span>SFX</span>
+                        </button>
+                        <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.05"
+                            value={isSfxMuted ? 0 : sfxVolume}
+                            onChange={handleSfxVolumeChange}
+                            className="dock-sfx-slider"
+                            aria-label="Sound effects volume slider"
+                            title={`Volume: ${isSfxMuted ? 0 : Math.round(sfxVolume * 100)}%`}
+                        />
+                        <span className="dock-sfx-val">
+                            {isSfxMuted ? "0%" : `${Math.round(sfxVolume * 100)}%`}
+                        </span>
+                    </div>
+
                     <button
                         type="button"
                         onClick={toggleMic}
