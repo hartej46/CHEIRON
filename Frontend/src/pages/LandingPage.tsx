@@ -1,10 +1,28 @@
 import { useState, useRef, useEffect } from "react";
 import type { FormEvent } from "react";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
-import { Check, Circle, Hand, Mic, Scissors, Video } from "lucide-react";
-import { initPlayer } from "../service/service";
+import {
+    Activity,
+    ArrowRight,
+    Check,
+    Circle,
+    Cpu,
+    Hand,
+    Mic,
+    Radio,
+    RefreshCw,
+    Scissors,
+    Shield,
+    Sparkles,
+    Swords,
+    User,
+    Video,
+    Zap,
+} from "lucide-react";
+import { checkBackendHealth, initPlayer } from "../service/service";
 import { useNickname } from "../context/NicknameContext";
 import { ProfileModal } from "../components/ProfileModal";
+import "../styles/landing.css";
 
 interface LandingPageProps {
     onStart: (nickname: string) => void;
@@ -32,7 +50,56 @@ export function LandingPage({ onStart }: LandingPageProps) {
     >("prompt");
     const [previewStream, setPreviewStream] = useState<MediaStream | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [backendHealth, setBackendHealth] = useState<"checking" | "waking" | "ready">("checking");
+    const [hasRecoveredFromWaking, setHasRecoveredFromWaking] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
+
+    // Initial and periodic health check for backend cold-start on Render
+    useEffect(() => {
+        let isMounted = true;
+        let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+        const checkHealth = async () => {
+            const isHealthy = await checkBackendHealth();
+            if (!isMounted) return;
+
+            if (isHealthy) {
+                setBackendHealth((prev) => {
+                    if (prev === "waking") {
+                        setHasRecoveredFromWaking(true);
+                    }
+                    return "ready";
+                });
+                if (pollTimer) {
+                    clearInterval(pollTimer);
+                    pollTimer = null;
+                }
+            } else {
+                setBackendHealth("waking");
+                if (!pollTimer) {
+                    pollTimer = setInterval(async () => {
+                        const ok = await checkBackendHealth();
+                        if (!isMounted) return;
+                        if (ok) {
+                            setBackendHealth("ready");
+                            setHasRecoveredFromWaking(true);
+                            if (pollTimer) {
+                                clearInterval(pollTimer);
+                                pollTimer = null;
+                            }
+                        }
+                    }, 3000);
+                }
+            }
+        };
+
+        checkHealth();
+
+        return () => {
+            isMounted = false;
+            if (pollTimer) clearInterval(pollTimer);
+        };
+    }, []);
 
     // Update video element when previewStream is available
     useEffect(() => {
@@ -99,12 +166,12 @@ export function LandingPage({ onStart }: LandingPageProps) {
 
         // 1. Validate username on frontend
         if (!trimmedNickname) {
-            setValidationError("Please enter a username to continue.");
+            setValidationError("Please enter a callsign to continue.");
             return;
         }
 
         if (trimmedNickname.length <= 2) {
-            setValidationError("Username must be greater than 2 characters.");
+            setValidationError("Callsign must be greater than 2 characters.");
             return;
         }
 
@@ -114,7 +181,7 @@ export function LandingPage({ onStart }: LandingPageProps) {
             isPermitted = await requestMediaPermissions();
         }
 
-        // If permission was not given, do not allow entering!
+        // If permission was not given, do not allow entering
         if (!isPermitted) {
             return;
         }
@@ -128,6 +195,21 @@ export function LandingPage({ onStart }: LandingPageProps) {
             setIsSubmitting(true);
             setApiError(null);
             setValidationError(null);
+
+            // If backend is waking up on Render, verify readiness before proceeding
+            if (backendHealth === "waking") {
+                const isNowReady = await checkBackendHealth();
+                if (!isNowReady) {
+                    setIsSubmitting(false);
+                    setApiError(
+                        "Backend is still turning on on Render (~30-50s cold start). Please wait a few seconds and try again."
+                    );
+                    return;
+                }
+                setBackendHealth("ready");
+                setHasRecoveredFromWaking(true);
+            }
+
             const response = await initPlayer(trimmedNickname);
             if (response?.profile) {
                 setUserData(response.profile);
@@ -147,123 +229,182 @@ export function LandingPage({ onStart }: LandingPageProps) {
         userData?.nickname || contextNickname || (isLoggedIn ? "Guest" : null);
 
     const reveal: Variants = {
-        hidden: { opacity: 0, y: 18 },
+        hidden: { opacity: 0, y: 16 },
         visible: (index = 0) => ({
             opacity: 1,
             y: 0,
             transition: {
-                delay: index * 0.08,
-                duration: 0.55,
+                delay: index * 0.07,
+                duration: 0.5,
                 ease: [0.22, 1, 0.36, 1] as const,
             },
         }),
     };
 
     return (
-        <main className="min-h-screen w-full grid grid-cols-1 lg:grid-cols-2 bg-zinc-950 text-white overflow-x-hidden">
-            <section className="rps-hero" aria-labelledby="rps-title">
-                <div className="rps-hero-grid" aria-hidden="true" />
+        <main className="cheiron-landing">
+            {/* Ambient Background Layers */}
+            <div className="landing-ambient-layer" aria-hidden="true" />
+            <div className="landing-grid-layer" aria-hidden="true" />
+
+            {/* Left Hero Column: "The Neural Arena" */}
+            <section className="landing-hero-col" aria-labelledby="hero-title">
+                {/* Header */}
                 <motion.header
-                    className="rps-hero-header"
+                    className="landing-hero-header"
                     initial={{ opacity: 0, y: -12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.45, ease: "easeOut" }}
                 >
-                    <span className="rps-wordmark">CHEIRON</span>
-                    <span className="rps-mode">live room / 01</span>
+                    <div className="landing-brand-group">
+                        <span className="landing-brand-title">CHEIRON</span>
+                        <span
+                            className={`landing-online-tag ${
+                                backendHealth === "ready" ? "ready" : "waking"
+                            }`}
+                        >
+                            <span
+                                className={`landing-online-dot ${
+                                    backendHealth === "ready" ? "" : "waking"
+                                }`}
+                            />
+                            <span>
+                                {backendHealth === "ready"
+                                    ? "Backend Online"
+                                    : backendHealth === "waking"
+                                      ? "Backend Waking Up..."
+                                      : "Connecting Server..."}
+                            </span>
+                        </span>
+                    </div>
+                    <span className="landing-hero-version">v2.4 / P2P Vision</span>
                 </motion.header>
 
-                <div className="rps-hero-content">
-                    <motion.p
-                        className="rps-kicker"
+                {/* Hero Body */}
+                <div className="landing-hero-body">
+                    <motion.div
+                        className="landing-kicker-pill"
                         variants={reveal}
                         custom={0}
                         initial="hidden"
                         animate="visible"
                     >
-                        Real-time hand play
-                    </motion.p>
+                        <Zap size={12} strokeWidth={2.4} />
+                        <span>Real-Time 3D Gesture Duels</span>
+                    </motion.div>
+
                     <motion.h1
-                        id="rps-title"
-                        className="rps-title text-6xl md:text-8xl lg:text-[7vw] leading-none tracking-tighter"
+                        id="hero-title"
+                        className="landing-hero-headline"
                         variants={reveal}
                         custom={1}
                         initial="hidden"
                         animate="visible"
                     >
-                        Rock.
+                        <span className="gradient-word">Rock.</span>
                         <br />
-                        Paper.
+                        <span className="gradient-word">Paper.</span>
                         <br />
-                        Scissors.
+                        <span className="gradient-word">Scissors.</span>
                     </motion.h1>
+
                     <motion.p
-                        className="rps-subtitle"
+                        className="landing-hero-subtitle"
                         variants={reveal}
                         custom={2}
                         initial="hidden"
                         animate="visible"
                     >
-                        Powered by <span>AI hand tracking</span>
+                        Step in front of your camera. Battle live strangers with{" "}
+                        <strong>21-landmark neural hand tracking</strong> and dynamic animated 3D
+                        clash physics. No controllers needed.
                     </motion.p>
 
-                    <div className="rps-symbol-stage" aria-label="Rock, paper, and scissors">
+                    {/* 3 Interactive Holographic Gesture Cards */}
+                    <div className="landing-gesture-deck" aria-label="Game moves preview">
                         {[
-                            { label: "Rock", Icon: Circle },
-                            { label: "Paper", Icon: Hand },
-                            { label: "Scissors", Icon: Scissors },
-                        ].map(({ label, Icon }, index) => (
+                            {
+                                key: "rock",
+                                label: "Rock",
+                                rule: "Crushes Scissors",
+                                icon: Circle,
+                                cls: "card-rock",
+                            },
+                            {
+                                key: "paper",
+                                label: "Paper",
+                                rule: "Covers Rock",
+                                icon: Hand,
+                                cls: "card-paper",
+                            },
+                            {
+                                key: "scissors",
+                                label: "Scissors",
+                                rule: "Cuts Paper",
+                                icon: Scissors,
+                                cls: "card-scissors",
+                            },
+                        ].map(({ key, label, rule, icon: Icon, cls }, idx) => (
                             <motion.div
-                                className={`rps-symbol rps-symbol-${index + 1}`}
-                                key={label}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: [0, -20, 0] }}
+                                key={key}
+                                className={`gesture-card ${cls}`}
+                                initial={{ opacity: 0, y: 18 }}
+                                animate={{ opacity: 1, y: 0 }}
                                 transition={{
-                                    opacity: { delay: 0.35 + index * 0.12, duration: 0.45 },
-                                    y: {
-                                        delay: 0.8 + index * 0.22,
-                                        duration: 4,
-                                        repeat: Infinity,
-                                        ease: "easeInOut",
-                                    },
+                                    delay: 0.28 + idx * 0.1,
+                                    duration: 0.45,
+                                    ease: "easeOut",
                                 }}
                             >
-                                <Icon strokeWidth={1.4} aria-hidden="true" />
-                                <span>{label}</span>
+                                <div className="gesture-icon-wrap">
+                                    <Icon size={24} strokeWidth={1.8} />
+                                </div>
+                                <span className="gesture-name">{label}</span>
+                                <span className="gesture-rule">{rule}</span>
                             </motion.div>
                         ))}
                     </div>
                 </div>
 
-                <div className="rps-hero-footer">
-                    <span>Choose your move</span>
-                    <span className="rps-footer-line" aria-hidden="true" />
-                    <span>Enter the arena</span>
-                </div>
+                {/* Hero Footer Specifications */}
+                <motion.footer
+                    className="landing-hero-footer"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5, duration: 0.5 }}
+                >
+                    <div className="landing-spec-pill">
+                        <Radio size={14} />
+                        <span>WebRTC Peer-to-Peer</span>
+                    </div>
+                    <span className="landing-spec-divider">/</span>
+                    <div className="landing-spec-pill">
+                        <Cpu size={14} />
+                        <span>MediaPipe Vision AI</span>
+                    </div>
+                    <span className="landing-spec-divider">/</span>
+                    <div className="landing-spec-pill">
+                        <Swords size={14} />
+                        <span>Real-Time 3D Physics</span>
+                    </div>
+                </motion.footer>
             </section>
 
-            <section
-                className="rps-action-area"
-                aria-labelledby="landing-title"
-            >
+            {/* Right Column: "Pre-Flight Console" */}
+            <section className="landing-console-col" aria-label="Pre-flight setup console">
                 <motion.div
-                    className="rps-setup-content flex h-full w-full max-w-2xl flex-col justify-center px-8 lg:px-24 xl:px-32"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, ease: "easeOut" }}
+                    className="landing-console-card"
+                    initial={{ opacity: 0, scale: 0.96, y: 16 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{ duration: 0.45, ease: "easeOut" }}
                 >
-                    <motion.div
-                        className="rps-card-topline"
-                        variants={reveal}
-                        custom={0}
-                        initial="hidden"
-                        animate="visible"
-                    >
-                        <span className="rps-card-label">Setup / 01</span>
+                    {/* Console Telemetry Top Bar */}
+                    <div className="console-telemetry-bar">
+                        <span className="console-tag">PRE-MATCH CALIBRATION</span>
                         <button
                             type="button"
                             onClick={() => setIsProfileOpen(true)}
-                            className="rps-profile-button focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 active:scale-[0.98]"
+                            className="console-profile-btn"
                             title={
                                 isLoggedIn && activeUserDisplayName
                                     ? `Profile: ${activeUserDisplayName}`
@@ -272,7 +413,9 @@ export function LandingPage({ onStart }: LandingPageProps) {
                             aria-label="Open user profile"
                         >
                             <span
-                                className={`profile-status-dot ${isLoggedIn ? "active" : "idle"}`}
+                                className={`console-profile-dot ${
+                                    isLoggedIn ? "is-active" : ""
+                                }`}
                             />
                             <span>
                                 {isLoggedIn && activeUserDisplayName
@@ -280,191 +423,216 @@ export function LandingPage({ onStart }: LandingPageProps) {
                                     : "Profile"}
                             </span>
                         </button>
-                    </motion.div>
+                    </div>
 
-                    <motion.h2
-                        id="landing-title"
-                        className="rps-welcome"
-                        variants={reveal}
-                        custom={1}
-                        initial="hidden"
-                        animate="visible"
-                    >
+                    <h2 className="console-title">
                         {isLoggedIn && activeUserDisplayName
                             ? `Welcome, ${activeUserDisplayName}`
-                            : "Ready to play?"}
-                    </motion.h2>
-                    <motion.p
-                        className="rps-intro"
-                        variants={reveal}
-                        custom={2}
-                        initial="hidden"
-                        animate="visible"
-                    >
-                        {isLoggedIn && activeUserDisplayName
-                            ? "Your room is waiting. Confirm your setup before you play."
-                            : "Set your name and give the room access to your camera and microphone."}
-                    </motion.p>
+                            : "Enter the Arena"}
+                    </h2>
+                    <p className="console-subcopy">
+                        Calibrate your camera and set your combat callsign to begin live
+                        matchmaking.
+                    </p>
 
-                        {isLoggedIn && activeUserDisplayName && (
+                    {/* Cold start notification on Render free tier */}
+                    <AnimatePresence>
+                        {backendHealth === "waking" && (
                             <motion.div
-                                className="rps-session-note"
-                                variants={reveal}
-                                custom={3}
-                                initial="hidden"
-                                animate="visible"
+                                className="console-warmup-banner"
+                                initial={{ opacity: 0, y: -6 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -6 }}
+                                transition={{ duration: 0.22 }}
                             >
-                                <Check size={14} aria-hidden="true" />
-                                Continuing as <strong>{activeUserDisplayName}</strong>
+                                <div className="warmup-spinner-wrap">
+                                    <RefreshCw size={15} className="spin-slow" />
+                                </div>
+                                <div className="warmup-content">
+                                    <strong>Backend is turning on on Render</strong>
+                                    <p>
+                                        Free instances sleep after inactivity. Waking up usually
+                                        takes ~30 to 50 seconds. Reconnecting automatically...
+                                    </p>
+                                </div>
                             </motion.div>
                         )}
 
-                        <motion.div
-                            className={`rps-diagnostics ${permissionStatus === "prompt" ? "is-pending" : ""}`}
-                            variants={reveal}
-                            custom={4}
-                            initial="hidden"
-                            animate="visible"
-                        >
-                            <div className="rps-diagnostics-heading">
-                                <span className="rps-diagnostics-icon">
-                                    <Video size={16} aria-hidden="true" />
-                                    <Mic size={16} aria-hidden="true" />
+                        {backendHealth === "ready" && hasRecoveredFromWaking && (
+                            <motion.div
+                                className="console-warmup-ready-banner"
+                                initial={{ opacity: 0, y: -6 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -6 }}
+                                transition={{ duration: 0.22 }}
+                            >
+                                <Check size={14} strokeWidth={2.4} />
+                                <span>Backend server is online and ready for combat!</span>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {isLoggedIn && activeUserDisplayName && (
+                        <div className="console-session-badge">
+                            <Check size={14} strokeWidth={2.4} />
+                            <span>
+                                Active callsign: <strong>{activeUserDisplayName}</strong>
+                            </span>
+                        </div>
+                    )}
+
+                    {/* Diagnostics & Camera Viewfinder */}
+                    <div
+                        className={`console-diagnostics-box ${
+                            permissionStatus === "granted" && previewStream
+                                ? "is-granted"
+                                : ""
+                        }`}
+                    >
+                        <div className="console-diagnostics-header">
+                            <div className="diagnostics-label-group">
+                                <span className="diagnostics-icon">
+                                    <Video size={15} />
+                                    <Mic size={15} style={{ marginLeft: 3 }} />
                                 </span>
-                                <div>
-                                    <strong>System diagnostics</strong>
-                                    <span>
-                                        {permissionStatus === "granted"
-                                            ? "Hardware is ready"
-                                            : permissionStatus === "requesting"
-                                              ? "Waiting for browser access"
-                                              : "Camera and microphone check"}
-                                    </span>
+                                <span className="diagnostics-title">Sensors & Hardware</span>
+                            </div>
+                            <span className={`diagnostics-chip ${permissionStatus}`}>
+                                {permissionStatus === "granted"
+                                    ? "Online"
+                                    : permissionStatus === "requesting"
+                                      ? "Verifying..."
+                                      : permissionStatus === "denied"
+                                        ? "Denied"
+                                        : "Standby"}
+                            </span>
+                        </div>
+
+                        {permissionStatus === "granted" && previewStream ? (
+                            <div className="console-preview-wrap">
+                                <video
+                                    ref={videoRef}
+                                    autoPlay
+                                    muted
+                                    playsInline
+                                    className="console-preview-video"
+                                    aria-label="Live camera preview"
+                                />
+                                {/* Cybernetic HUD Brackets */}
+                                <span className="console-hud-bracket top-left" aria-hidden="true" />
+                                <span className="console-hud-bracket top-right" aria-hidden="true" />
+                                <span className="console-hud-bracket bottom-left" aria-hidden="true" />
+                                <span className="console-hud-bracket bottom-right" aria-hidden="true" />
+                                <div className="console-preview-live-tag">
+                                    <span className="landing-online-dot" />
+                                    <span>Vision Sensor Active</span>
                                 </div>
-                                <span className={`rps-diagnostics-status ${permissionStatus}`} />
+                            </div>
+                        ) : (
+                            <div className="console-permission-prompt">
+                                <p className="permission-prompt-sub">
+                                    {permissionStatus === "denied"
+                                        ? "Camera or microphone permissions are blocked. Allow access in your browser to proceed."
+                                        : "Grant camera and microphone permissions so Cheiron can track your gestures during duels."}
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={requestMediaPermissions}
+                                    disabled={permissionStatus === "requesting"}
+                                    className="console-calibrate-btn"
+                                >
+                                    <Sparkles size={14} />
+                                    <span>
+                                        {permissionStatus === "requesting"
+                                            ? "Requesting Access..."
+                                            : permissionStatus === "denied"
+                                              ? "Retry Hardware Check"
+                                              : "Calibrate Camera & Mic"}
+                                    </span>
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    <AnimatePresence initial={false}>
+                        {mediaError && (
+                            <motion.p
+                                className="console-field-error"
+                                role="alert"
+                                initial={{ opacity: 0, y: -6 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -6 }}
+                                transition={{ duration: 0.18 }}
+                            >
+                                {mediaError}
+                            </motion.p>
+                        )}
+                    </AnimatePresence>
+
+                    {/* Player Nickname / Callsign Form */}
+                    <form onSubmit={handleSubmit} className="console-form">
+                        <div className="console-input-group">
+                            <label htmlFor="nickname" className="console-input-label">
+                                <span>{isLoggedIn ? "Combat Callsign" : "Choose Callsign"}</span>
+                                <span style={{ color: "var(--landing-dim)" }}>
+                                    {nicknameInput.length} / 20
+                                </span>
+                            </label>
+
+                            <div className="console-input-wrap">
+                                <span className="console-input-icon">
+                                    <User size={16} />
+                                </span>
+                                <input
+                                    id="nickname"
+                                    name="nickname"
+                                    type="text"
+                                    maxLength={20}
+                                    value={nicknameInput}
+                                    onChange={(event) => {
+                                        setUserTypedNickname(event.target.value);
+                                        setValidationError(null);
+                                        setApiError(null);
+                                    }}
+                                    placeholder="e.g. Phoenix, Cipher, Nova"
+                                    className="console-text-input"
+                                    autoComplete="nickname"
+                                    autoFocus={!isLoggedIn}
+                                    aria-invalid={Boolean(validationError)}
+                                />
                             </div>
 
-                            {permissionStatus === "granted" && previewStream ? (
-                                <div className="preview-container">
-                                    <video
-                                        ref={videoRef}
-                                        autoPlay
-                                        muted
-                                        playsInline
-                                        className="preview-video"
-                                        aria-label="Camera preview"
-                                    />
-                                    <div className="preview-badge success">
-                                        <Check size={13} />
-                                        Camera & mic active
-                                    </div>
-                                </div>
-                            ) : (
-                                <>
-                                    <p className="permission-text">
-                                        {permissionStatus === "denied"
-                                            ? "Access is blocked. Allow camera and microphone permissions to continue."
-                                            : "Allow access to test your setup before entering the room."}
-                                    </p>
-                                    <button
-                                        type="button"
-                                        onClick={requestMediaPermissions}
-                                        disabled={permissionStatus === "requesting"}
-                                        className="permission-button focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-                                    >
-                                        {permissionStatus === "requesting"
-                                            ? "Requesting access..."
-                                            : permissionStatus === "denied"
-                                              ? "Try again"
-                                              : "Enable camera & mic"}
-                                    </button>
-                                </>
-                            )}
-                        </motion.div>
-
-                        <AnimatePresence initial={false}>
-                            {mediaError && (
-                                <motion.p
-                                    className="form-error media-block-error"
-                                    role="alert"
-                                    initial={{ opacity: 0, y: -8 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -8 }}
-                                    transition={{ duration: 0.2 }}
-                                >
-                                    {mediaError}
-                                </motion.p>
-                            )}
-                        </AnimatePresence>
-
-                    <motion.form onSubmit={handleSubmit} className="rps-nickname-form">
-                        <motion.div
-                            className="rps-input-field"
-                            variants={reveal}
-                            custom={5}
-                            initial="hidden"
-                            animate="visible"
-                        >
-                            <label htmlFor="nickname">
-                                {isLoggedIn ? "Nickname (editable)" : "Choose a nickname"}
-                            </label>
-                            <input
-                                id="nickname"
-                                name="nickname"
-                                type="text"
-                                value={nicknameInput}
-                                onChange={(event) => {
-                                    setUserTypedNickname(event.target.value);
-                                    setValidationError(null);
-                                    setApiError(null);
-                                }}
-                                placeholder="Enter your nickname"
-                                className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
-                                autoComplete="nickname"
-                                autoFocus={!isLoggedIn}
-                                aria-invalid={Boolean(validationError)}
-                                aria-describedby={
-                                    validationError
-                                        ? "nickname-error"
-                                        : apiError
-                                          ? "nickname-api-error"
-                                          : undefined
-                                }
-                            />
                             {validationError && (
-                                <p id="nickname-error" className="form-error" role="alert">
+                                <p className="console-field-error" role="alert">
                                     {validationError}
                                 </p>
                             )}
                             {apiError && (
-                                <p id="nickname-api-error" className="form-error" role="alert">
+                                <p className="console-field-error" role="alert">
                                     {apiError}
                                 </p>
                             )}
-                        </motion.div>
-                        <motion.div
-                            variants={reveal}
-                            custom={6}
-                            initial="hidden"
-                            animate="visible"
+                        </div>
+
+                        <button
+                            type="submit"
+                            className="console-enter-btn"
+                            disabled={isSubmitting || permissionStatus === "requesting"}
                         >
-                            <button
-                                type="submit"
-                                className="primary-button rps-continue-button focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-                                disabled={isSubmitting || permissionStatus === "requesting"}
-                            >
+                            <span>
                                 {isSubmitting
-                                    ? "Starting..."
+                                    ? "Initializing Session..."
                                     : isLoggedIn
-                                      ? "Continue to video chat"
-                                      : "Start chatting"}
-                                <span aria-hidden="true">↗</span>
-                            </button>
-                        </motion.div>
-                    </motion.form>
+                                      ? "Enter The Arena"
+                                      : "Find Opponent"}
+                            </span>
+                            <ArrowRight size={17} strokeWidth={2.4} />
+                        </button>
+                    </form>
                 </motion.div>
             </section>
 
+            {/* Profile Management Modal */}
             <ProfileModal
                 isOpen={isProfileOpen}
                 onClose={() => setIsProfileOpen(false)}

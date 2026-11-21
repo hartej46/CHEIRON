@@ -1332,6 +1332,91 @@
     background: #9ca3af;
 }
 
+/* Sound Effect (SFX) Volume & Mute Controls */
+.dock-sfx-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    background: var(--arena-surface);
+    border: 1px solid var(--arena-border);
+    border-radius: 999px;
+    padding: 0 12px 0 10px;
+    transition: border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.dock-sfx-group:hover {
+    border-color: var(--arena-border-strong);
+    background: var(--arena-surface-2);
+}
+
+.dock-sfx-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: none;
+    color: var(--arena-ink);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 999px;
+    transition: color 0.18s ease;
+}
+
+.dock-sfx-btn.is-muted {
+    color: var(--arena-dim);
+}
+
+.dock-sfx-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 60px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    outline: none;
+    cursor: pointer;
+    transition: background-color 0.18s ease;
+}
+
+.dock-sfx-slider:hover {
+    background: rgba(255, 255, 255, 0.28);
+}
+
+.dock-sfx-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--arena-win);
+    box-shadow: 0 0 6px rgba(139, 233, 193, 0.6);
+    cursor: pointer;
+}
+
+.dock-sfx-slider::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--arena-win);
+    border: none;
+    box-shadow: 0 0 6px rgba(139, 233, 193, 0.6);
+    cursor: pointer;
+}
+
+.dock-sfx-val {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--arena-muted);
+    font-variant-numeric: tabular-nums;
+    min-width: 26px;
+    text-align: right;
+}
+
 /* ==========================================================================
    PERMISSION BARRIER (Dark Graphite Native)
    ========================================================================== */

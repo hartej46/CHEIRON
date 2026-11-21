@@ -90,3 +90,16 @@ export const clearSession = async (): Promise<{ success: boolean; message?: stri
         throw new Error(msg, { cause: error });
     }
 };
+
+/**
+ * Checks if the backend server is reachable and healthy.
+ * Used on Render free tier to detect when the instance is waking up from sleep.
+ */
+export const checkBackendHealth = async (): Promise<boolean> => {
+    try {
+        const response = await apiClient.get("/health", { timeout: 5000 });
+        return response.status === 200;
+    } catch {
+        return false;
+    }
+};
