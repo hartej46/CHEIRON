@@ -1,0 +1,128 @@
+:root {
+    --arena-bg: #0a0f18;
+    --arena-panel: #121a28;
+    --arena-panel-strong: #182234;
+    --arena-line: rgba(255, 255, 255, 0.12);
+    --arena-text: #f5f7fb;
+    --arena-muted: #9ca8bb;
+    --arena-accent: #8be9c1;
+}
+
+.room-page {
+    min-height: 100vh;
+    overflow-x: clip;
+}
+
+.arena-shell,
+.arena-layout,
+.arena-video-grid {
+    min-width: 0;
+}
+
+.arena-layout,
+.arena-video-grid {
+    width: min(100%, 1600px);
+    margin-inline: auto;
+}
+
+.arena-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 39%) minmax(0, 1fr);
+    gap: 16px;
+    padding: 16px;
+}
+
+.arena-video-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+}
+
+.arena-video-card {
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--arena-line);
+    border-radius: 16px;
+    background: var(--arena-panel);
+}
+
+.arena-video-viewport {
+    position: relative;
+    min-height: 220px;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: var(--arena-panel-strong);
+}
+
+.arena-stream-video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    object-fit: cover;
+    background: #05080d;
+}
+
+.is-mirrored {
+    transform: scaleX(-1);
+}
+
+.arena-remote-empty,
+.arena-camera-off-placeholder {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: var(--arena-muted);
+    background: var(--arena-panel-strong);
+}
+
+.arena-remote-empty-icon,
+.arena-camera-off-placeholder span {
+    display: block;
+}
+
+.arena-video-dimmed {
+    opacity: 0.15;
+}
+
+.arena-center-duel,
+.arena-user-panel,
+.arena-opponent-panel {
+    min-width: 0;
+}
+
+.arena-dock {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+}
+
+.dock-toggle-pill {
+    border: 1px solid var(--arena-line);
+    border-radius: 999px;
+    background: var(--arena-panel);
+    color: var(--arena-text);
+}
+
+.dock-toggle-label,
+.dock-switch-track {
+    display: inline-flex;
+    align-items: center;
+}
+
+@media (max-width: 900px) {
+    .arena-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .arena-video-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .arena-video-viewport {
+        min-height: 180px;
+        aspect-ratio: 16 / 10;
+    }
+}
