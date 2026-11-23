@@ -1108,8 +1108,8 @@ export function VideoRoom() {
                         </div>
                         <span className="scorecard-round-text">
                             {isConnected && round > 0
-                                ? `ROUND ${activeRoundDisplay} / 5`
-                                : "BEST OF 5"}
+                                ? `Round ${activeRoundDisplay} of 5`
+                                : "Best of 5"}
                         </span>
                     </div>
                 </section>
@@ -1217,19 +1217,19 @@ export function VideoRoom() {
 
                             <div className="arena-card-bottom-bar">
                                 <span className="arena-name-pill">
-                                    <span>{nickname || "Me"}</span>
-                                    <span className="arena-name-tag-role">ME</span>
+                                    <span>{nickname || "You"}</span>
+                                    <span className="arena-name-tag-role">You</span>
                                 </span>
 
                                 {isUserRoundWinner && (
                                     <span className="arena-card-outcome-pill win">
                                         <Trophy size={12} />
-                                        <span>{gamePhase === "game_over" ? "MATCH WINNER" : "ROUND WIN"}</span>
+                                        <span>{gamePhase === "game_over" ? "Match won" : "Round won"}</span>
                                     </span>
                                 )}
                                 {isUserRoundLoser && (
                                     <span className="arena-card-outcome-pill loss">
-                                        <span>{gamePhase === "game_over" ? "DEFEATED" : "ROUND LOST"}</span>
+                                        <span>{gamePhase === "game_over" ? "Defeated" : "Round lost"}</span>
                                     </span>
                                 )}
                             </div>
@@ -1316,7 +1316,7 @@ export function VideoRoom() {
                                 {isConnected ? (
                                     <span className="arena-live-pill">
                                         <span className="arena-live-dot" />
-                                        <span>LIVE</span>
+                                        <span>Live</span>
                                     </span>
                                 ) : (
                                     <span />
@@ -1337,19 +1337,19 @@ export function VideoRoom() {
 
                             <div className="arena-card-bottom-bar">
                                 <span className="arena-name-pill">
-                                    <span>{isConnected ? opponentNickname || "Stranger" : "Stranger"}</span>
-                                    <span className="arena-name-tag-role">STRANGER</span>
+                                    <span>{isConnected ? opponentNickname || "Opponent" : "Opponent"}</span>
+                                    <span className="arena-name-tag-role">Opponent</span>
                                 </span>
 
                                 {isOpponentRoundWinner && (
                                     <span className="arena-card-outcome-pill win">
                                         <Trophy size={12} />
-                                        <span>{gamePhase === "game_over" ? "MATCH WINNER" : "ROUND WIN"}</span>
+                                        <span>{gamePhase === "game_over" ? "Match won" : "Round won"}</span>
                                     </span>
                                 )}
                                 {isOpponentRoundLoser && (
                                     <span className="arena-card-outcome-pill loss">
-                                        <span>{gamePhase === "game_over" ? "DEFEATED" : "ROUND LOST"}</span>
+                                        <span>{gamePhase === "game_over" ? "Defeated" : "Round lost"}</span>
                                     </span>
                                 )}
                             </div>

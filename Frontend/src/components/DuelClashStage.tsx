@@ -33,7 +33,7 @@ interface DuelClashStageProps {
     onNextOpponent: () => void;
 }
 
-function normalizeMove(raw?: string): NormalizedMove {
+export function normalizeMove(raw?: string): NormalizedMove {
     const clean = (raw || "none").toLowerCase().trim();
     if (clean === "rock" || clean === "stone") return "rock";
     if (clean === "paper") return "paper";
@@ -41,14 +41,14 @@ function normalizeMove(raw?: string): NormalizedMove {
     return "none";
 }
 
-type ClashType =
+export type ClashType =
     | "rock_breaks_scissors"
     | "paper_wraps_rock"
     | "scissors_cuts_paper"
     | "draw"
     | "forfeit";
 
-function detectClashType(
+export function detectClashType(
     userMove: NormalizedMove,
     oppMove: NormalizedMove,
     winner: "user" | "opponent" | "draw"
@@ -63,7 +63,7 @@ function detectClashType(
     return "forfeit";
 }
 
-interface SculptedHandProps {
+export interface SculptedHandProps {
     move: NormalizedMove;
     side: "left" | "right";
     role: "winner" | "loser" | "draw" | "neutral";
@@ -71,7 +71,7 @@ interface SculptedHandProps {
     splitHalf?: "top" | "bottom" | "full";
 }
 
-const SculptedHandSVG: React.FC<SculptedHandProps> = ({
+export const SculptedHandSVG: React.FC<SculptedHandProps> = ({
     move,
     side,
     role,
@@ -331,7 +331,7 @@ export const DuelClashStage: React.FC<DuelClashStageProps> = ({
                     )}
                 </div>
                 <p className="duel-kicker">
-                    {callState === "searching" ? "MATCHMAKING" : "PAUSED"}
+                    {callState === "searching" ? "Finding opponent" : "Paused"}
                 </p>
                 <p className="duel-subcopy">{connectionStatus}</p>
                 {callState === "stopped" && (
@@ -352,7 +352,7 @@ export const DuelClashStage: React.FC<DuelClashStageProps> = ({
     if (gamePhase === "warmup" || gamePhase === "waiting") {
         return (
             <div className="duel-stage-inner duel-warmup">
-                <span className="duel-phase-chip">GET READY</span>
+                <span className="duel-phase-chip">Get ready</span>
                 <motion.div
                     key={`warmup-${timer}`}
                     initial={{ scale: 0.85, opacity: 0.4 }}
@@ -371,7 +371,7 @@ export const DuelClashStage: React.FC<DuelClashStageProps> = ({
     if (gamePhase === "countdown") {
         return (
             <div className="duel-stage-inner duel-countdown">
-                <span className="duel-phase-chip accent">ROUND {Math.min(round || 1, 5)} / 5</span>
+                <span className="duel-phase-chip accent">Round {Math.min(round || 1, 5)} of 5</span>
                 <motion.div
                     key={`cd-${round}-${timer}`}
                     initial={{ scale: 1.28, opacity: 0.25, rotateX: 22 }}
@@ -393,7 +393,7 @@ export const DuelClashStage: React.FC<DuelClashStageProps> = ({
                 <div className="duel-scan-orb" aria-hidden="true">
                     <Lock size={20} strokeWidth={2} />
                 </div>
-                <span className="duel-phase-chip scanning">LOCKING MOVE</span>
+                <span className="duel-phase-chip scanning">Locking move</span>
                 <div className="duel-scan-timer">{timer}s</div>
                 <p className="duel-subcopy">Hold steady while AI reads your hand</p>
             </div>
@@ -407,7 +407,7 @@ export const DuelClashStage: React.FC<DuelClashStageProps> = ({
                 <div className="duel-eval-spinner" aria-hidden="true">
                     <RefreshCw size={22} className="spin-slow" />
                 </div>
-                <span className="duel-phase-chip">EVALUATING</span>
+                <span className="duel-phase-chip">Evaluating</span>
                 <p className="duel-subcopy">
                     {connectionStatus.toLowerCase().includes("timed out") ||
                     connectionStatus.toLowerCase().includes("error")
@@ -422,10 +422,10 @@ export const DuelClashStage: React.FC<DuelClashStageProps> = ({
     if (gamePhase === "game_over") {
         const verdictTitle =
             matchWinner === "user"
-                ? "VICTORY"
+                ? "Victory"
                 : matchWinner === "opponent"
-                  ? "DEFEAT"
-                  : "MATCH DRAW";
+                  ? "Defeat"
+                  : "Draw";
         const verdictClass =
             matchWinner === "user"
                 ? "win"
@@ -447,7 +447,7 @@ export const DuelClashStage: React.FC<DuelClashStageProps> = ({
                         <Trophy size={22} />
                     )}
                 </div>
-                <span className="duel-phase-chip">MATCH COMPLETE</span>
+                <span className="duel-phase-chip">Match complete</span>
                 <h2 className={`duel-verdict-title ${verdictClass}`}>{verdictTitle}</h2>
                 <div className="duel-final-score">
                     <span>{scores.user}</span>
@@ -595,10 +595,10 @@ export const DuelClashStage: React.FC<DuelClashStageProps> = ({
 
     const verdictText =
         winner === "user"
-            ? `YOU WON ROUND ${lastRoundResult?.round || round}`
+            ? `Round ${lastRoundResult?.round || round} won`
             : winner === "opponent"
-              ? `YOU LOST ROUND ${lastRoundResult?.round || round}`
-              : `ROUND ${lastRoundResult?.round || round} TIED`;
+              ? `Round ${lastRoundResult?.round || round} lost`
+              : `Round ${lastRoundResult?.round || round} tied`;
 
     return (
         <AnimatePresence mode="wait">
