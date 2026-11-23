@@ -1,10 +1,25 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { FormEvent } from "react";
-import { AnimatePresence, motion, type Variants } from "framer-motion";
-import { Check, Circle, Hand, Mic, Scissors, Video } from "lucide-react";
-import { initPlayer } from "../service/service";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+    ArrowRight,
+    Camera,
+    Check,
+    Circle,
+    Hand,
+    RefreshCw,
+    Scissors,
+    User,
+    Video,
+} from "lucide-react";
+import { checkBackendHealth, initPlayer } from "../service/service";
 import { useNickname } from "../context/NicknameContext";
 import { ProfileModal } from "../components/ProfileModal";
+import {
+    SculptedHandSVG,
+    type NormalizedMove,
+} from "../components/DuelClashStage";
+import "../styles/landing.css";
 
 interface LandingPageProps {
     onStart: (nickname: string) => void;
@@ -32,7 +47,65 @@ export function LandingPage({ onStart }: LandingPageProps) {
     >("prompt");
     const [previewStream, setPreviewStream] = useState<MediaStream | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [backendHealth, setBackendHealth] = useState<"checking" | "waking" | "ready">("checking");
+    const [hasRecoveredFromWaking, setHasRecoveredFromWaking] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
+
+    // Interactive Duel Simulator State
+    const [simUserMove, setSimUserMove] = useState<NormalizedMove>("rock");
+    const [simOppMove, setSimOppMove] = useState<NormalizedMove>("scissors");
+    const [simScore, setSimScore] = useState({ user: 2, opponent: 1 });
+    const [simWinner, setSimWinner] = useState<"user" | "opponent" | "draw">("user");
+    const [simClashKey, setSimClashKey] = useState(1);
+    const [simIsAnimating, setSimIsAnimating] = useState(false);
+    const [simStatusText, setSimStatusText] = useState("Rock crushes Scissors · You win");
+
+    // Initial and periodic health check for backend cold-start on Render
+    useEffect(() => {
+        let isMounted = true;
+        let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+        const checkHealth = async () => {
+            const isHealthy = await checkBackendHealth();
+            if (!isMounted) return;
+
+            if (isHealthy) {
+                setBackendHealth((prev) => {
+                    if (prev === "waking") {
+                        setHasRecoveredFromWaking(true);
+                    }
+                    return "ready";
+                });
+                if (pollTimer) {
+                    clearInterval(pollTimer);
+                    pollTimer = null;
+                }
+            } else {
+                setBackendHealth("waking");
+                if (!pollTimer) {
+                    pollTimer = setInterval(async () => {
+                        const ok = await checkBackendHealth();
+                        if (!isMounted) return;
+                        if (ok) {
+                            setBackendHealth("ready");
+                            setHasRecoveredFromWaking(true);
+                            if (pollTimer) {
+                                clearInterval(pollTimer);
+                                pollTimer = null;
+                            }
+                        }
+                    }, 3000);
+                }
+            }
+        };
+
+        checkHealth();
+
+        return () => {
+            isMounted = false;
+            if (pollTimer) clearInterval(pollTimer);
+        };
+    }, []);
 
     // Update video element when previewStream is available
     useEffect(() => {
@@ -47,6 +120,65 @@ export function LandingPage({ onStart }: LandingPageProps) {
             previewStream?.getTracks().forEach((track) => track.stop());
         };
     }, [previewStream]);
+
+    // Interactive Move Simulator Handler
+    const handleSimulateMove = useCallback(
+        (chosenMove: NormalizedMove) => {
+            if (simIsAnimating) return;
+
+            const possibleMoves: NormalizedMove[] = ["rock", "paper", "scissors"];
+            // Pick an opponent move that creates interesting outcomes
+            const randomOpp = possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
+
+            let winner: "user" | "opponent" | "draw" = "draw";
+            let status = "Round tied";
+
+            if (chosenMove === randomOpp) {
+                winner = "draw";
+                status = `Both threw ${chosenMove} · Round tied`;
+            } else if (
+                (chosenMove === "rock" && randomOpp === "scissors") ||
+                (chosenMove === "paper" && randomOpp === "rock") ||
+                (chosenMove === "scissors" && randomOpp === "paper")
+            ) {
+                winner = "user";
+                const verb =
+                    chosenMove === "rock"
+                        ? "crushes"
+                        : chosenMove === "paper"
+                          ? "covers"
+                          : "cuts";
+                status = `${chosenMove} ${verb} ${randomOpp} · You win`;
+            } else {
+                winner = "opponent";
+                const verb =
+                    randomOpp === "rock"
+                        ? "crushes"
+                        : randomOpp === "paper"
+                          ? "covers"
+                          : "cuts";
+                status = `${randomOpp} ${verb} ${chosenMove} · Opponent wins`;
+            }
+
+            setSimUserMove(chosenMove);
+            setSimOppMove(randomOpp);
+            setSimWinner(winner);
+            setSimStatusText(status);
+            setSimClashKey((k) => k + 1);
+            setSimIsAnimating(true);
+
+            if (winner === "user") {
+                setSimScore((s) => ({ ...s, user: s.user + 1 }));
+            } else if (winner === "opponent") {
+                setSimScore((s) => ({ ...s, opponent: s.opponent + 1 }));
+            }
+
+            setTimeout(() => {
+                setSimIsAnimating(false);
+            }, 1200);
+        },
+        [simIsAnimating]
+    );
 
     const requestMediaPermissions = async (): Promise<boolean> => {
         setMediaError(null);
@@ -99,12 +231,12 @@ export function LandingPage({ onStart }: LandingPageProps) {
 
         // 1. Validate username on frontend
         if (!trimmedNickname) {
-            setValidationError("Please enter a username to continue.");
+            setValidationError("Please enter your name to continue.");
             return;
         }
 
         if (trimmedNickname.length <= 2) {
-            setValidationError("Username must be greater than 2 characters.");
+            setValidationError("Name must be greater than 2 characters.");
             return;
         }
 
@@ -114,7 +246,7 @@ export function LandingPage({ onStart }: LandingPageProps) {
             isPermitted = await requestMediaPermissions();
         }
 
-        // If permission was not given, do not allow entering!
+        // If permission was not given, do not allow entering
         if (!isPermitted) {
             return;
         }
@@ -128,6 +260,21 @@ export function LandingPage({ onStart }: LandingPageProps) {
             setIsSubmitting(true);
             setApiError(null);
             setValidationError(null);
+
+            // If backend is waking up on Render, verify readiness before proceeding
+            if (backendHealth === "waking") {
+                const isNowReady = await checkBackendHealth();
+                if (!isNowReady) {
+                    setIsSubmitting(false);
+                    setApiError(
+                        "Backend is waking up on Render free tier (~30-50s). Please wait a few seconds and try again."
+                    );
+                    return;
+                }
+                setBackendHealth("ready");
+                setHasRecoveredFromWaking(true);
+            }
+
             const response = await initPlayer(trimmedNickname);
             if (response?.profile) {
                 setUserData(response.profile);
@@ -144,327 +291,437 @@ export function LandingPage({ onStart }: LandingPageProps) {
     };
 
     const activeUserDisplayName =
-        userData?.nickname || contextNickname || (isLoggedIn ? "Guest" : null);
-
-    const reveal: Variants = {
-        hidden: { opacity: 0, y: 18 },
-        visible: (index = 0) => ({
-            opacity: 1,
-            y: 0,
-            transition: {
-                delay: index * 0.08,
-                duration: 0.55,
-                ease: [0.22, 1, 0.36, 1] as const,
-            },
-        }),
-    };
+        userData?.nickname || contextNickname || (isLoggedIn ? "Player" : null);
 
     return (
-        <main className="min-h-screen w-full grid grid-cols-1 lg:grid-cols-2 bg-zinc-950 text-white overflow-x-hidden">
-            <section className="rps-hero" aria-labelledby="rps-title">
-                <div className="rps-hero-grid" aria-hidden="true" />
-                <motion.header
-                    className="rps-hero-header"
-                    initial={{ opacity: 0, y: -12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.45, ease: "easeOut" }}
-                >
-                    <span className="rps-wordmark">CHEIRON</span>
-                    <span className="rps-mode">live room / 01</span>
-                </motion.header>
+        <main className="cheiron-landing">
+            {/* Top Navigation Bar */}
+            <header className="landing-top-bar">
+                <div className="landing-brand-area">
+                    <span className="landing-brand-name">CHEIRON</span>
+                    <span className="landing-brand-sep">/</span>
+                    <span className="landing-brand-tag">P2P Vision Duels</span>
+                </div>
 
-                <div className="rps-hero-content">
-                    <motion.p
-                        className="rps-kicker"
-                        variants={reveal}
-                        custom={0}
-                        initial="hidden"
-                        animate="visible"
+                <div className="landing-header-right">
+                    {/* Backend Online / Warmup Status */}
+                    <div
+                        className={`landing-status-badge ${
+                            backendHealth === "ready" ? "is-ready" : "is-waking"
+                        }`}
+                        title={
+                            backendHealth === "ready"
+                                ? "Backend server is online and ready"
+                                : "Backend is waking up on Render free tier"
+                        }
                     >
-                        Real-time hand play
-                    </motion.p>
-                    <motion.h1
-                        id="rps-title"
-                        className="rps-title text-6xl md:text-8xl lg:text-[7vw] leading-none tracking-tighter"
-                        variants={reveal}
-                        custom={1}
-                        initial="hidden"
-                        animate="visible"
-                    >
-                        Rock.
-                        <br />
-                        Paper.
-                        <br />
-                        Scissors.
-                    </motion.h1>
-                    <motion.p
-                        className="rps-subtitle"
-                        variants={reveal}
-                        custom={2}
-                        initial="hidden"
-                        animate="visible"
-                    >
-                        Powered by <span>AI hand tracking</span>
-                    </motion.p>
-
-                    <div className="rps-symbol-stage" aria-label="Rock, paper, and scissors">
-                        {[
-                            { label: "Rock", Icon: Circle },
-                            { label: "Paper", Icon: Hand },
-                            { label: "Scissors", Icon: Scissors },
-                        ].map(({ label, Icon }, index) => (
-                            <motion.div
-                                className={`rps-symbol rps-symbol-${index + 1}`}
-                                key={label}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: [0, -20, 0] }}
-                                transition={{
-                                    opacity: { delay: 0.35 + index * 0.12, duration: 0.45 },
-                                    y: {
-                                        delay: 0.8 + index * 0.22,
-                                        duration: 4,
-                                        repeat: Infinity,
-                                        ease: "easeInOut",
-                                    },
-                                }}
-                            >
-                                <Icon strokeWidth={1.4} aria-hidden="true" />
-                                <span>{label}</span>
-                            </motion.div>
-                        ))}
+                        <span className="status-dot" />
+                        <span>
+                            {backendHealth === "ready"
+                                ? "Server Online"
+                                : backendHealth === "waking"
+                                  ? "Waking up on Render..."
+                                  : "Connecting..."}
+                        </span>
                     </div>
+
+                    {/* Profile Button */}
+                    <button
+                        type="button"
+                        onClick={() => setIsProfileOpen(true)}
+                        className="landing-profile-btn"
+                        title={
+                            isLoggedIn && activeUserDisplayName
+                                ? `Profile: ${activeUserDisplayName}`
+                                : "View Profile"
+                        }
+                        aria-label="Open player profile"
+                    >
+                        <User size={14} />
+                        <span>
+                            {isLoggedIn && activeUserDisplayName
+                                ? activeUserDisplayName
+                                : "Profile"}
+                        </span>
+                    </button>
                 </div>
+            </header>
 
-                <div className="rps-hero-footer">
-                    <span>Choose your move</span>
-                    <span className="rps-footer-line" aria-hidden="true" />
-                    <span>Enter the arena</span>
-                </div>
-            </section>
+            {/* Main Stage Grid: Setup Console (Left) + Live Interactive Duel Simulator (Right) */}
+            <div className="landing-stage-grid">
+                {/* Left Column: Match Setup Console */}
+                <section className="landing-setup-col" aria-label="Game Setup">
+                    <div className="landing-kicker">
+                        <span className="landing-kicker-dot" />
+                        <span>Webcam Gesture Duels</span>
+                    </div>
 
-            <section
-                className="rps-action-area"
-                aria-labelledby="landing-title"
-            >
-                <motion.div
-                    className="rps-setup-content flex h-full w-full max-w-2xl flex-col justify-center px-8 lg:px-24 xl:px-32"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, ease: "easeOut" }}
-                >
-                    <motion.div
-                        className="rps-card-topline"
-                        variants={reveal}
-                        custom={0}
-                        initial="hidden"
-                        animate="visible"
-                    >
-                        <span className="rps-card-label">Setup / 01</span>
-                        <button
-                            type="button"
-                            onClick={() => setIsProfileOpen(true)}
-                            className="rps-profile-button focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 active:scale-[0.98]"
-                            title={
-                                isLoggedIn && activeUserDisplayName
-                                    ? `Profile: ${activeUserDisplayName}`
-                                    : "View Profile"
-                            }
-                            aria-label="Open user profile"
-                        >
-                            <span
-                                className={`profile-status-dot ${isLoggedIn ? "active" : "idle"}`}
-                            />
-                            <span>
-                                {isLoggedIn && activeUserDisplayName
-                                    ? activeUserDisplayName
-                                    : "Profile"}
-                            </span>
-                        </button>
-                    </motion.div>
+                    <h1 className="landing-headline">
+                        Play Rock Paper Scissors with your camera.
+                    </h1>
 
-                    <motion.h2
-                        id="landing-title"
-                        className="rps-welcome"
-                        variants={reveal}
-                        custom={1}
-                        initial="hidden"
-                        animate="visible"
-                    >
-                        {isLoggedIn && activeUserDisplayName
-                            ? `Welcome, ${activeUserDisplayName}`
-                            : "Ready to play?"}
-                    </motion.h2>
-                    <motion.p
-                        className="rps-intro"
-                        variants={reveal}
-                        custom={2}
-                        initial="hidden"
-                        animate="visible"
-                    >
-                        {isLoggedIn && activeUserDisplayName
-                            ? "Your room is waiting. Confirm your setup before you play."
-                            : "Set your name and give the room access to your camera and microphone."}
-                    </motion.p>
+                    <p className="landing-subcopy">
+                        Face off with players over peer-to-peer live video. Real-time neural hand
+                        tracking registers your move at the count of three. No controllers required.
+                    </p>
 
-                        {isLoggedIn && activeUserDisplayName && (
+                    {/* Cold-start Alert Banner (Render Free Tier) */}
+                    <AnimatePresence>
+                        {backendHealth === "waking" && (
                             <motion.div
-                                className="rps-session-note"
-                                variants={reveal}
-                                custom={3}
-                                initial="hidden"
-                                animate="visible"
+                                className="landing-warmup-notice"
+                                initial={{ opacity: 0, y: -4 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -4 }}
+                                transition={{ duration: 0.2 }}
                             >
-                                <Check size={14} aria-hidden="true" />
-                                Continuing as <strong>{activeUserDisplayName}</strong>
+                                <RefreshCw size={14} className="spin-slow" />
+                                <div>
+                                    <strong>Backend is waking up</strong>
+                                    <p>
+                                        Render free tier spins down on inactivity (~30-50s cold start).
+                                        Connecting automatically...
+                                    </p>
+                                </div>
                             </motion.div>
                         )}
 
-                        <motion.div
-                            className={`rps-diagnostics ${permissionStatus === "prompt" ? "is-pending" : ""}`}
-                            variants={reveal}
-                            custom={4}
-                            initial="hidden"
-                            animate="visible"
-                        >
-                            <div className="rps-diagnostics-heading">
-                                <span className="rps-diagnostics-icon">
-                                    <Video size={16} aria-hidden="true" />
-                                    <Mic size={16} aria-hidden="true" />
-                                </span>
-                                <div>
-                                    <strong>System diagnostics</strong>
-                                    <span>
-                                        {permissionStatus === "granted"
-                                            ? "Hardware is ready"
-                                            : permissionStatus === "requesting"
-                                              ? "Waiting for browser access"
-                                              : "Camera and microphone check"}
-                                    </span>
+                        {backendHealth === "ready" && hasRecoveredFromWaking && (
+                            <motion.div
+                                className="landing-warmup-ready"
+                                initial={{ opacity: 0, y: -4 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -4 }}
+                                transition={{ duration: 0.2 }}
+                            >
+                                <Check size={14} strokeWidth={2.4} />
+                                <span>Backend server is online and ready!</span>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {/* Pre-Match Setup Form */}
+                    <form onSubmit={handleSubmit} className="landing-setup-form">
+                        {/* Name Input */}
+                        <div className="landing-field-group">
+                            <label htmlFor="nickname" className="landing-field-label">
+                                <span>Your name</span>
+                                <span className="char-count">{nicknameInput.length} / 20</span>
+                            </label>
+                            <div className="landing-input-wrap">
+                                <input
+                                    id="nickname"
+                                    name="nickname"
+                                    type="text"
+                                    maxLength={20}
+                                    value={nicknameInput}
+                                    onChange={(event) => {
+                                        setUserTypedNickname(event.target.value);
+                                        setValidationError(null);
+                                        setApiError(null);
+                                    }}
+                                    placeholder="Enter a nickname (e.g. Phoenix)"
+                                    className="landing-text-input"
+                                    autoComplete="nickname"
+                                    autoFocus={!isLoggedIn}
+                                    aria-invalid={Boolean(validationError)}
+                                />
+                            </div>
+                            {validationError && (
+                                <p className="landing-error-text" role="alert">
+                                    {validationError}
+                                </p>
+                            )}
+                            {apiError && (
+                                <p className="landing-error-text" role="alert">
+                                    {apiError}
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Camera & Microphone Diagnostic Preview */}
+                        <div className="landing-hardware-box">
+                            <div className="hardware-box-header">
+                                <div className="hardware-title-row">
+                                    <Camera size={14} />
+                                    <span>Camera & Microphone</span>
                                 </div>
-                                <span className={`rps-diagnostics-status ${permissionStatus}`} />
+                                <span className={`hardware-status-pill ${permissionStatus}`}>
+                                    {permissionStatus === "granted"
+                                        ? "Connected"
+                                        : permissionStatus === "requesting"
+                                          ? "Checking..."
+                                          : permissionStatus === "denied"
+                                            ? "Blocked"
+                                            : "Standby"}
+                                </span>
                             </div>
 
                             {permissionStatus === "granted" && previewStream ? (
-                                <div className="preview-container">
+                                <div className="hardware-preview-viewport">
                                     <video
                                         ref={videoRef}
                                         autoPlay
                                         muted
                                         playsInline
-                                        className="preview-video"
-                                        aria-label="Camera preview"
+                                        className="hardware-video"
+                                        aria-label="Local camera preview"
                                     />
-                                    <div className="preview-badge success">
-                                        <Check size={13} />
-                                        Camera & mic active
+                                    {/* Subtle optical crosshairs */}
+                                    <span className="optical-crosshair ch-tl" aria-hidden="true" />
+                                    <span className="optical-crosshair ch-tr" aria-hidden="true" />
+                                    <span className="optical-crosshair ch-bl" aria-hidden="true" />
+                                    <span className="optical-crosshair ch-br" aria-hidden="true" />
+                                    <div className="hardware-ready-tag">
+                                        <span className="ready-dot" />
+                                        <span>Camera Ready</span>
                                     </div>
                                 </div>
                             ) : (
-                                <>
-                                    <p className="permission-text">
-                                        {permissionStatus === "denied"
-                                            ? "Access is blocked. Allow camera and microphone permissions to continue."
-                                            : "Allow access to test your setup before entering the room."}
+                                <div className="hardware-action-pane">
+                                    <p className="hardware-prompt-desc">
+                                        Cheiron needs camera access to track your gestures in real time.
                                     </p>
                                     <button
                                         type="button"
                                         onClick={requestMediaPermissions}
                                         disabled={permissionStatus === "requesting"}
-                                        className="permission-button focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                                        className="hardware-trigger-btn"
                                     >
-                                        {permissionStatus === "requesting"
-                                            ? "Requesting access..."
-                                            : permissionStatus === "denied"
-                                              ? "Try again"
-                                              : "Enable camera & mic"}
+                                        <Video size={14} />
+                                        <span>
+                                            {permissionStatus === "requesting"
+                                                ? "Connecting to camera..."
+                                                : permissionStatus === "denied"
+                                                  ? "Retry camera permission"
+                                                  : "Test Camera & Microphone"}
+                                        </span>
                                     </button>
-                                </>
+                                </div>
                             )}
-                        </motion.div>
 
-                        <AnimatePresence initial={false}>
                             {mediaError && (
-                                <motion.p
-                                    className="form-error media-block-error"
-                                    role="alert"
-                                    initial={{ opacity: 0, y: -8 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -8 }}
-                                    transition={{ duration: 0.2 }}
-                                >
+                                <p className="hardware-error-notice" role="alert">
                                     {mediaError}
-                                </motion.p>
+                                </p>
                             )}
-                        </AnimatePresence>
+                        </div>
 
-                    <motion.form onSubmit={handleSubmit} className="rps-nickname-form">
-                        <motion.div
-                            className="rps-input-field"
-                            variants={reveal}
-                            custom={5}
-                            initial="hidden"
-                            animate="visible"
+                        {/* Submit Action CTA */}
+                        <button
+                            type="submit"
+                            className="landing-submit-btn"
+                            disabled={isSubmitting || permissionStatus === "requesting"}
                         >
-                            <label htmlFor="nickname">
-                                {isLoggedIn ? "Nickname (editable)" : "Choose a nickname"}
-                            </label>
-                            <input
-                                id="nickname"
-                                name="nickname"
-                                type="text"
-                                value={nicknameInput}
-                                onChange={(event) => {
-                                    setUserTypedNickname(event.target.value);
-                                    setValidationError(null);
-                                    setApiError(null);
-                                }}
-                                placeholder="Enter your nickname"
-                                className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
-                                autoComplete="nickname"
-                                autoFocus={!isLoggedIn}
-                                aria-invalid={Boolean(validationError)}
-                                aria-describedby={
-                                    validationError
-                                        ? "nickname-error"
-                                        : apiError
-                                          ? "nickname-api-error"
-                                          : undefined
-                                }
-                            />
-                            {validationError && (
-                                <p id="nickname-error" className="form-error" role="alert">
-                                    {validationError}
-                                </p>
-                            )}
-                            {apiError && (
-                                <p id="nickname-api-error" className="form-error" role="alert">
-                                    {apiError}
-                                </p>
-                            )}
-                        </motion.div>
-                        <motion.div
-                            variants={reveal}
-                            custom={6}
-                            initial="hidden"
-                            animate="visible"
-                        >
-                            <button
-                                type="submit"
-                                className="primary-button rps-continue-button focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-                                disabled={isSubmitting || permissionStatus === "requesting"}
-                            >
+                            <span>
                                 {isSubmitting
-                                    ? "Starting..."
+                                    ? "Entering Matchmaking..."
                                     : isLoggedIn
-                                      ? "Continue to video chat"
-                                      : "Start chatting"}
-                                <span aria-hidden="true">↗</span>
-                            </button>
-                        </motion.div>
-                    </motion.form>
-                </motion.div>
-            </section>
+                                      ? "Find a Match"
+                                      : "Start Playing"}
+                            </span>
+                            <ArrowRight size={16} strokeWidth={2.4} />
+                        </button>
+                    </form>
 
+                    {/* Grounded Specs Footer */}
+                    <div className="landing-specs-row">
+                        <span>WebRTC Peer-to-Peer</span>
+                        <span className="specs-sep">·</span>
+                        <span>MediaPipe Vision AI</span>
+                        <span className="specs-sep">·</span>
+                        <span>Best of 5 Rounds</span>
+                    </div>
+                </section>
+
+                {/* Right Column: Live Interactive Match Simulator */}
+                <section
+                    className="landing-simulator-col"
+                    aria-label="Interactive Match Preview"
+                >
+                    <div className="simulator-card">
+                        {/* Simulator Top Header & Scoreboard */}
+                        <div className="simulator-header">
+                            <div className="simulator-scoreboard">
+                                <div className="sim-player-side left">
+                                    <span className="sim-player-name">
+                                        {nicknameInput.trim() || "You"}
+                                    </span>
+                                    <span className="sim-score-num">{simScore.user}</span>
+                                </div>
+                                <div className="sim-score-divider">
+                                    <span className="sim-round-label">Round 3 of 5</span>
+                                    <span className="sim-vs">VS</span>
+                                </div>
+                                <div className="sim-player-side right">
+                                    <span className="sim-score-num">{simScore.opponent}</span>
+                                    <span className="sim-player-name">Opponent</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Clash Arena Stage */}
+                        <div className="simulator-arena-stage">
+                            {/* Left Viewport: You */}
+                            <div className="sim-video-pod sim-pod-left">
+                                {permissionStatus === "granted" && previewStream ? (
+                                    <video
+                                        ref={(el) => {
+                                            if (el && previewStream && el.srcObject !== previewStream) {
+                                                el.srcObject = previewStream;
+                                            }
+                                        }}
+                                        autoPlay
+                                        muted
+                                        playsInline
+                                        className="sim-pod-video"
+                                    />
+                                ) : (
+                                    <div className="sim-pod-placeholder">
+                                        <div className="sim-avatar-circle">
+                                            <User size={18} />
+                                        </div>
+                                        <span>{nicknameInput.trim() || "You"}</span>
+                                    </div>
+                                )}
+                                <div className="sim-pod-label">
+                                    <span>{nicknameInput.trim() || "You"}</span>
+                                    <span className="sim-tag">YOU</span>
+                                </div>
+                            </div>
+
+                            {/* Center: Live 3D Hand Clash Stage */}
+                            <div className="sim-clash-center">
+                                <AnimatePresence mode="wait">
+                                    <motion.div
+                                        key={simClashKey}
+                                        className="sim-clash-hands"
+                                        initial={{ opacity: 0, scale: 0.94 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        transition={{ duration: 0.2 }}
+                                    >
+                                        {/* User Hand (Left) */}
+                                        <motion.div
+                                            className="sim-hand-wrap left"
+                                            animate={
+                                                simWinner === "user"
+                                                    ? { x: [0, 16, 4], scale: [1, 1.14, 1] }
+                                                    : simWinner === "opponent"
+                                                      ? { x: [0, -12], scale: [1, 0.82], opacity: [1, 0.5] }
+                                                      : { x: [0, 8, 0] }
+                                            }
+                                            transition={{ duration: 0.6, ease: "easeOut" }}
+                                        >
+                                            <SculptedHandSVG
+                                                move={simUserMove}
+                                                side="left"
+                                                role={
+                                                    simWinner === "user"
+                                                        ? "winner"
+                                                        : simWinner === "opponent"
+                                                          ? "loser"
+                                                          : "draw"
+                                                }
+                                                uid={`sim-left-${simClashKey}`}
+                                            />
+                                        </motion.div>
+
+                                        {/* Opponent Hand (Right) */}
+                                        <motion.div
+                                            className="sim-hand-wrap right"
+                                            animate={
+                                                simWinner === "opponent"
+                                                    ? { x: [0, -16, -4], scale: [1, 1.14, 1] }
+                                                    : simWinner === "user"
+                                                      ? { x: [0, 12], scale: [1, 0.82], opacity: [1, 0.5] }
+                                                      : { x: [0, -8, 0] }
+                                            }
+                                            transition={{ duration: 0.6, ease: "easeOut" }}
+                                        >
+                                            <SculptedHandSVG
+                                                move={simOppMove}
+                                                side="right"
+                                                role={
+                                                    simWinner === "opponent"
+                                                        ? "winner"
+                                                        : simWinner === "user"
+                                                          ? "loser"
+                                                          : "draw"
+                                                }
+                                                uid={`sim-right-${simClashKey}`}
+                                            />
+                                        </motion.div>
+                                    </motion.div>
+                                </AnimatePresence>
+
+                                {/* Outcome Status Banner */}
+                                <div
+                                    className={`sim-outcome-pill outcome-${simWinner}`}
+                                    aria-live="polite"
+                                >
+                                    <span>{simStatusText}</span>
+                                </div>
+                            </div>
+
+                            {/* Right Viewport: Opponent */}
+                            <div className="sim-video-pod sim-pod-right">
+                                <div className="sim-pod-placeholder">
+                                    <div className="sim-avatar-circle opponent">
+                                        <User size={18} />
+                                    </div>
+                                    <span>Opponent</span>
+                                </div>
+                                <div className="sim-pod-label">
+                                    <span>Opponent</span>
+                                    <span className="sim-tag">STRANGER</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Interactive Move Tester Controls */}
+                        <div className="simulator-controls-bar">
+                            <span className="controls-label">Test a move:</span>
+                            <div className="move-buttons-group">
+                                <button
+                                    type="button"
+                                    onClick={() => handleSimulateMove("rock")}
+                                    disabled={simIsAnimating}
+                                    className={`move-btn ${simUserMove === "rock" ? "is-selected" : ""}`}
+                                    title="Throw Rock"
+                                >
+                                    <Circle size={15} />
+                                    <span>Rock</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => handleSimulateMove("paper")}
+                                    disabled={simIsAnimating}
+                                    className={`move-btn ${simUserMove === "paper" ? "is-selected" : ""}`}
+                                    title="Throw Paper"
+                                >
+                                    <Hand size={15} />
+                                    <span>Paper</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => handleSimulateMove("scissors")}
+                                    disabled={simIsAnimating}
+                                    className={`move-btn ${simUserMove === "scissors" ? "is-selected" : ""}`}
+                                    title="Throw Scissors"
+                                >
+                                    <Scissors size={15} />
+                                    <span>Scissors</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            {/* Profile Management Modal */}
             <ProfileModal
                 isOpen={isProfileOpen}
                 onClose={() => setIsProfileOpen(false)}

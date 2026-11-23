@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { X, Trash2 } from "lucide-react";
 import { useNickname } from "../context/NicknameContext";
 
 interface ProfileModalProps {
@@ -119,12 +120,12 @@ const ProfileModalDialog: React.FC<Omit<ProfileModalProps, "isOpen">> = ({
                 {/* Header */}
                 <div className="modal-header">
                     <div>
-                        <div className="profile-header-tag">CHEIRON PROFILE</div>
+                        <div className="profile-header-tag">Cheiron</div>
                         <h2 id="profile-modal-title" className="modal-heading">
-                            User Profile
+                            Player Profile
                         </h2>
                         <p className="modal-sub">
-                            Manage your identity and session preferences
+                            Manage your display name and match identity
                         </p>
                     </div>
                     <button
@@ -133,7 +134,7 @@ const ProfileModalDialog: React.FC<Omit<ProfileModalProps, "isOpen">> = ({
                         className="modal-close-btn"
                         aria-label="Close profile modal"
                     >
-                        ✕
+                        <X size={15} />
                     </button>
                 </div>
 
@@ -175,17 +176,17 @@ const ProfileModalDialog: React.FC<Omit<ProfileModalProps, "isOpen">> = ({
                     )}
                 </section>
 
-                {/* Option 1: Update Username */}
+                {/* Change Name */}
                 <section className="profile-section-block">
-                    <h3 className="section-block-title">Option 1: Update Username</h3>
+                    <h3 className="section-block-title">Display Name</h3>
                     <p className="section-block-desc">
-                        Change the nickname displayed to partners in video calls.
+                        The name shown to opponents during live matches.
                     </p>
 
                     <form onSubmit={handleUpdateUsername} className="update-username-form">
                         <div className="form-group">
                             <label htmlFor="update-nickname-input" className="form-label">
-                                Nickname
+                                Name
                             </label>
                             <div className="input-with-button">
                                 <input
@@ -211,7 +212,7 @@ const ProfileModalDialog: React.FC<Omit<ProfileModalProps, "isOpen">> = ({
                                     }
                                     className="btn-primary-action"
                                 >
-                                    {isUpdating ? "Updating..." : "Update Username"}
+                                    {isUpdating ? "Saving..." : "Save Name"}
                                 </button>
                             </div>
                         </div>
@@ -229,13 +230,13 @@ const ProfileModalDialog: React.FC<Omit<ProfileModalProps, "isOpen">> = ({
                     </form>
                 </section>
 
-                {/* Option 2: Delete Session */}
+                {/* Reset Session */}
                 <section className="profile-section-block danger-block">
                     <h3 className="section-block-title text-danger">
-                        Option 2: Delete Session
+                        Reset Session
                     </h3>
                     <p className="section-block-desc">
-                        Permanently clear your active session and reset your stored profile.
+                        Clear your active session and generate a fresh player token.
                     </p>
 
                     {deleteError && (
@@ -251,24 +252,13 @@ const ProfileModalDialog: React.FC<Omit<ProfileModalProps, "isOpen">> = ({
                             className="btn-danger-outline"
                             disabled={!isLoggedIn}
                         >
-                            <svg
-                                width="15"
-                                height="15"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                aria-hidden="true"
-                            >
-                                <polyline points="3 6 5 6 21 6" />
-                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                            </svg>
-                            Delete Session
+                            <Trash2 size={14} />
+                            <span>Reset Session</span>
                         </button>
                     ) : (
                         <div className="delete-confirm-box" role="alert">
                             <p className="confirm-prompt-text">
-                                Are you sure? This will delete your current session and log you out.
+                                Are you sure? This will clear your stored identity and log you out.
                             </p>
                             <div className="confirm-btn-row">
                                 <button
@@ -285,7 +275,7 @@ const ProfileModalDialog: React.FC<Omit<ProfileModalProps, "isOpen">> = ({
                                     className="btn-danger-confirm"
                                     disabled={isDeleting}
                                 >
-                                    {isDeleting ? "Deleting..." : "Yes, Delete User ID"}
+                                    {isDeleting ? "Resetting..." : "Yes, Reset Session"}
                                 </button>
                             </div>
                         </div>

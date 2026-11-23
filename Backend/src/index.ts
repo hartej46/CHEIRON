@@ -36,8 +36,9 @@ const shutdown = async () => {
 const start = async () => {
     try {
         await fastify.ready();
+        const port = Number(process.env.PORT || fastify.config?.PORT || 3000);
         await fastify.listen({
-            port: Number(process.env.PORT),
+            port,
             host: "0.0.0.0",
         });
     } catch (error) {

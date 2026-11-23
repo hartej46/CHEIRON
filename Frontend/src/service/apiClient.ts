@@ -1,5 +1,6 @@
 import axios from "axios";
 import { config } from "../config/Config.ts";
+import { getStoredToken } from "../utils/storage.ts";
 
 export const apiClient = axios.create({
     baseURL: config.apiURL || undefined,
@@ -10,8 +11,7 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((reqConfig) => {
-    const token =
-        sessionStorage.getItem("jwtToken") || localStorage.getItem("jwtToken");
+    const token = getStoredToken();
     if (token) {
         reqConfig.headers.Authorization = `Bearer ${token}`;
     }

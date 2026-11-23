@@ -9,6 +9,12 @@ const routes: FastifyPluginAsync = async (fastify) => {
         message: "Cheiron backend is running",
     }));
 
+    fastify.get("/health", async () => ({
+        status: "healthy",
+        uptime: process.uptime(),
+        timestamp: Date.now(),
+    }));
+
     fastify.post(
         "/session/init",
         {
