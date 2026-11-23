@@ -261,13 +261,13 @@ export function LandingPage({ onStart }: LandingPageProps) {
             setApiError(null);
             setValidationError(null);
 
-            // If backend is waking up on Render, verify readiness before proceeding
+            // If backend is still establishing connection, verify readiness before proceeding
             if (backendHealth === "waking") {
                 const isNowReady = await checkBackendHealth();
                 if (!isNowReady) {
                     setIsSubmitting(false);
                     setApiError(
-                        "Backend is waking up on Render free tier (~30-50s). Please wait a few seconds and try again."
+                        "Connecting to server. Please wait a moment and try again."
                     );
                     return;
                 }
@@ -304,7 +304,7 @@ export function LandingPage({ onStart }: LandingPageProps) {
                 </div>
 
                 <div className="landing-header-right">
-                    {/* Backend Online / Warmup Status */}
+                    {/* Backend Online Status */}
                     <div
                         className={`landing-status-badge ${
                             backendHealth === "ready" ? "is-ready" : "is-waking"
@@ -312,16 +312,14 @@ export function LandingPage({ onStart }: LandingPageProps) {
                         title={
                             backendHealth === "ready"
                                 ? "Backend server is online and ready"
-                                : "Backend is waking up on Render free tier"
+                                : "Connecting to backend server..."
                         }
                     >
                         <span className="status-dot" />
                         <span>
                             {backendHealth === "ready"
                                 ? "Server Online"
-                                : backendHealth === "waking"
-                                  ? "Waking up on Render..."
-                                  : "Connecting..."}
+                                : "Connecting..."}
                         </span>
                     </div>
 
@@ -365,7 +363,7 @@ export function LandingPage({ onStart }: LandingPageProps) {
                         tracking registers your move at the count of three. No controllers required.
                     </p>
 
-                    {/* Cold-start Alert Banner (Render Free Tier) */}
+                    {/* Reconnecting Alert Banner */}
                     <AnimatePresence>
                         {backendHealth === "waking" && (
                             <motion.div
@@ -377,10 +375,9 @@ export function LandingPage({ onStart }: LandingPageProps) {
                             >
                                 <RefreshCw size={14} className="spin-slow" />
                                 <div>
-                                    <strong>Backend is waking up</strong>
+                                    <strong>Connecting to server</strong>
                                     <p>
-                                        Render free tier spins down on inactivity (~30-50s cold start).
-                                        Connecting automatically...
+                                        Establishing connection with the matchmaking server...
                                     </p>
                                 </div>
                             </motion.div>

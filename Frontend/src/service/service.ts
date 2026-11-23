@@ -93,9 +93,16 @@ export const clearSession = async (): Promise<{ success: boolean; message?: stri
 
 /**
  * Checks if the backend server is reachable and healthy.
- * Used on Render free tier to detect when the instance is waking up from sleep.
+ * Pings root endpoint (which returns 200 on all backend deployments) with fallback to /health.
  */
 export const checkBackendHealth = async (): Promise<boolean> => {
+    try {
+        const response = await apiClient.get("/", { timeout: 5000 });
+        if (response.status === 200) return true;
+    } catch {
+        // Fall through to /health fallback
+    }
+
     try {
         const response = await apiClient.get("/health", { timeout: 5000 });
         return response.status === 200;
