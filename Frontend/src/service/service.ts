@@ -1,5 +1,6 @@
 import { AxiosError } from "axios";
 import { apiClient } from "./apiClient.ts";
+import { setStoredToken, removeStoredToken } from "../utils/storage.ts";
 
 export interface GuestProfile {
     nickname: string;
@@ -38,8 +39,7 @@ export const initPlayer = async (
         const response = await apiClient.post<SessionResponse>("/session/init", payload);
         if (response.data && response.data.profile) {
             if (response.data.token) {
-                sessionStorage.setItem("jwtToken", response.data.token);
-                localStorage.setItem("jwtToken", response.data.token);
+                setStoredToken(response.data.token);
             }
             return response.data;
         }
@@ -79,8 +79,7 @@ export const getSessionDetails = async (): Promise<SessionResponse> => {
  */
 export const clearSession = async (): Promise<{ success: boolean; message?: string }> => {
     try {
-        sessionStorage.removeItem("jwtToken");
-        localStorage.removeItem("jwtToken");
+        removeStoredToken();
         const response = await apiClient.post("/session/clear");
         return response.data || { success: true };
     } catch (error: unknown) {
@@ -89,5 +88,18 @@ export const clearSession = async (): Promise<{ success: boolean; message?: stri
             msg = (error.response?.data as ApiErrorResponse)?.message || msg;
         }
         throw new Error(msg, { cause: error });
+    }
+};
+
+/**
+ * Checks if the backend server is reachable and healthy.
+ * Used on Render free tier to detect when the instance is waking up from sleep.
+ */
+export const checkBackendHealth = async (): Promise<boolean> => {
+    try {
+        const response = await apiClient.get("/health", { timeout: 5000 });
+        return response.status === 200;
+    } catch {
+        return false;
     }
 };

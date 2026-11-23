@@ -4,24 +4,27 @@ import { FilesetResolver, HandLandmarker } from "@mediapipe/tasks-vision";
 import { io, type Socket } from "socket.io-client";
 import {
     AlertTriangle,
-    Hand,
-    Hourglass,
     Trophy,
-    Skull,
-    Handshake,
-    PartyPopper,
-    Sparkles,
-    HeartCrack,
-    Timer,
     Lock,
-    Moon,
     Play,
     Square,
     SkipForward,
+    Mic,
+    MicOff,
+    Video,
+    VideoOff,
+    Volume2,
+    VolumeX,
+    User,
+    LogOut,
 } from "lucide-react";
 import { useNickname } from "../context/NicknameContext";
 import { initPlayer, getSessionDetails } from "../service/service";
 import { ProfileModal } from "../components/ProfileModal";
+import { DuelClashStage } from "../components/DuelClashStage";
+import { getStoredToken } from "../utils/storage";
+import { soundManager } from "../utils/audio";
+import "../styles/arena.css";
 
 const ICE_SERVERS: RTCConfiguration = {
     iceServers: [
@@ -88,7 +91,8 @@ export function VideoRoom() {
     const [timer, setTimer] = useState(0);
     const [round, setRound] = useState(0);
     const [scores, setScores] = useState({ user: 0, opponent: 0 });
-    const [matchWinner, setMatchWinner] = useState<string | null>(null);
+    const [matchWinner, setMatchWinner] = useState<"user" | "opponent" | "draw" | null>(null);
+    const [roundHistory, setRoundHistory] = useState<Array<"user" | "opponent" | "draw">>([]);
     const [lastRoundResult, setLastRoundResult] = useState<{
         winner: "user" | "opponent" | "draw";
         userMove: string;
@@ -99,6 +103,10 @@ export function VideoRoom() {
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [captureError, setCaptureError] = useState<string | null>(null);
     const [isRemoteAudioMuted, setIsRemoteAudioMuted] = useState(false);
+    const [isMicMuted, setIsMicMuted] = useState(false);
+    const [isCameraOff, setIsCameraOff] = useState(false);
+    const [sfxVolume, setSfxVolume] = useState<number>(() => soundManager.getVolume());
+    const [isSfxMuted, setIsSfxMuted] = useState<boolean>(() => soundManager.getIsMuted());
     const roundRef = useRef(round);
 
     useEffect(() => {
@@ -179,8 +187,12 @@ export function VideoRoom() {
                     video.videoWidth > 0 &&
                     video.videoHeight > 0
                 ) {
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
+                    if (canvas.width !== video.videoWidth) {
+                        canvas.width = video.videoWidth;
+                    }
+                    if (canvas.height !== video.videoHeight) {
+                        canvas.height = video.videoHeight;
+                    }
 
                     const result = landmarker.detectForVideo(video, performance.now());
                     const landmarks = result.landmarks[0];
@@ -193,10 +205,10 @@ export function VideoRoom() {
 
                     if (landmarks) {
                         setCaptureError((prev) => (prev ? null : prev));
-                        context.strokeStyle = "#00ffff";
-                        context.lineWidth = 3;
-                        context.shadowColor = "#00ffff";
-                        context.shadowBlur = 10;
+                        context.strokeStyle = "#8be9c1";
+                        context.lineWidth = 2.4;
+                        context.shadowColor = "rgba(139, 233, 193, 0.45)";
+                        context.shadowBlur = 8;
                         context.lineCap = "round";
                         context.lineJoin = "round";
 
@@ -217,8 +229,8 @@ export function VideoRoom() {
                             context.stroke();
                         }
 
-                        context.fillStyle = "#ffffff";
-                        context.shadowBlur = 12;
+                        context.fillStyle = "#f3f4f6";
+                        context.shadowBlur = 6;
                         for (const index of HAND_HIGHLIGHT_LANDMARKS) {
                             const landmark = landmarks[index];
                             if (!landmark) continue;
@@ -227,7 +239,7 @@ export function VideoRoom() {
                             context.arc(
                                 landmark.x * canvas.width,
                                 landmark.y * canvas.height,
-                                5,
+                                4,
                                 0,
                                 Math.PI * 2
                             );
@@ -381,6 +393,44 @@ export function VideoRoom() {
         }
     }, []);
 
+    const toggleMic = useCallback(() => {
+        const stream = streamRef.current;
+        if (!stream) return;
+        const audioTracks = stream.getAudioTracks();
+        if (audioTracks.length === 0) return;
+        const nextMuted = !isMicMuted;
+        audioTracks.forEach((track) => {
+            track.enabled = !nextMuted;
+        });
+        setIsMicMuted(nextMuted);
+    }, [isMicMuted]);
+
+    const toggleCamera = useCallback(() => {
+        const stream = streamRef.current;
+        if (!stream) return;
+        const videoTracks = stream.getVideoTracks();
+        if (videoTracks.length === 0) return;
+        const nextOff = !isCameraOff;
+        videoTracks.forEach((track) => {
+            track.enabled = !nextOff;
+        });
+        setIsCameraOff(nextOff);
+    }, [isCameraOff]);
+
+    const toggleSfxMute = useCallback(() => {
+        const muted = soundManager.toggleMute();
+        setIsSfxMuted(muted);
+    }, []);
+
+    const handleSfxVolumeChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        const val = parseFloat(event.target.value);
+        soundManager.setVolume(val);
+        setSfxVolume(val);
+        if (val > 0 && soundManager.getIsMuted()) {
+            setIsSfxMuted(soundManager.toggleMute());
+        }
+    }, []);
+
     // Format duration MM:SS
     const formatDuration = (totalSeconds: number) => {
         const mins = Math.floor(totalSeconds / 60);
@@ -444,6 +494,7 @@ export function VideoRoom() {
         setRound(0);
         setScores({ user: 0, opponent: 0 });
         setMatchWinner(null);
+        setRoundHistory([]);
         setLastRoundResult(null);
     }, []);
 
@@ -576,8 +627,7 @@ export function VideoRoom() {
                 }
             }
             // Connect Socket.IO
-            const token =
-                sessionStorage.getItem("jwtToken") || localStorage.getItem("jwtToken");
+            const token = getStoredToken();
 
             const socket = io(import.meta.env.VITE_BACKEND_URL, {
                 withCredentials: true,
@@ -720,6 +770,7 @@ export function VideoRoom() {
                 setRound(0);
                 setScores({ user: 0, opponent: 0 });
                 setMatchWinner(null);
+                setRoundHistory([]);
                 setLastRoundResult(null);
                 setCaptureError(null);
                 setConnectionStatus(data.message || "Game starts in 10s... Say hello!");
@@ -791,12 +842,19 @@ export function VideoRoom() {
                 }
                 if (data.winner === "draw") roundWinner = "draw";
 
+                const evaluatedRoundNum = Math.min(data.round ?? roundRef.current, 5);
                 setLastRoundResult({
                     winner: roundWinner,
                     userMove: myMove || "none",
                     opponentMove: oppMove || "none",
                     reason: data.reason || data.result,
-                    round: Math.min(data.round ?? roundRef.current ?? round, 5),
+                    round: evaluatedRoundNum,
+                });
+                setRoundHistory((prev) => {
+                    const next = [...prev];
+                    const idx = Math.max(0, evaluatedRoundNum - 1);
+                    next[idx] = roundWinner;
+                    return next.slice(0, 5);
                 });
 
                 let outcome = data.reason || data.result;
@@ -816,6 +874,14 @@ export function VideoRoom() {
                     setGamePhase("round_break");
                     setTimer(data.nextRoundIn ?? 5);
                     setConnectionStatus(outcome);
+
+                    // Trigger sound feedback for round result
+                    if (roundWinner === "user") {
+                        soundManager.playRoundWin();
+                    } else if (roundWinner === "opponent") {
+                        soundManager.playRoundLoss();
+                    }
+                    // For whole match win, user instructed: "and for whole weinninf dont add anyhting"
                 }, 1000);
             });
 
@@ -840,13 +906,22 @@ export function VideoRoom() {
                     evaluationTimeoutRef.current = null;
                 }
                 setGamePhase("game_over");
+                const isPlayer1 = data.p1_id ? socket.id === data.p1_id : true;
                 if (data.p1_id && data.p2_id) {
                     setScores({
-                        user: socket.id === data.p1_id ? data.p1_score : data.p2_score,
-                        opponent: socket.id === data.p1_id ? data.p2_score : data.p1_score,
+                        user: isPlayer1 ? data.p1_score : data.p2_score,
+                        opponent: isPlayer1 ? data.p2_score : data.p1_score,
                     });
                 }
-                setMatchWinner(data.winner);
+                let normalizedWinner: "user" | "opponent" | "draw" = "draw";
+                if (data.winner === "player_1") {
+                    normalizedWinner = isPlayer1 ? "user" : "opponent";
+                } else if (data.winner === "player_2") {
+                    normalizedWinner = isPlayer1 ? "opponent" : "user";
+                } else if (data.winner === "user" || data.winner === "opponent") {
+                    normalizedWinner = data.winner;
+                }
+                setMatchWinner(normalizedWinner);
                 setConnectionStatus("Match Finished!");
             });
         };
@@ -911,252 +986,284 @@ export function VideoRoom() {
 
     const isConnected = callState === "connected" && remoteStream !== null;
 
+    const isUserRoundWinner =
+        (gamePhase === "round_break" && lastRoundResult?.winner === "user") ||
+        (gamePhase === "game_over" && matchWinner === "user");
+    const isUserRoundLoser =
+        (gamePhase === "round_break" && lastRoundResult?.winner === "opponent") ||
+        (gamePhase === "game_over" && matchWinner === "opponent");
+    const isOpponentRoundWinner =
+        (gamePhase === "round_break" && lastRoundResult?.winner === "opponent") ||
+        (gamePhase === "game_over" && matchWinner === "opponent");
+    const isOpponentRoundLoser =
+        (gamePhase === "round_break" && lastRoundResult?.winner === "user") ||
+        (gamePhase === "game_over" && matchWinner === "user");
+
+    const activeRoundDisplay = Math.min(Math.max(round, 1), 5);
+
     return (
-        <main className="room-page">
-            {/* Header */}
-            <header className="room-header">
-                <div className="room-title-group">
-                    <p className="eyebrow">CHEIRON / VIDEO CHAT</p>
-                    <h1 className="room-heading">
-                        {isConnected ? "In Call" : "Video Room"}
-                    </h1>
+        <main className="arena-page">
+            <div className="arena-backdrop-grid" aria-hidden="true" />
+
+            {/* Top Bar: Brand (Left) | Scorecard HUD (Center) | Profile & Leave (Right) */}
+            <header className="arena-topbar">
+                <div className="arena-brand">
+                    <span
+                        className={`arena-brand-dot ${
+                            isConnected
+                                ? "live"
+                                : callState === "searching"
+                                  ? "searching"
+                                  : ""
+                        }`}
+                    />
+                    <span className="arena-brand-name">CHEIRON</span>
+                    <span className="arena-brand-divider">/</span>
+                    <span className="arena-brand-status">
+                        {isConnected ? formatDuration(callDuration) : callState === "searching" ? "Searching" : "Idle"}
+                    </span>
                 </div>
 
-                <div className="room-header-actions">
+                {/* Top-Center Scorecard */}
+                <section className="arena-scorecard" aria-label="Match Scorecard">
+                    <span className="scorecard-label">SCORECARD</span>
+                    <div className="scorecard-body">
+                        <div
+                            className={`scorecard-side side-you ${
+                                isUserRoundWinner
+                                    ? "is-winner"
+                                    : isUserRoundLoser
+                                      ? "is-loser"
+                                      : ""
+                            }`}
+                        >
+                            <div className="scorecard-player-meta">
+                                <span className="scorecard-player-name">{nickname || "You"}</span>
+                                <span
+                                    className={`scorecard-outcome-tag ${
+                                        isUserRoundWinner
+                                            ? "win"
+                                            : isUserRoundLoser
+                                              ? "loss"
+                                              : "neutral"
+                                    }`}
+                                >
+                                    {isUserRoundWinner
+                                        ? "WINNER"
+                                        : isUserRoundLoser
+                                          ? "LOSER"
+                                          : "YOU"}
+                                </span>
+                            </div>
+                            <span className="scorecard-num">{scores.user}</span>
+                        </div>
+
+                        <div className="scorecard-center-divider" aria-hidden="true" />
+
+                        <div
+                            className={`scorecard-side side-opponent ${
+                                isOpponentRoundWinner
+                                    ? "is-winner"
+                                    : isOpponentRoundLoser
+                                      ? "is-loser"
+                                      : ""
+                            }`}
+                        >
+                            <span className="scorecard-num">{scores.opponent}</span>
+                            <div className="scorecard-player-meta">
+                                <span className="scorecard-player-name">
+                                    {isConnected ? opponentNickname || "Stranger" : "Stranger"}
+                                </span>
+                                <span
+                                    className={`scorecard-outcome-tag ${
+                                        isOpponentRoundWinner
+                                            ? "win"
+                                            : isOpponentRoundLoser
+                                              ? "loss"
+                                              : "neutral"
+                                    }`}
+                                >
+                                    {isOpponentRoundWinner
+                                        ? "WINNER"
+                                        : isOpponentRoundLoser
+                                          ? "LOSER"
+                                          : "OPPONENT"}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="scorecard-footer">
+                        <div className="scorecard-pips" aria-label="Round history">
+                            {[0, 1, 2, 3, 4].map((index) => {
+                                const outcome = roundHistory[index];
+                                const isCurrent = isConnected && round > 0 && index === round - 1 && !outcome;
+                                const pipClass = outcome
+                                    ? `pip-${outcome}`
+                                    : isCurrent
+                                      ? "pip-active"
+                                      : "";
+                                return <span key={index} className={`round-pip ${pipClass}`} />;
+                            })}
+                        </div>
+                        <span className="scorecard-round-text">
+                            {isConnected && round > 0
+                                ? `Round ${activeRoundDisplay} of 5`
+                                : "Best of 5"}
+                        </span>
+                    </div>
+                </section>
+
+                {/* Top-Right Profile & Leave */}
+                <div className="arena-header-actions">
                     <button
                         type="button"
-                        className="profile-top-button in-room-profile-btn"
+                        className="arena-profile-btn"
                         onClick={() => setIsProfileOpen(true)}
                         title="View Profile"
                         aria-label="Open user profile"
                     >
-                        <span className="profile-status-dot active" />
-                        <span className="profile-top-nickname">{nickname}</span>
-                        <svg
-                            className="profile-icon"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            aria-hidden="true"
-                        >
-                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                            <circle cx="12" cy="7" r="4" />
-                        </svg>
+                        <span className="arena-profile-avatar">
+                            <User size={13} />
+                        </span>
+                        <span className="arena-profile-name">{nickname}</span>
                     </button>
 
                     <button
                         type="button"
-                        className="text-button leave-button"
+                        className="arena-leave-btn"
                         onClick={handleLeaveRoom}
+                        title="Leave room"
                     >
-                        Leave room
+                        <LogOut size={13} />
+                        <span>Leave</span>
                     </button>
                 </div>
             </header>
 
-            {/* If camera & mic are not granted, block everything and show prompt */}
-            {hasMediaPermissions === false && (
-                <div className="permission-barrier-card" role="alert">
-                    <div className="barrier-icon">
-                        <AlertTriangle size={36} color="#f59e0b" />
+            {/* Main Content: Permission Barrier OR 39% | 22% | 39% Arena Stage */}
+            {hasMediaPermissions === false ? (
+                <div className="arena-permission-overlay">
+                    <div className="arena-permission-card" role="alert">
+                        <AlertTriangle size={32} color="#ff9a9a" />
+                        <h2>Camera and Microphone Required</h2>
+                        <p>
+                            Allow camera and microphone access so Cheiron can track your
+                            hand gestures and connect you with an opponent.
+                        </p>
+                        <button
+                            type="button"
+                            onClick={initLocalMedia}
+                            className="duel-primary-cta"
+                        >
+                            Grant Camera & Mic Access
+                        </button>
                     </div>
-                    <h2>Camera and Microphone Required</h2>
-                    <p>
-                        Nothing can start until camera and microphone permissions are granted.
-                        Please allow access in your browser to begin matching.
-                    </p>
-                    <button
-                        type="button"
-                        onClick={initLocalMedia}
-                        className="primary-button"
+                </div>
+            ) : (
+                <section className="arena-stage" aria-label="Match Arena">
+                    {/* Left Panel (39%): Local Camera (ME) */}
+                    <article
+                        className={`arena-video-card card-local ${
+                            isUserRoundWinner
+                                ? "card-round-winner"
+                                : isUserRoundLoser
+                                  ? "card-round-loser"
+                                  : ""
+                        }`}
                     >
-                        Grant Camera & Mic Access
-                    </button>
-                </div>
-            )}
+                        <div className="arena-video-viewport">
+                            <video
+                                ref={videoRef}
+                                autoPlay
+                                muted
+                                playsInline
+                                className={`arena-stream-video is-mirrored ${
+                                    isUserRoundLoser ? "arena-video-dimmed" : ""
+                                } ${isCameraOff ? "is-camera-off" : ""}`}
+                                aria-label="Your local camera stream"
+                            />
 
-            {/* Top Game State Notification / Banner */}
-            {isConnected && gamePhase === "warmup" && (
-                <div className="game-status-banner warmup-banner" role="status">
-                    <span className="banner-icon">
-                        <Hand size={18} />
-                    </span>
-                    <span className="banner-text">
-                        Connected! Game starts in <strong>{timer}s</strong>... Say hello & get ready!
-                    </span>
-                </div>
-            )}
-
-            {isConnected && gamePhase === "countdown" && (
-                <div className="game-status-banner action-banner" role="status">
-                    <span className="banner-round-tag">Round {Math.min(round, 5)} / 5</span>
-                    <span className="banner-scoreboard">
-                        {nickname}: <strong>{scores.user}</strong> &nbsp;|&nbsp; {opponentNickname || "Stranger"}: <strong>{scores.opponent}</strong>
-                    </span>
-                    <span className="banner-timer-tag">
-                        <Hourglass size={13} /> {timer}s
-                    </span>
-                </div>
-            )}
-
-            {isConnected && (gamePhase === "reveal" || gamePhase === "round_break") && (
-                <div
-                    className={`game-status-banner break-banner ${
-                        gamePhase === "reveal"
-                            ? "evaluation-banner"
-                            :
-                        lastRoundResult?.winner === "user"
-                            ? "winner-banner"
-                            : lastRoundResult?.winner === "opponent"
-                            ? "loser-banner"
-                            : "draw-banner"
-                    }`}
-                    role="status"
-                >
-                    <span className="banner-icon">
-                        {gamePhase === "reveal" ? (
-                            <Hourglass size={18} />
-                        ) : lastRoundResult?.winner === "user" ? (
-                            <Trophy size={18} />
-                        ) : lastRoundResult?.winner === "opponent" ? (
-                            <Skull size={18} />
-                        ) : (
-                            <Handshake size={18} />
-                        )}
-                    </span>
-                    <span className="banner-text">
-                        {gamePhase === "reveal" ? (
-                            <>
-                                <strong>Revealing round {lastRoundResult?.round || round}...</strong>
-                            </>
-                        ) : lastRoundResult?.winner === "user" ? (
-                            <>
-                                <strong>YOU WON ROUND {lastRoundResult.round}!</strong> &nbsp;•&nbsp; Next round in <strong>{timer}s</strong>...
-                            </>
-                        ) : lastRoundResult?.winner === "opponent" ? (
-                            <>
-                                <strong>YOU LOST ROUND {lastRoundResult.round}</strong> &nbsp;•&nbsp; Next round in <strong>{timer}s</strong>...
-                            </>
-                        ) : (
-                            <>
-                                <strong>ROUND {lastRoundResult?.round || round} TIED!</strong> &nbsp;•&nbsp; Next round in <strong>{timer}s</strong>...
-                            </>
-                        )}
-                    </span>
-                    {gamePhase === "round_break" && (
-                        <span className="banner-scoreboard-mini">
-                            ({scores.user} - {scores.opponent})
-                        </span>
-                    )}
-                </div>
-            )}
-
-            {isConnected && gamePhase === "game_over" && (
-                <div className="game-status-banner gameover-banner" role="status">
-                    <span className="banner-icon">
-                        {matchWinner === "draw" ? <Handshake size={18} /> : <Trophy size={18} />}
-                    </span>
-                    <span className="banner-text">
-                        <strong>Match Finished!</strong> Final Score: {scores.user} - {scores.opponent} {matchWinner === "draw" ? "(Draw!)" : ""}
-                    </span>
-                </div>
-            )}
-
-            {/* Break Celebration / Defeat Card Overlay */}
-            {isConnected && gamePhase === "round_break" && lastRoundResult && (
-                <div className={`round-break-celebration-container ${lastRoundResult.winner}`}>
-                    <div className="celebration-card-inner">
-                        {lastRoundResult.winner === "user" ? (
-                            <>
-                                <div className="celebration-particles" aria-hidden="true">
-                                    <PartyPopper size={22} />
-                                    <Trophy size={22} />
-                                    <Sparkles size={22} />
+                            {isCameraOff && (
+                                <div className="arena-camera-off-placeholder">
+                                    <VideoOff size={24} />
+                                    <span>Camera is off</span>
                                 </div>
-                                <span className="celebration-badge-pill">ROUND {lastRoundResult.round} WIN</span>
-                                <h2 className="celebration-heading">
-                                    <Trophy size={24} /> You Won This Round!
-                                </h2>
-                                <p className="celebration-matchup">
-                                    <span className="move-tag win-move">You: {lastRoundResult.userMove.toUpperCase()}</span>
-                                    <span className="vs-tag">vs</span>
-                                    <span className="move-tag loss-move">{opponentNickname || "Opponent"}: {lastRoundResult.opponentMove.toUpperCase()}</span>
-                                </p>
-                                <p className="celebration-reason">{lastRoundResult.reason}</p>
-                                <div className="celebration-timer-box">
-                                    Next round in <strong>{timer}s</strong>...
-                                </div>
-                            </>
-                        ) : lastRoundResult.winner === "opponent" ? (
-                            <>
-                                <div className="defeat-particles" aria-hidden="true">
-                                    <Skull size={22} />
-                                    <HeartCrack size={22} />
-                                    <AlertTriangle size={22} />
-                                </div>
-                                <span className="defeat-badge-pill">ROUND {lastRoundResult.round} DEFEAT</span>
-                                <h2 className="defeat-heading">
-                                    <Skull size={24} /> You Lost This Round
-                                </h2>
-                                <p className="celebration-matchup">
-                                    <span className="move-tag loss-move">You: {lastRoundResult.userMove.toUpperCase()}</span>
-                                    <span className="vs-tag">vs</span>
-                                    <span className="move-tag win-move">{opponentNickname || "Opponent"}: {lastRoundResult.opponentMove.toUpperCase()}</span>
-                                </p>
-                                <p className="defeat-reason">{lastRoundResult.reason}</p>
-                                <div className="defeat-timer-box">
-                                    Next round in <strong>{timer}s</strong>...
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <span className="draw-badge-pill">ROUND {lastRoundResult.round} TIE</span>
-                                <h2 className="draw-heading">
-                                    <Handshake size={24} /> Round Tied!
-                                </h2>
-                                <p className="celebration-matchup">
-                                    <span className="move-tag draw-move">Both chose: {lastRoundResult.userMove.toUpperCase()}</span>
-                                </p>
-                                <p className="draw-reason">{lastRoundResult.reason}</p>
-                                <div className="draw-timer-box">
-                                    Next round in <strong>{timer}s</strong>...
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </div>
-            )}
+                            )}
 
-            {/* Video Stage: 50-50 Split Layout (Left: Opponent, Right: You) */}
-            <section
-                className="video-stage"
-                aria-label="Video Call Stage"
-            >
-                {/* Left Panel (50%): Remote Participant / Opponent */}
-                <article className="panel-remote">
-                    <div className="panel-header-overlay">
-                        <div className="participant-badge">
-                            <span className={`status-indicator-dot ${isConnected ? "connected" : "pulsing"}`} />
-                            <span className="participant-label">
-                                {isConnected ? opponentNickname || "Stranger" : "Stranger"}
-                            </span>
-                        </div>
-                        {isConnected && (
-                            <div className="call-duration-badge">
-                                <Timer size={14} /> {formatDuration(callDuration)}
+                            <canvas
+                                ref={canvasRef}
+                                className="arena-hand-canvas"
+                                aria-hidden="true"
+                            />
+
+                            {isUserRoundLoser && (
+                                <div className="arena-loser-veil" aria-hidden="true" />
+                            )}
+
+                            {gamePhase === "blackout" && (
+                                <div className="arena-scan-badge" aria-live="assertive">
+                                    <span className="arena-scan-dot" />
+                                    <span>Scanning {timer}s</span>
+                                </div>
+                            )}
+
+                            {captureError && (
+                                <div className="arena-capture-toast" role="alert">
+                                    <AlertTriangle size={14} />
+                                    <span>{captureError}</span>
+                                </div>
+                            )}
+
+                            <div className="arena-card-bottom-bar">
+                                <span className="arena-name-pill">
+                                    <span>{nickname || "You"}</span>
+                                    <span className="arena-name-tag-role">You</span>
+                                </span>
+
+                                {isUserRoundWinner && (
+                                    <span className="arena-card-outcome-pill win">
+                                        <Trophy size={12} />
+                                        <span>{gamePhase === "game_over" ? "Match won" : "Round won"}</span>
+                                    </span>
+                                )}
+                                {isUserRoundLoser && (
+                                    <span className="arena-card-outcome-pill loss">
+                                        <span>{gamePhase === "game_over" ? "Defeated" : "Round lost"}</span>
+                                    </span>
+                                )}
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    </article>
 
-                    <div className={`video-viewport remote-viewport ${gamePhase === "blackout" ? "blind-active" : ""} ${
-                        gamePhase === "round_break" && lastRoundResult?.winner === "user"
-                            ? "result-loser"
-                            : ""
-                    }`}>
-                        <>
+                    {/* Center Column (22%): 3D Gesture Clash & Live Match State */}
+                    <section className="arena-center-duel" aria-label="Duel Center Stage">
+                        <DuelClashStage
+                            callState={callState}
+                            gamePhase={gamePhase}
+                            timer={timer}
+                            round={round}
+                            scores={scores}
+                            lastRoundResult={lastRoundResult}
+                            matchWinner={matchWinner}
+                            connectionStatus={connectionStatus}
+                            opponentNickname={opponentNickname}
+                            onStartSearching={handleStartSearching}
+                            onNextOpponent={handleNext}
+                        />
+                    </section>
+
+                    {/* Right Panel (39%): Remote Opponent (STRANGER) */}
+                    <article
+                        className={`arena-video-card card-remote ${
+                            isOpponentRoundWinner
+                                ? "card-round-winner"
+                                : isOpponentRoundLoser
+                                  ? "card-round-loser"
+                                  : ""
+                        }`}
+                    >
+                        <div className="arena-video-viewport">
                             <video
                                 ref={(element) => {
                                     remoteVideoRef.current = element;
@@ -1171,178 +1278,190 @@ export function VideoRoom() {
                                 }}
                                 autoPlay
                                 playsInline
-                                className="stream-video remote-video"
+                                className={`arena-stream-video ${
+                                    isOpponentRoundLoser ? "arena-video-dimmed" : ""
+                                }`}
                                 style={remoteStream ? undefined : { display: "none" }}
+                                aria-label="Opponent video stream"
                             />
-                            {isRemoteAudioMuted && isConnected && (
-                                <button
-                                    type="button"
-                                    onClick={handleUnmuteRemote}
-                                    className="unmute-banner-btn"
-                                    title="Click to unmute opponent"
-                                >
-                                    🔊 Click to unmute opponent
-                                </button>
-                            )}
+
                             {!remoteStream && (
-                                <div className="searching-placeholder">
-                                    {callState === "searching" && (
-                                        <div className="radar-spinner" aria-hidden="true">
-                                            <div className="radar-circle circle-1" />
-                                            <div className="radar-circle circle-2" />
-                                            <div className="radar-circle circle-3" />
-                                        </div>
-                                    )}
-                                    <p className="connection-status-text">{connectionStatus}</p>
-                                    {callState === "stopped" && (
-                                        <button
-                                            type="button"
-                                            onClick={handleStartSearching}
-                                            className="primary-button resume-button"
-                                        >
-                                            Find Partner
-                                        </button>
-                                    )}
+                                <div className="arena-remote-empty">
+                                    <div className="arena-remote-empty-icon">
+                                        <User size={22} />
+                                    </div>
+                                    <p>
+                                        {callState === "searching"
+                                            ? "Waiting for a stranger to join..."
+                                            : "Not currently in a match."}
+                                    </p>
                                 </div>
                             )}
-                            {gamePhase === "blackout" && (
-                                <div className="blind-conceal-overlay" aria-live="assertive">
-                                    <div className="blind-lock-symbol">
-                                        <Lock size={44} strokeWidth={2.2} />
-                                    </div>
-                                    <p className="blind-lock-title">Opponent hidden</p>
-                                    <p className="blind-lock-subtitle">Lock in your move!</p>
-                                </div>
-                            )}
-                                {gamePhase === "round_break" && lastRoundResult?.winner === "user" && (
-                                    <div className="winner-video-popover">
-                                        <Trophy size={20} />
-                                        <span>You won this round</span>
-                                    </div>
-                                )}
-                                {gamePhase === "countdown" && (
-                                    <div className="game-timer-overlay" aria-live="polite">
-                                        {timer}
-                                    </div>
-                                )}
-                        </>
-                    </div>
-                </article>
 
-                {/* Right Panel (50%): Local Participant / You */}
-                <article className="panel-local">
-                    <div className="panel-header-overlay local-overlay">
-                        <div className="participant-badge local-badge">
-                            <span className="status-indicator-dot local-dot" />
-                            <span className="participant-label">{nickname} (You)</span>
+                            {isOpponentRoundLoser && remoteStream && (
+                                <div className="arena-loser-veil" aria-hidden="true" />
+                            )}
+
+                            {gamePhase === "blackout" && remoteStream && (
+                                <div className="arena-blackout-curtain" aria-live="assertive">
+                                    <div className="arena-blackout-icon">
+                                        <Lock size={22} />
+                                    </div>
+                                    <p className="arena-blackout-title">Opponent hidden</p>
+                                    <p className="arena-blackout-sub">Lock in your move</p>
+                                </div>
+                            )}
+
+                            <div className="arena-card-top-bar">
+                                {isConnected ? (
+                                    <span className="arena-live-pill">
+                                        <span className="arena-live-dot" />
+                                        <span>Live</span>
+                                    </span>
+                                ) : (
+                                    <span />
+                                )}
+
+                                {isRemoteAudioMuted && isConnected && (
+                                    <button
+                                        type="button"
+                                        onClick={handleUnmuteRemote}
+                                        className="arena-unmute-btn"
+                                        title="Click to unmute opponent"
+                                    >
+                                        <Volume2 size={13} />
+                                        <span>Unmute</span>
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="arena-card-bottom-bar">
+                                <span className="arena-name-pill">
+                                    <span>{isConnected ? opponentNickname || "Opponent" : "Opponent"}</span>
+                                    <span className="arena-name-tag-role">Opponent</span>
+                                </span>
+
+                                {isOpponentRoundWinner && (
+                                    <span className="arena-card-outcome-pill win">
+                                        <Trophy size={12} />
+                                        <span>{gamePhase === "game_over" ? "Match won" : "Round won"}</span>
+                                    </span>
+                                )}
+                                {isOpponentRoundLoser && (
+                                    <span className="arena-card-outcome-pill loss">
+                                        <span>{gamePhase === "game_over" ? "Defeated" : "Round lost"}</span>
+                                    </span>
+                                )}
+                            </div>
                         </div>
-                    </div>
+                    </article>
+                </section>
+            )}
 
-                    <div className={`video-viewport local-viewport ${
-                        gamePhase === "round_break" ? "break-dimmed" : ""
-                    } ${
-                        gamePhase === "round_break" && lastRoundResult?.winner === "opponent"
-                            ? "result-loser"
-                            : ""
-                    }`}>
-                        <video
-                            ref={videoRef}
-                            autoPlay
-                            muted
-                            playsInline
-                            className={`stream-video local-video active ${gamePhase === "round_break" ? "camera-dimmed" : ""}`}
-                            aria-label="Your local camera stream"
-                        />
-                        {gamePhase === "round_break" && (
-                            <div className="camera-dimmed-tag" aria-hidden="true">
-                                <Moon size={14} />
-                                <span>Camera Dimmed (Break)</span>
-                            </div>
-                        )}
-                        {gamePhase === "round_break" && lastRoundResult?.winner === "opponent" && (
-                            <div className="winner-video-popover">
-                                <Trophy size={20} />
-                                <span>{opponentNickname || "Opponent"} won this round</span>
-                            </div>
-                        )}
-                        <canvas
-                            ref={canvasRef}
-                            className="hand-tracking-canvas"
-                            aria-hidden="true"
-                        />
-                        {gamePhase === "countdown" && (
-                            <div className="game-timer-overlay" aria-live="polite">
-                                {timer}
-                            </div>
-                        )}
-                        {gamePhase === "blackout" && (
-                            <div className="blind-capture-status" aria-live="assertive">
-                                <span>Scanning hand... {timer}s</span>
-                            </div>
-                        )}
-                        {captureError && (
-                            <div className="side-notification-popup" role="alert">
-                                <svg
-                                    className="side-notification-icon"
-                                    width="16"
-                                    height="16"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    aria-hidden="true"
-                                >
-                                    <circle cx="12" cy="12" r="10" />
-                                    <line x1="12" y1="8" x2="12" y2="12" />
-                                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                                </svg>
-                                <span className="side-notification-text">{captureError}</span>
-                            </div>
-                        )}
-                    </div>
-                </article>
-            </section>
-
-            {/* Bottom Controls Bar (Stop / Next) */}
-            <footer className="original-controls-bar">
-                <div className="controls-group-center">
+            {/* Bottom Control Dock: Left (Stop / Next) | Center (Empty) | Right (Mic / Camera) */}
+            <footer className="arena-dock">
+                <div className="arena-dock-left">
                     {callState === "stopped" ? (
                         <button
                             type="button"
                             onClick={handleStartSearching}
-                            className="control-action-btn btn-start-search"
+                            className="dock-btn dock-btn-start"
                         >
-                            <Play size={18} fill="currentColor" />
-                            Find Partner
+                            <Play size={15} fill="currentColor" />
+                            <span>Find Partner</span>
                         </button>
                     ) : (
                         <button
                             type="button"
                             onClick={handleStop}
-                            className="control-action-btn btn-stop-search"
+                            className="dock-btn dock-btn-stop"
                             title={isConnected ? "End Call / Stop" : "Stop Searching"}
                         >
-                            <Square size={16} fill="currentColor" />
-                            Stop
+                            <Square size={14} fill="currentColor" />
+                            <span>Stop</span>
                         </button>
                     )}
 
                     <button
                         type="button"
                         onClick={handleNext}
-                        className="control-action-btn btn-skip-next"
+                        className="dock-btn dock-btn-next"
                         title="Skip to Next Partner"
                     >
-                        <SkipForward size={18} fill="currentColor" />
-                        Next
+                        <SkipForward size={15} fill="currentColor" />
+                        <span>Next</span>
+                    </button>
+                </div>
+
+                <div className="arena-dock-center" aria-hidden="true" />
+
+                <div className="arena-dock-right">
+                    {/* Sound Effects (SFX) Volume & Mute Controls */}
+                    <div className="dock-sfx-group" title="Sound Effects Volume">
+                        <button
+                            type="button"
+                            onClick={toggleSfxMute}
+                            className={`dock-sfx-btn ${isSfxMuted || sfxVolume === 0 ? "is-muted" : ""}`}
+                            aria-label={isSfxMuted ? "Unmute sound effects" : "Mute sound effects"}
+                            title={isSfxMuted ? "Unmute sound effects" : "Mute sound effects"}
+                        >
+                            {isSfxMuted || sfxVolume === 0 ? <VolumeX size={15} /> : <Volume2 size={15} />}
+                            <span>SFX</span>
+                        </button>
+                        <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.05"
+                            value={isSfxMuted ? 0 : sfxVolume}
+                            onChange={handleSfxVolumeChange}
+                            className="dock-sfx-slider"
+                            aria-label="Sound effects volume slider"
+                            title={`Volume: ${isSfxMuted ? 0 : Math.round(sfxVolume * 100)}%`}
+                        />
+                        <span className="dock-sfx-val">
+                            {isSfxMuted ? "0%" : `${Math.round(sfxVolume * 100)}%`}
+                        </span>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={toggleMic}
+                        disabled={hasMediaPermissions !== true}
+                        className={`dock-toggle-pill ${isMicMuted ? "is-off" : ""}`}
+                        aria-pressed={!isMicMuted}
+                        aria-label={isMicMuted ? "Unmute microphone" : "Mute microphone"}
+                    >
+                        <span className="dock-toggle-label">
+                            {isMicMuted ? <MicOff size={15} /> : <Mic size={15} />}
+                            <span>Mic</span>
+                        </span>
+                        <span className="dock-switch-track" aria-hidden="true">
+                            <span className="dock-switch-thumb" />
+                        </span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={toggleCamera}
+                        disabled={hasMediaPermissions !== true}
+                        className={`dock-toggle-pill ${isCameraOff ? "is-off" : ""}`}
+                        aria-pressed={!isCameraOff}
+                        aria-label={isCameraOff ? "Turn camera on" : "Turn camera off"}
+                    >
+                        <span className="dock-toggle-label">
+                            {isCameraOff ? <VideoOff size={15} /> : <Video size={15} />}
+                            <span>Camera</span>
+                        </span>
+                        <span className="dock-switch-track" aria-hidden="true">
+                            <span className="dock-switch-thumb" />
+                        </span>
                     </button>
                 </div>
             </footer>
 
             {mediaError && (
-                <p className="media-error" role="alert">
+                <p className="arena-media-error" role="alert">
                     {mediaError}
                 </p>
             )}

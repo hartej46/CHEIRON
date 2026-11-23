@@ -1,0 +1,1578 @@
+/* ==========================================================================
+   CHEIRON ARENA — Minimal Graphite Theme (#0f1012)
+   39% Local Video | 22% Center 3D Duel | 39% Remote Video
+   ========================================================================== */
+
+.arena-page {
+    --arena-bg: #0f1012;
+    --arena-surface: #16181c;
+    --arena-surface-2: #1e2026;
+    --arena-surface-hover: #262930;
+    --arena-border: rgba(255, 255, 255, 0.08);
+    --arena-border-strong: rgba(255, 255, 255, 0.15);
+    --arena-ink: #f3f4f6;
+    --arena-muted: #9ca3af;
+    --arena-dim: #6b7280;
+    --arena-win: #8be9c1;
+    --arena-win-bg: rgba(139, 233, 193, 0.1);
+    --arena-win-border: rgba(139, 233, 193, 0.34);
+    --arena-loss: #ff9a9a;
+    --arena-loss-bg: rgba(255, 154, 154, 0.1);
+    --arena-loss-border: rgba(255, 154, 154, 0.34);
+
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    background-color: var(--arena-bg);
+    background-image:
+        radial-gradient(60% 42% at 50% 48%, rgba(255, 255, 255, 0.032) 0%, rgba(15, 16, 18, 0) 72%),
+        radial-gradient(45% 28% at 50% 0%, rgba(255, 255, 255, 0.025) 0%, rgba(15, 16, 18, 0) 70%);
+    color: var(--arena-ink);
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 14px;
+    padding: 16px 24px 18px;
+}
+
+/* Subtle perspective grid floor accent in neutral grey */
+.arena-backdrop-grid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 68% 58% at 50% 52%, rgba(0, 0, 0, 0.65) 0%, transparent 80%);
+    -webkit-mask-image: radial-gradient(ellipse 68% 58% at 50% 52%, rgba(0, 0, 0, 0.65) 0%, transparent 80%);
+}
+
+/* ==========================================================================
+   TOP BAR & SCORECARD HUD
+   ========================================================================== */
+
+.arena-topbar {
+    position: relative;
+    z-index: 10;
+    display: grid;
+    grid-template-columns: minmax(160px, 1fr) auto minmax(160px, 1fr);
+    align-items: start;
+    gap: 16px;
+}
+
+.arena-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-top: 6px;
+}
+
+.arena-brand-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--arena-dim);
+    transition: background-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.arena-brand-dot.live {
+    background: var(--arena-win);
+    box-shadow: 0 0 10px rgba(139, 233, 193, 0.45);
+}
+
+.arena-brand-dot.searching {
+    background: #d1d5db;
+    animation: arenaPulse 1.5s ease-in-out infinite;
+}
+
+.arena-brand-name {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--arena-ink);
+}
+
+.arena-brand-divider {
+    color: rgba(255, 255, 255, 0.16);
+    font-size: 12px;
+}
+
+.arena-brand-status {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--arena-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Center Scorecard HUD */
+.arena-scorecard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.scorecard-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--arena-dim);
+    line-height: 1;
+}
+
+.scorecard-body {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: var(--arena-surface);
+    border: 1px solid var(--arena-border);
+    border-radius: 14px;
+    padding: 8px 16px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.36);
+}
+
+.scorecard-side {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 148px;
+    padding: 2px 10px;
+    border-radius: 9px;
+    transition: background-color 0.25s ease;
+}
+
+.scorecard-side.side-you {
+    justify-content: flex-end;
+    text-align: right;
+}
+
+.scorecard-side.side-opponent {
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.scorecard-side.is-winner {
+    background: var(--arena-win-bg);
+}
+
+.scorecard-side.is-loser {
+    background: var(--arena-loss-bg);
+}
+
+.scorecard-player-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.scorecard-player-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--arena-ink);
+    max-width: 112px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+}
+
+.scorecard-outcome-tag {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.scorecard-outcome-tag.win {
+    color: var(--arena-win);
+}
+
+.scorecard-outcome-tag.loss {
+    color: var(--arena-loss);
+}
+
+.scorecard-outcome-tag.neutral {
+    color: var(--arena-dim);
+}
+
+.scorecard-num {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--arena-ink);
+}
+
+.scorecard-side.is-winner .scorecard-num {
+    color: var(--arena-win);
+}
+
+.scorecard-side.is-loser .scorecard-num {
+    color: var(--arena-loss);
+}
+
+.scorecard-center-divider {
+    width: 1px;
+    height: 30px;
+    background: var(--arena-border-strong);
+    margin: 0 8px;
+}
+
+/* Round Pips & Round Counter */
+.scorecard-footer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.scorecard-pips {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.round-pip {
+    width: 18px;
+    height: 5px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.09);
+    transition: background-color 0.25s ease, transform 0.25s ease;
+}
+
+.round-pip.pip-active {
+    background: var(--arena-ink);
+    transform: scaleY(1.2);
+}
+
+.round-pip.pip-user {
+    background: var(--arena-win);
+}
+
+.round-pip.pip-opponent {
+    background: var(--arena-loss);
+}
+
+.round-pip.pip-draw {
+    background: var(--arena-muted);
+}
+
+.scorecard-round-text {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--arena-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Top-Right Profile & Leave */
+.arena-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 2px;
+}
+
+.arena-profile-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 6px 12px 6px 8px;
+    background: var(--arena-surface);
+    border: 1px solid var(--arena-border);
+    border-radius: 999px;
+    color: var(--arena-ink);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.18s ease, border-color 0.18s ease;
+}
+
+.arena-profile-btn:hover {
+    background: var(--arena-surface-2);
+    border-color: var(--arena-border-strong);
+}
+
+.arena-profile-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--arena-surface-2);
+    border: 1px solid var(--arena-border-strong);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--arena-muted);
+}
+
+.arena-profile-name {
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.arena-leave-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 13px;
+    background: transparent;
+    border: 1px solid var(--arena-border);
+    border-radius: 10px;
+    color: var(--arena-muted);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.arena-leave-btn:hover {
+    background: var(--arena-surface);
+    border-color: var(--arena-border-strong);
+    color: var(--arena-ink);
+}
+
+/* ==========================================================================
+   MAIN ARENA STAGE: 39% LOCAL VIDEO | 22% CENTER DUEL | 39% REMOTE VIDEO
+   ========================================================================== */
+
+.arena-stage {
+    position: relative;
+    z-index: 5;
+    display: grid;
+    grid-template-columns: minmax(0, 39fr) minmax(0, 22fr) minmax(0, 39fr);
+    gap: 16px;
+    align-items: center;
+    min-height: 0;
+    height: 100%;
+}
+
+/* Video Cards (Left: ME, Right: STRANGER) */
+.arena-video-card {
+    position: relative;
+    z-index: 4;
+    width: 100%;
+    height: 100%;
+    max-height: 560px;
+    display: flex;
+    flex-direction: column;
+    border-radius: 18px;
+    overflow: hidden;
+    background: var(--arena-surface);
+    border: 1px solid var(--arena-border);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.42);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.arena-video-card.card-round-winner {
+    border-color: var(--arena-win-border);
+    box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.48),
+        0 0 0 1px rgba(139, 233, 193, 0.18);
+}
+
+.arena-video-card.card-round-loser {
+    border-color: rgba(255, 154, 154, 0.2);
+}
+
+.arena-video-viewport {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: #0b0c0e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.arena-stream-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: filter 0.35s ease, opacity 0.3s ease, transform 0.35s ease;
+}
+
+.arena-stream-video.is-mirrored {
+    transform: scaleX(-1);
+}
+
+/* Preserved Feature: Darken the face of whoever lost the round */
+.arena-stream-video.arena-video-dimmed {
+    filter: brightness(0.26) grayscale(0.45) contrast(1.06);
+}
+
+.arena-stream-video.is-camera-off {
+    opacity: 0;
+}
+
+/* Hand tracking skeleton canvas */
+.arena-hand-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    transform: scaleX(-1);
+    z-index: 4;
+}
+
+/* Top & Bottom subtle HUD pills inside video cards */
+.arena-card-top-bar {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    z-index: 7;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    pointer-events: none;
+}
+
+.arena-card-top-bar button {
+    pointer-events: auto;
+}
+
+.arena-live-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(15, 16, 18, 0.72);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--arena-ink);
+}
+
+.arena-live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--arena-win);
+}
+
+.arena-unmute-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    border-radius: 999px;
+    background: rgba(22, 24, 28, 0.88);
+    border: 1px solid var(--arena-border-strong);
+    color: var(--arena-ink);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.18s ease, border-color 0.18s ease;
+}
+
+.arena-unmute-btn:hover {
+    background: var(--arena-surface-hover);
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
+.arena-card-bottom-bar {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    z-index: 7;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.arena-name-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: rgba(15, 16, 18, 0.76);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--arena-ink);
+    letter-spacing: 0.02em;
+}
+
+.arena-name-tag-role {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--arena-muted);
+}
+
+.arena-card-outcome-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.arena-card-outcome-pill.win {
+    background: rgba(15, 16, 18, 0.82);
+    border: 1px solid var(--arena-win-border);
+    color: var(--arena-win);
+}
+
+.arena-card-outcome-pill.loss {
+    background: rgba(15, 16, 18, 0.86);
+    border: 1px solid var(--arena-loss-border);
+    color: var(--arena-loss);
+}
+
+/* Loser dark veil overlay (keeps loser face visibly dimmed) */
+.arena-loser-veil {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    background: radial-gradient(circle at center, rgba(15, 16, 18, 0.25) 0%, rgba(15, 16, 18, 0.68) 100%);
+    pointer-events: none;
+}
+
+/* Opponent Blackout Conceal Overlay */
+.arena-blackout-curtain {
+    position: absolute;
+    inset: 0;
+    z-index: 8;
+    background: #0d0e11;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    text-align: center;
+    padding: 24px;
+}
+
+.arena-blackout-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--arena-surface-2);
+    border: 1px solid var(--arena-border-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--arena-ink);
+}
+
+.arena-blackout-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--arena-ink);
+}
+
+.arena-blackout-sub {
+    margin: 0;
+    font-size: 12px;
+    color: var(--arena-muted);
+}
+
+/* Local camera scanning badge during blackout */
+.arena-scan-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 8;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: rgba(15, 16, 18, 0.84);
+    border: 1px solid var(--arena-win-border);
+    color: var(--arena-win);
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.arena-scan-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--arena-win);
+    animation: arenaPulse 0.9s ease-in-out infinite;
+}
+
+/* Camera off placeholder */
+.arena-camera-off-placeholder {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: #121317;
+    color: var(--arena-muted);
+    font-size: 13px;
+}
+
+/* Remote empty / waiting placeholder */
+.arena-remote-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 24px;
+    text-align: center;
+    color: var(--arena-muted);
+}
+
+.arena-remote-empty-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--arena-surface-2);
+    border: 1px solid var(--arena-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--arena-dim);
+}
+
+.arena-remote-empty p {
+    margin: 0;
+    font-size: 13px;
+    max-width: 240px;
+    line-height: 1.45;
+}
+
+/* Capture error toast inside local card */
+.arena-capture-toast {
+    position: absolute;
+    top: 52px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 13px;
+    border-radius: 10px;
+    background: rgba(22, 24, 28, 0.92);
+    border: 1px solid var(--arena-loss-border);
+    color: var(--arena-loss);
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* ==========================================================================
+   CENTER 22% DUEL & 3D CLASH STAGE
+   ========================================================================== */
+
+.arena-center-duel {
+    position: relative;
+    z-index: 6;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+}
+
+.duel-stage-inner {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 12px;
+    padding: 12px 4px;
+}
+
+.duel-kicker {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--arena-dim);
+}
+
+.duel-subcopy {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--arena-muted);
+    max-width: 210px;
+}
+
+.duel-phase-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 11px;
+    border-radius: 999px;
+    background: var(--arena-surface);
+    border: 1px solid var(--arena-border-strong);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--arena-muted);
+}
+
+.duel-phase-chip.accent,
+.duel-phase-chip.scanning {
+    border-color: var(--arena-win-border);
+    background: var(--arena-win-bg);
+    color: var(--arena-win);
+}
+
+.duel-big-number {
+    font-size: clamp(46px, 5.2vw, 76px);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+    color: var(--arena-ink);
+    perspective: 600px;
+}
+
+.duel-big-number.countdown-num {
+    color: var(--arena-win);
+}
+
+.duel-scan-orb {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: var(--arena-surface);
+    border: 1px solid var(--arena-win-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--arena-win);
+    box-shadow: 0 0 28px rgba(139, 233, 193, 0.12);
+}
+
+.duel-scan-timer {
+    font-size: 30px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--arena-ink);
+    line-height: 1;
+}
+
+.duel-eval-spinner {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--arena-surface);
+    border: 1px solid var(--arena-border-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--arena-muted);
+}
+
+.spin-slow {
+    animation: arenaSpin 1.3s linear infinite;
+}
+
+/* Radar idle animation */
+.duel-radar-wrap {
+    position: relative;
+    width: 68px;
+    height: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.duel-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    animation: arenaRadar 2.4s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+
+.duel-ring.ring-2 {
+    animation-delay: 1.2s;
+}
+
+.duel-core-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--arena-ink);
+}
+
+.duel-core-dot.idle {
+    background: var(--arena-dim);
+}
+
+.duel-primary-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 4px;
+    padding: 9px 18px;
+    border-radius: 10px;
+    background: var(--arena-ink);
+    color: #0f1012;
+    border: none;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.duel-primary-cta:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+/* ==========================================================================
+   3D GESTURE CLASH CHOREOGRAPHY
+   ========================================================================== */
+
+.duel-verdict-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    border: 1px solid var(--arena-border-strong);
+    background: var(--arena-surface);
+    color: var(--arena-ink);
+}
+
+.duel-verdict-pill.outcome-user {
+    background: var(--arena-win-bg);
+    border-color: var(--arena-win-border);
+    color: var(--arena-win);
+}
+
+.duel-verdict-pill.outcome-opponent {
+    background: var(--arena-loss-bg);
+    border-color: var(--arena-loss-border);
+    color: var(--arena-loss);
+}
+
+.clash-3d-viewport {
+    position: relative;
+    width: calc(100% + 76px);
+    margin-left: -38px;
+    margin-right: -38px;
+    height: 168px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    perspective: 920px;
+    transform-style: preserve-3d;
+    pointer-events: none;
+    z-index: 8;
+}
+
+.clash-depth-ring {
+    position: absolute;
+    bottom: 14px;
+    width: 170px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.06) 0%, transparent 72%);
+    transform: rotateX(72deg);
+}
+
+.clash-depth-ring.outcome-user {
+    border-color: rgba(139, 233, 193, 0.24);
+    background: radial-gradient(ellipse at center, rgba(139, 233, 193, 0.14) 0%, transparent 72%);
+}
+
+.clash-depth-ring.outcome-opponent {
+    border-color: rgba(255, 154, 154, 0.24);
+    background: radial-gradient(ellipse at center, rgba(255, 154, 154, 0.14) 0%, transparent 72%);
+}
+
+.clash-shockwave {
+    position: absolute;
+    width: 82px;
+    height: 82px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.45);
+    z-index: 3;
+}
+
+.clash-shockwave.outcome-user {
+    border-color: var(--arena-win);
+    box-shadow: 0 0 24px rgba(139, 233, 193, 0.35);
+}
+
+.clash-shockwave.outcome-opponent {
+    border-color: var(--arena-loss);
+    box-shadow: 0 0 24px rgba(255, 154, 154, 0.35);
+}
+
+.clash-wrap-ring {
+    position: absolute;
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    border: 2px dashed rgba(139, 233, 193, 0.55);
+    z-index: 4;
+}
+
+.clash-wrap-ring.side-right {
+    right: 14%;
+}
+
+.clash-wrap-ring.side-left {
+    left: 14%;
+    border-color: rgba(255, 154, 154, 0.55);
+}
+
+.clash-slash-beam {
+    position: absolute;
+    width: 118px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent 0%, #ffffff 50%, transparent 100%);
+    box-shadow: 0 0 14px rgba(255, 255, 255, 0.65);
+    transform: rotate(-32deg);
+    z-index: 6;
+}
+
+.clash-slash-beam.side-right {
+    right: 12%;
+}
+
+.clash-slash-beam.side-left {
+    left: 12%;
+    transform: rotate(32deg);
+}
+
+.clash-hands-row {
+    position: relative;
+    z-index: 5;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+}
+
+.clash-hand-slot {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 132px;
+    transform-style: preserve-3d;
+}
+
+.clash-hand-actor {
+    width: 100%;
+    max-width: 146px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform-style: preserve-3d;
+}
+
+.clash-hand-svg {
+    width: 100%;
+    height: auto;
+    filter: drop-shadow(0 16px 22px rgba(0, 0, 0, 0.65));
+}
+
+.clash-hand-svg.role-winner {
+    filter:
+        drop-shadow(0 16px 24px rgba(0, 0, 0, 0.7))
+        drop-shadow(0 0 14px rgba(139, 233, 193, 0.22));
+}
+
+.clash-hand-svg.role-loser {
+    filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.55));
+}
+
+.split-paper-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 146px;
+    height: 120px;
+}
+
+.split-half {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.clash-shards {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 7;
+}
+
+.clash-shard {
+    position: absolute;
+    width: 9px;
+    height: 5px;
+    background: linear-gradient(135deg, #e5e7eb, #6b7280);
+    clip-path: polygon(0 100%, 40% 0, 100% 70%);
+}
+
+/* Clash captions */
+.clash-caption-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.clash-move-pair {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.move-label.role-winner {
+    color: var(--arena-win);
+}
+
+.move-label.role-loser {
+    color: var(--arena-dim);
+    text-decoration: line-through;
+}
+
+.move-label.role-draw {
+    color: var(--arena-ink);
+}
+
+.move-vs {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--arena-dim);
+    text-transform: uppercase;
+}
+
+.clash-reason {
+    margin: 0;
+    font-size: 11px;
+    color: var(--arena-muted);
+    max-width: 210px;
+    line-height: 1.4;
+}
+
+.clash-next-timer {
+    font-size: 11px;
+    color: var(--arena-dim);
+    font-variant-numeric: tabular-nums;
+}
+
+.clash-next-timer strong {
+    color: var(--arena-ink);
+}
+
+/* Game Over Center Card */
+.duel-trophy-badge {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--arena-surface);
+    border: 1px solid var(--arena-border-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--arena-ink);
+}
+
+.duel-trophy-badge.win {
+    background: var(--arena-win-bg);
+    border-color: var(--arena-win-border);
+    color: var(--arena-win);
+}
+
+.duel-trophy-badge.loss {
+    background: var(--arena-loss-bg);
+    border-color: var(--arena-loss-border);
+    color: var(--arena-loss);
+}
+
+.duel-verdict-title {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+
+.duel-verdict-title.win {
+    color: var(--arena-win);
+}
+
+.duel-verdict-title.loss {
+    color: var(--arena-loss);
+}
+
+.duel-final-score {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 28px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: var(--arena-ink);
+}
+
+.score-dash {
+    color: var(--arena-dim);
+}
+
+/* ==========================================================================
+   BOTTOM CONTROL DOCK (Left: Stop/Next | Center: Empty | Right: Mic/Camera)
+   ========================================================================== */
+
+.arena-dock {
+    position: relative;
+    z-index: 10;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 16px;
+    padding-top: 2px;
+}
+
+.arena-dock-left {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+}
+
+.arena-dock-center {
+    /* Intentionally kept empty per user plan */
+    min-width: 1px;
+    min-height: 1px;
+}
+
+.arena-dock-right {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* Matchmaking Action Buttons */
+.dock-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 18px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--arena-border);
+    background: var(--arena-surface);
+    color: var(--arena-ink);
+    transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.14s ease;
+}
+
+.dock-btn:hover {
+    background: var(--arena-surface-2);
+    border-color: var(--arena-border-strong);
+}
+
+.dock-btn:active {
+    transform: scale(0.98);
+}
+
+.dock-btn-stop {
+    background: rgba(255, 154, 154, 0.12);
+    border-color: rgba(255, 154, 154, 0.3);
+    color: var(--arena-loss);
+}
+
+.dock-btn-stop:hover {
+    background: rgba(255, 154, 154, 0.2);
+    border-color: rgba(255, 154, 154, 0.48);
+}
+
+.dock-btn-start {
+    background: var(--arena-win);
+    border-color: transparent;
+    color: #0f1012;
+}
+
+.dock-btn-start:hover {
+    background: #a4f0cf;
+    border-color: transparent;
+}
+
+.dock-btn-next {
+    background: var(--arena-surface-2);
+    border-color: var(--arena-border-strong);
+    color: var(--arena-ink);
+}
+
+.dock-btn-next:hover {
+    background: var(--arena-surface-hover);
+}
+
+/* Hardware Toggle Pills (MIC / CAMERA) */
+.dock-toggle-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    height: 44px;
+    padding: 0 14px;
+    border-radius: 12px;
+    background: var(--arena-surface);
+    border: 1px solid var(--arena-border);
+    color: var(--arena-ink);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.18s ease, border-color 0.18s ease;
+}
+
+.dock-toggle-pill:hover:not(:disabled) {
+    background: var(--arena-surface-2);
+    border-color: var(--arena-border-strong);
+}
+
+.dock-toggle-pill:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.dock-toggle-pill.is-off {
+    border-color: rgba(255, 154, 154, 0.26);
+    color: var(--arena-muted);
+}
+
+.dock-toggle-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.dock-switch-track {
+    position: relative;
+    width: 34px;
+    height: 20px;
+    border-radius: 999px;
+    background: var(--arena-win);
+    transition: background-color 0.2s ease;
+}
+
+.dock-toggle-pill.is-off .dock-switch-track {
+    background: #30333b;
+}
+
+.dock-switch-thumb {
+    position: absolute;
+    top: 3px;
+    left: 17px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #0f1012;
+    transition: left 0.2s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.2s ease;
+}
+
+.dock-toggle-pill.is-off .dock-switch-thumb {
+    left: 3px;
+    background: #9ca3af;
+}
+
+/* Sound Effect (SFX) Volume & Mute Controls */
+.dock-sfx-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    background: var(--arena-surface);
+    border: 1px solid var(--arena-border);
+    border-radius: 999px;
+    padding: 0 12px 0 10px;
+    transition: border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.dock-sfx-group:hover {
+    border-color: var(--arena-border-strong);
+    background: var(--arena-surface-2);
+}
+
+.dock-sfx-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: none;
+    color: var(--arena-ink);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 999px;
+    transition: color 0.18s ease;
+}
+
+.dock-sfx-btn.is-muted {
+    color: var(--arena-dim);
+}
+
+.dock-sfx-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 60px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    outline: none;
+    cursor: pointer;
+    transition: background-color 0.18s ease;
+}
+
+.dock-sfx-slider:hover {
+    background: rgba(255, 255, 255, 0.28);
+}
+
+.dock-sfx-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--arena-win);
+    box-shadow: 0 0 6px rgba(139, 233, 193, 0.6);
+    cursor: pointer;
+}
+
+.dock-sfx-slider::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--arena-win);
+    border: none;
+    box-shadow: 0 0 6px rgba(139, 233, 193, 0.6);
+    cursor: pointer;
+}
+
+.dock-sfx-val {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--arena-muted);
+    font-variant-numeric: tabular-nums;
+    min-width: 26px;
+    text-align: right;
+}
+
+/* ==========================================================================
+   PERMISSION BARRIER (Dark Graphite Native)
+   ========================================================================== */
+
+.arena-permission-overlay {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+
+.arena-permission-card {
+    background: var(--arena-surface);
+    border: 1px solid var(--arena-border-strong);
+    border-radius: 18px;
+    padding: 32px 28px;
+    text-align: center;
+    max-width: 440px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
+.arena-permission-card h2 {
+    margin: 12px 0 8px;
+    font-size: 19px;
+    color: var(--arena-ink);
+}
+
+.arena-permission-card p {
+    margin: 0 0 22px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--arena-muted);
+}
+
+.arena-media-error {
+    position: fixed;
+    bottom: 72px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20;
+    padding: 8px 16px;
+    border-radius: 10px;
+    background: rgba(22, 24, 28, 0.94);
+    border: 1px solid var(--arena-loss-border);
+    color: var(--arena-loss);
+    font-size: 12px;
+    margin: 0;
+}
+
+/* ==========================================================================
+   KEYFRAMES
+   ========================================================================== */
+
+@keyframes arenaPulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.4;
+        transform: scale(0.84);
+    }
+}
+
+@keyframes arenaRadar {
+    0% {
+        transform: scale(0.35);
+        opacity: 0.7;
+    }
+    100% {
+        transform: scale(1.25);
+        opacity: 0;
+    }
+}
+
+@keyframes arenaSpin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ==========================================================================
+   RESPONSIVE LAYOUT (< 980px)
+   ========================================================================== */
+
+@media (max-width: 980px) {
+    .arena-page {
+        height: auto;
+        min-height: 100dvh;
+        overflow-y: auto;
+        padding: 14px 16px 20px;
+    }
+
+    .arena-topbar {
+        grid-template-columns: 1fr auto;
+        grid-template-rows: auto auto;
+    }
+
+    .arena-scorecard {
+        grid-column: 1 / -1;
+        order: 3;
+    }
+
+    .arena-stage {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: minmax(240px, 340px) auto;
+        gap: 12px;
+    }
+
+    .arena-video-card {
+        max-height: 340px;
+    }
+
+    .arena-center-duel {
+        grid-column: 1 / -1;
+        order: 3;
+        min-height: 220px;
+    }
+
+    .clash-3d-viewport {
+        width: 100%;
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    .arena-dock {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .arena-dock-center {
+        display: none;
+    }
+}
+
+@media (max-width: 600px) {
+    .arena-stage {
+        grid-template-columns: 1fr;
+        grid-template-rows: 260px auto 260px;
+    }
+
+    .arena-center-duel {
+        order: 2;
+        min-height: 190px;
+    }
+
+    .scorecard-side {
+        min-width: 112px;
+        gap: 8px;
+        padding: 2px 6px;
+    }
+
+    .scorecard-num {
+        font-size: 22px;
+    }
+
+    .arena-dock {
+        grid-template-columns: 1fr;
+    }
+
+    .arena-dock-left,
+    .arena-dock-right {
+        justify-content: center;
+    }
+}
