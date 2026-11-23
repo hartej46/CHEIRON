@@ -925,16 +925,17 @@ h1 {
 }
 
 .profile-modal-card {
-    background: #ffffff;
-    border: 1px solid #e4e4e7;
-    border-radius: 18px;
+    background: #16181c;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
     width: 100%;
     max-width: 480px;
     padding: 24px;
-    box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.18), 0 0 1px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
     animation: slideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
     max-height: 90vh;
     overflow-y: auto;
+    color: #f3f4f6;
 }
 
 /* Hallmark redesign: atmospheric dark setup surface. */
@@ -1638,44 +1639,43 @@ h1 {
 }
 
 .modal-heading {
-    font-size: 22px;
-    font-weight: 600;
-    color: #111;
+    font-size: 20px;
+    font-weight: 700;
+    color: #f4f4f5;
     margin: 0;
     letter-spacing: -0.02em;
 }
 
 .modal-sub {
     font-size: 13px;
-    color: #666;
+    color: #9ca3af;
     margin: 4px 0 0;
 }
 
 .modal-close-btn {
-    background: #f4f4f5;
-    border: 1px solid #e4e4e7;
+    background: #1e2026;
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
     width: 32px;
     height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #71717a;
-    font-size: 14px;
+    color: #9ca3af;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .modal-close-btn:hover {
-    background: #e4e4e7;
-    color: #18181b;
+    background: #272a33;
+    color: #f4f4f5;
 }
 
 /* Profile Session Overview Card */
 .profile-session-card {
-    background: #fafafa;
-    border: 1px solid #e4e4e7;
-    border-radius: 12px;
+    background: #1b1b1e;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
     padding: 16px;
     margin-bottom: 20px;
     display: flex;
@@ -1693,8 +1693,9 @@ h1 {
     width: 44px;
     height: 44px;
     border-radius: 50%;
-    background: #111;
-    color: #fff;
+    background: #242730;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #8be9c1;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1710,9 +1711,9 @@ h1 {
 }
 
 .profile-identity-name {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
-    color: #18181b;
+    color: #f4f4f5;
 }
 
 .profile-status-badge {
@@ -1724,60 +1725,11 @@ h1 {
 }
 
 .profile-status-badge.status-online {
-    color: #15803d;
+    color: #8be9c1;
 }
 
 .profile-status-badge.status-offline {
     color: #71717a;
-}
-
-.profile-meta-field {
-    background: #ffffff;
-    border: 1px solid #e4e4e7;
-    border-radius: 8px;
-    padding: 10px 12px;
-}
-
-.meta-field-label-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 4px;
-}
-
-.meta-label {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: #71717a;
-}
-
-.btn-copy-id {
-    background: transparent;
-    border: none;
-    font-size: 11px;
-    font-weight: 600;
-    color: #2563eb;
-    cursor: pointer;
-    padding: 2px 6px;
-    border-radius: 4px;
-    transition: background 0.15s ease;
-}
-
-.btn-copy-id:hover {
-    background: #eff6ff;
-}
-
-.user-id-display {
-    font-size: 12px;
-    color: #18181b;
-    word-break: break-all;
-    user-select: all;
-}
-
-.font-mono {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .profile-meta-row {
@@ -1790,13 +1742,13 @@ h1 {
 }
 
 .meta-value {
-    color: #18181b;
+    color: #f4f4f5;
     font-weight: 500;
 }
 
-/* Profile Section Blocks (Options 1 & 2) */
+/* Profile Section Blocks */
 .profile-section-block {
-    border-top: 1px solid #f4f4f5;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
     padding-top: 18px;
     margin-top: 18px;
 }
@@ -1804,17 +1756,17 @@ h1 {
 .section-block-title {
     font-size: 14px;
     font-weight: 600;
-    color: #18181b;
+    color: #f4f4f5;
     margin: 0 0 4px;
 }
 
 .section-block-title.text-danger {
-    color: #dc2626;
+    color: #ff9a9a;
 }
 
 .section-block-desc {
     font-size: 12px;
-    color: #71717a;
+    color: #9ca3af;
     margin: 0 0 12px;
     line-height: 1.4;
 }
@@ -1832,34 +1784,36 @@ h1 {
 
 .input-with-button .form-input {
     flex: 1;
-    padding: 9px 12px;
+    padding: 10px 14px;
     font-size: 13px;
-    border: 1px solid #e4e4e7;
-    border-radius: 8px;
+    background: #1b1b1e;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    color: #f4f4f5;
     outline: none;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .input-with-button .form-input:focus {
-    border-color: #111;
-    box-shadow: 0 0 0 2px rgba(17, 17, 17, 0.08);
+    border-color: #8be9c1;
+    box-shadow: 0 0 0 2px rgba(139, 233, 193, 0.18);
 }
 
 .btn-primary-action {
-    background: #111;
-    color: #fff;
+    background: #8be9c1;
+    color: #0b0e14;
     border: none;
-    border-radius: 8px;
-    padding: 9px 16px;
+    border-radius: 10px;
+    padding: 10px 16px;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
     white-space: nowrap;
-    transition: background 0.15s ease, transform 0.1s ease;
+    transition: background-color 0.15s ease, transform 0.1s ease;
 }
 
 .btn-primary-action:hover:not(:disabled) {
-    background: #27272a;
+    background: #a3f0cf;
     transform: translateY(-1px);
 }
 
@@ -1871,23 +1825,23 @@ h1 {
 .form-success {
     margin: 6px 0 0;
     font-size: 12px;
-    color: #15803d;
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
+    color: #8be9c1;
+    background: rgba(139, 233, 193, 0.08);
+    border: 1px solid rgba(139, 233, 193, 0.28);
     padding: 6px 10px;
-    border-radius: 6px;
+    border-radius: 8px;
 }
 
-/* Danger Block / Delete User ID */
+/* Danger Block / Reset Session */
 .btn-danger-outline {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     padding: 9px 16px;
-    border: 1px solid #fecaca;
-    background: #fff5f5;
-    color: #dc2626;
-    border-radius: 8px;
+    border: 1px solid rgba(255, 154, 154, 0.28);
+    background: rgba(255, 154, 154, 0.08);
+    color: #ff9a9a;
+    border-radius: 10px;
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
@@ -1895,9 +1849,9 @@ h1 {
 }
 
 .btn-danger-outline:hover:not(:disabled) {
-    background: #fee2e2;
-    border-color: #fca5a5;
-    color: #b91c1c;
+    background: rgba(255, 154, 154, 0.16);
+    border-color: rgba(255, 154, 154, 0.45);
+    color: #ffffff;
 }
 
 .btn-danger-outline:disabled {
@@ -1906,9 +1860,9 @@ h1 {
 }
 
 .delete-confirm-box {
-    background: #fef2f2;
-    border: 1px solid #fca5a5;
-    border-radius: 10px;
+    background: rgba(255, 154, 154, 0.08);
+    border: 1px solid rgba(255, 154, 154, 0.28);
+    border-radius: 12px;
     padding: 14px;
     display: flex;
     flex-direction: column;
@@ -1918,7 +1872,7 @@ h1 {
 
 .confirm-prompt-text {
     font-size: 13px;
-    color: #991b1b;
+    color: #ffc2c2;
     margin: 0;
     line-height: 1.4;
 }
@@ -1930,34 +1884,35 @@ h1 {
 }
 
 .btn-secondary-action {
-    background: #fff;
-    border: 1px solid #e4e4e7;
-    color: #3f3f46;
-    border-radius: 6px;
-    padding: 7px 14px;
+    background: #1e2026;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #f4f4f5;
+    border-radius: 8px;
+    padding: 8px 14px;
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
+    transition: background-color 0.15s ease;
 }
 
-.btn-secondary-action:hover {
-    background: #f4f4f5;
+.btn-secondary-action:hover:not(:disabled) {
+    background: #272a33;
 }
 
 .btn-danger-confirm {
-    background: #dc2626;
+    background: #ff9a9a;
+    color: #1a0808;
     border: none;
-    color: #fff;
-    border-radius: 6px;
-    padding: 7px 14px;
+    border-radius: 8px;
+    padding: 8px 14px;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
-    transition: background 0.15s ease;
+    transition: opacity 0.15s ease;
 }
 
 .btn-danger-confirm:hover:not(:disabled) {
-    background: #b91c1c;
+    opacity: 0.9;
 }
 
 /* Game Status Banners */
