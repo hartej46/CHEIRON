@@ -131,17 +131,35 @@ export default function registerGameSockets(io_server: Server) {
 
         // WebRTC signaling events
         socket.on("webrtc_offer", ({ roomId, sdp }) => {
-            // fastify.log.info(`Received WebRTC sdp from ${socket.id} for room ${roomId}`);
+            if (
+                typeof roomId !== "string" ||
+                socketToRoom.get(socket.id) !== roomId ||
+                !activeRooms.has(roomId)
+            ) {
+                return;
+            }
             socket.to(roomId).emit("webrtc_offer", { roomId, sdp });
         });
 
         socket.on("webrtc_answer", ({ roomId, sdp }) => {
-            // fastify.log.info(`Received WebRTC answer from ${socket.id} for room ${roomId}`);
+            if (
+                typeof roomId !== "string" ||
+                socketToRoom.get(socket.id) !== roomId ||
+                !activeRooms.has(roomId)
+            ) {
+                return;
+            }
             socket.to(roomId).emit("webrtc_answer", { roomId, sdp });
         });
 
         socket.on("webrtc_ice_candidate", ({ roomId, candidate }) => {
-            // fastify.log.info(`Received ICE candidate from ${socket.id} for room ${roomId}`);
+            if (
+                typeof roomId !== "string" ||
+                socketToRoom.get(socket.id) !== roomId ||
+                !activeRooms.has(roomId)
+            ) {
+                return;
+            }
             socket.to(roomId).emit("webrtc_ice_candidate", { roomId, candidate });
         });
 

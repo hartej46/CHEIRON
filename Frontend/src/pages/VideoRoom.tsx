@@ -519,14 +519,25 @@ export function VideoRoom() {
 
         connection.ontrack = (event) => {
             const incomingTrack = event.track;
+            const eventStream = event.streams[0];
             let currentStream = remoteStreamRef.current;
             if (!currentStream) {
-                currentStream = new MediaStream();
+                currentStream = eventStream
+                    ? new MediaStream(eventStream.getTracks())
+                    : new MediaStream();
                 remoteStreamRef.current = currentStream;
             }
 
             if (!currentStream.getTracks().some((t) => t.id === incomingTrack.id)) {
                 currentStream.addTrack(incomingTrack);
+            }
+
+            if (eventStream) {
+                eventStream.getTracks().forEach((track) => {
+                    if (!currentStream!.getTracks().some((t) => t.id === track.id)) {
+                        currentStream!.addTrack(track);
+                    }
+                });
             }
 
             // Bind unmute event to trigger play once frames/audio are actively arriving
@@ -557,7 +568,12 @@ export function VideoRoom() {
         };
 
         connection.onconnectionstatechange = () => {
-            if (connection.connectionState === "failed") {
+            if (connection.connectionState === "connected") {
+                setConnectionStatus("Connected to opponent.");
+                setCallState("connected");
+            } else if (connection.connectionState === "disconnected") {
+                setConnectionStatus("Opponent connection interrupted. Reconnecting...");
+            } else if (connection.connectionState === "failed") {
                 setConnectionStatus("WebRTC connection failed. Retrying...");
             }
         };
