@@ -19,9 +19,18 @@ import {
     LogOut,
 } from "lucide-react";
 import { useNickname } from "../context/NicknameContext";
+import { useTheme } from "../context/ThemeContext";
 import { initPlayer, getSessionDetails } from "../service/service";
 import { ProfileModal } from "../components/ProfileModal";
 import { DuelClashStage } from "../components/DuelClashStage";
+import {
+    SketchArenaDoodles,
+    SketchButton,
+    SketchDivider,
+    SketchRoundPip,
+    SketchSurface,
+    ThemeToggleButton,
+} from "../components/SketchPrimitives";
 import { getStoredToken } from "../utils/storage";
 import { soundManager } from "../utils/audio";
 import "../styles/arena.css";
@@ -52,6 +61,7 @@ const BLACKOUT_DURATION_SECONDS = 5;
 
 export function VideoRoom() {
     const { nickname, setUserData } = useNickname();
+    const { isDark } = useTheme();
     const navigate = useNavigate();
 
     // Media References
@@ -205,13 +215,13 @@ export function VideoRoom() {
 
                     if (landmarks) {
                         setCaptureError((prev) => (prev ? null : prev));
-                        context.strokeStyle = "#8be9c1";
-                        context.lineWidth = 2.4;
-                        context.shadowColor = "rgba(139, 233, 193, 0.45)";
-                        context.shadowBlur = 8;
                         context.lineCap = "round";
                         context.lineJoin = "round";
+                        context.shadowBlur = 0;
 
+                        // Pass 1: Bold hand-inked dark backing stroke
+                        context.strokeStyle = "#111111";
+                        context.lineWidth = 6.2;
                         for (const [start, end] of HAND_CONNECTIONS) {
                             const startLandmark = landmarks[start];
                             const endLandmark = landmarks[end];
@@ -229,8 +239,27 @@ export function VideoRoom() {
                             context.stroke();
                         }
 
-                        context.fillStyle = "#f3f4f6";
-                        context.shadowBlur = 6;
+                        // Pass 2: Bright Sunny Yellow inner stroke
+                        context.strokeStyle = "#FFE566";
+                        context.lineWidth = 3;
+                        for (const [start, end] of HAND_CONNECTIONS) {
+                            const startLandmark = landmarks[start];
+                            const endLandmark = landmarks[end];
+                            if (!startLandmark || !endLandmark) continue;
+
+                            context.beginPath();
+                            context.moveTo(
+                                startLandmark.x * canvas.width,
+                                startLandmark.y * canvas.height
+                            );
+                            context.lineTo(
+                                endLandmark.x * canvas.width,
+                                endLandmark.y * canvas.height
+                            );
+                            context.stroke();
+                        }
+
+                        // Highlight landmark dots with ink outline
                         for (const index of HAND_HIGHLIGHT_LANDMARKS) {
                             const landmark = landmarks[index];
                             if (!landmark) continue;
@@ -239,13 +268,16 @@ export function VideoRoom() {
                             context.arc(
                                 landmark.x * canvas.width,
                                 landmark.y * canvas.height,
-                                4,
+                                5.5,
                                 0,
                                 Math.PI * 2
                             );
+                            context.fillStyle = index === 0 ? "#E8635A" : "#4ECDC4";
                             context.fill();
+                            context.lineWidth = 2;
+                            context.strokeStyle = "#111111";
+                            context.stroke();
                         }
-                        context.shadowBlur = 0;
                     }
                 }
             } catch (error) {
@@ -1016,34 +1048,74 @@ export function VideoRoom() {
         (gamePhase === "game_over" && matchWinner === "user");
 
     const activeRoundDisplay = Math.min(Math.max(round, 1), 5);
+    const neutralSurfaceFill = isDark ? "#1C1C21" : "#FFFFFF";
+
+    const localCardFill = isUserRoundWinner
+        ? "#4ECDC4"
+        : isUserRoundLoser
+          ? "#F9A8B8"
+          : neutralSurfaceFill;
+    const remoteCardFill = isOpponentRoundWinner
+        ? "#4ECDC4"
+        : isOpponentRoundLoser
+          ? "#F9A8B8"
+          : neutralSurfaceFill;
 
     return (
         <main className="arena-page">
-            <div className="arena-backdrop-grid" aria-hidden="true" />
+            <div className="arena-paper-dots" aria-hidden="true" />
+            <SketchArenaDoodles />
 
             {/* Top Bar: Brand (Left) | Scorecard HUD (Center) | Profile & Leave (Right) */}
             <header className="arena-topbar">
-                <div className="arena-brand">
-                    <span
-                        className={`arena-brand-dot ${
-                            isConnected
-                                ? "live"
-                                : callState === "searching"
-                                  ? "searching"
-                                  : ""
-                        }`}
-                    />
-                    <span className="arena-brand-name">CHEIRON</span>
-                    <span className="arena-brand-divider">/</span>
-                    <span className="arena-brand-status">
-                        {isConnected ? formatDuration(callDuration) : callState === "searching" ? "Searching" : "Idle"}
-                    </span>
+                <div className="arena-brand-wrap">
+                    <SketchSurface
+                        fill="#FFE566"
+                        shadow={3}
+                        radius={14}
+                        seed="arena-brand"
+                        className="arena-brand"
+                        innerClassName="arena-brand-inner"
+                    >
+                        <span
+                            className={`arena-brand-dot ${
+                                isConnected
+                                    ? "live"
+                                    : callState === "searching"
+                                      ? "searching"
+                                      : ""
+                            }`}
+                        />
+                        <span className="arena-brand-name">cheiron</span>
+                        <SketchDivider orientation="vertical" length={16} color="#111111" variant="wobble" />
+                        <span className="arena-brand-status">
+                            {isConnected ? formatDuration(callDuration) : callState === "searching" ? "searching" : "idle"}
+                        </span>
+                    </SketchSurface>
                 </div>
 
                 {/* Top-Center Scorecard */}
                 <section className="arena-scorecard" aria-label="Match Scorecard">
-                    <span className="scorecard-label">SCORECARD</span>
-                    <div className="scorecard-body">
+                    <SketchSurface
+                        as="span"
+                        fill="#FFE566"
+                        shadow={2}
+                        radius={999}
+                        seed="scorecard-label"
+                        className="scorecard-label-pill"
+                        innerClassName="scorecard-label-inner"
+                    >
+                        scorecard
+                    </SketchSurface>
+
+                    <SketchSurface
+                        fill={neutralSurfaceFill}
+                        shadow={5}
+                        radius={16}
+                        seed="scorecard-body"
+                        className="scorecard-body"
+                        innerClassName="scorecard-body-inner"
+                    >
                         <div
                             className={`scorecard-side side-you ${
                                 isUserRoundWinner
@@ -1054,7 +1126,7 @@ export function VideoRoom() {
                             }`}
                         >
                             <div className="scorecard-player-meta">
-                                <span className="scorecard-player-name">{nickname || "You"}</span>
+                                <span className="scorecard-player-name">{nickname || "you"}</span>
                                 <span
                                     className={`scorecard-outcome-tag ${
                                         isUserRoundWinner
@@ -1065,16 +1137,18 @@ export function VideoRoom() {
                                     }`}
                                 >
                                     {isUserRoundWinner
-                                        ? "WINNER"
+                                        ? "winner"
                                         : isUserRoundLoser
-                                          ? "LOSER"
-                                          : "YOU"}
+                                          ? "loser"
+                                          : "you"}
                                 </span>
                             </div>
                             <span className="scorecard-num">{scores.user}</span>
                         </div>
 
-                        <div className="scorecard-center-divider" aria-hidden="true" />
+                        <div className="scorecard-center-divider" aria-hidden="true">
+                            <SketchDivider orientation="vertical" length={34} variant="zigzag" />
+                        </div>
 
                         <div
                             className={`scorecard-side side-opponent ${
@@ -1088,7 +1162,7 @@ export function VideoRoom() {
                             <span className="scorecard-num">{scores.opponent}</span>
                             <div className="scorecard-player-meta">
                                 <span className="scorecard-player-name">
-                                    {isConnected ? opponentNickname || "Stranger" : "Stranger"}
+                                    {isConnected ? opponentNickname || "stranger" : "stranger"}
                                 </span>
                                 <span
                                     className={`scorecard-outcome-tag ${
@@ -1100,86 +1174,116 @@ export function VideoRoom() {
                                     }`}
                                 >
                                     {isOpponentRoundWinner
-                                        ? "WINNER"
+                                        ? "winner"
                                         : isOpponentRoundLoser
-                                          ? "LOSER"
-                                          : "OPPONENT"}
+                                          ? "loser"
+                                          : "opponent"}
                                 </span>
                             </div>
                         </div>
-                    </div>
+                    </SketchSurface>
 
                     <div className="scorecard-footer">
                         <div className="scorecard-pips" aria-label="Round history">
                             {[0, 1, 2, 3, 4].map((index) => {
                                 const outcome = roundHistory[index];
                                 const isCurrent = isConnected && round > 0 && index === round - 1 && !outcome;
-                                const pipClass = outcome
-                                    ? `pip-${outcome}`
-                                    : isCurrent
-                                      ? "pip-active"
-                                      : "";
-                                return <span key={index} className={`round-pip ${pipClass}`} />;
+                                return (
+                                    <SketchRoundPip
+                                        key={index}
+                                        index={index}
+                                        outcome={outcome}
+                                        isCurrent={isCurrent}
+                                    />
+                                );
                             })}
                         </div>
                         <span className="scorecard-round-text">
                             {isConnected && round > 0
-                                ? `Round ${activeRoundDisplay} of 5`
-                                : "Best of 5"}
+                                ? `round ${activeRoundDisplay} of 5`
+                                : "best of 5"}
                         </span>
                     </div>
                 </section>
 
-                {/* Top-Right Profile & Leave */}
+                {/* Top-Right Theme Toggle, Profile & Leave */}
                 <div className="arena-header-actions">
-                    <button
-                        type="button"
+                    <ThemeToggleButton seed="arena-theme-toggle" />
+
+                    <SketchButton
+                        fill="#C4B5FD"
+                        shadow={3}
+                        radius={999}
+                        seed="arena-profile-btn"
                         className="arena-profile-btn"
+                        faceClassName="arena-profile-face"
                         onClick={() => setIsProfileOpen(true)}
                         title="View Profile"
                         aria-label="Open user profile"
                     >
                         <span className="arena-profile-avatar">
-                            <User size={13} />
+                            <User size={13} strokeWidth={2.4} />
                         </span>
                         <span className="arena-profile-name">{nickname}</span>
-                    </button>
+                    </SketchButton>
 
-                    <button
-                        type="button"
+                    <SketchButton
+                        fill={neutralSurfaceFill}
+                        shadow={3}
+                        radius={12}
+                        seed="arena-leave-btn"
                         className="arena-leave-btn"
+                        faceClassName="arena-leave-face"
                         onClick={handleLeaveRoom}
                         title="Leave room"
                     >
-                        <LogOut size={13} />
-                        <span>Leave</span>
-                    </button>
+                        <LogOut size={13} strokeWidth={2.4} />
+                        <span>leave</span>
+                    </SketchButton>
                 </div>
             </header>
 
             {/* Main Content: Permission Barrier OR 39% | 22% | 39% Arena Stage */}
             {hasMediaPermissions === false ? (
                 <div className="arena-permission-overlay">
-                    <div className="arena-permission-card" role="alert">
-                        <AlertTriangle size={32} color="#ff9a9a" />
-                        <h2>Camera and Microphone Required</h2>
+                    <SketchSurface
+                        fill={neutralSurfaceFill}
+                        shadow={6}
+                        radius={20}
+                        seed="perm-card"
+                        className="arena-permission-card"
+                        innerClassName="arena-permission-inner"
+                        role="alert"
+                    >
+                        <div className="perm-icon-circle">
+                            <AlertTriangle size={28} strokeWidth={2.4} color="#111111" />
+                        </div>
+                        <h2>camera and microphone required</h2>
                         <p>
-                            Allow camera and microphone access so Cheiron can track your
+                            allow camera and microphone access so cheiron can track your
                             hand gestures and connect you with an opponent.
                         </p>
-                        <button
-                            type="button"
+                        <SketchButton
+                            fill="#4ECDC4"
+                            shadow={4}
+                            radius={12}
+                            seed="perm-cta"
                             onClick={initLocalMedia}
-                            className="duel-primary-cta"
+                            faceClassName="duel-primary-cta-face"
                         >
-                            Grant Camera & Mic Access
-                        </button>
-                    </div>
+                            <span>grant camera & mic access</span>
+                        </SketchButton>
+                    </SketchSurface>
                 </div>
             ) : (
                 <section className="arena-stage" aria-label="Match Arena">
-                    {/* Left Panel (39%): Local Camera (ME) */}
-                    <article
+                    {/* Left Panel (39%): Local Camera (YOU) */}
+                    <SketchSurface
+                        as="article"
+                        fill={localCardFill}
+                        shadow={6}
+                        radius={20}
+                        seed="local-video-card"
                         className={`arena-video-card card-local ${
                             isUserRoundWinner
                                 ? "card-round-winner"
@@ -1187,6 +1291,7 @@ export function VideoRoom() {
                                   ? "card-round-loser"
                                   : ""
                         }`}
+                        innerClassName="arena-video-card-inner"
                     >
                         <div className="arena-video-viewport">
                             <video
@@ -1202,8 +1307,10 @@ export function VideoRoom() {
 
                             {isCameraOff && (
                                 <div className="arena-camera-off-placeholder">
-                                    <VideoOff size={24} />
-                                    <span>Camera is off</span>
+                                    <div className="placeholder-icon-circle">
+                                        <VideoOff size={22} strokeWidth={2.4} />
+                                    </div>
+                                    <span>camera is off</span>
                                 </div>
                             )}
 
@@ -1220,39 +1327,39 @@ export function VideoRoom() {
                             {gamePhase === "blackout" && (
                                 <div className="arena-scan-badge" aria-live="assertive">
                                     <span className="arena-scan-dot" />
-                                    <span>Scanning {timer}s</span>
+                                    <span>scanning {timer}s</span>
                                 </div>
                             )}
 
                             {captureError && (
                                 <div className="arena-capture-toast" role="alert">
-                                    <AlertTriangle size={14} />
+                                    <AlertTriangle size={14} strokeWidth={2.4} />
                                     <span>{captureError}</span>
                                 </div>
                             )}
 
                             <div className="arena-card-bottom-bar">
                                 <span className="arena-name-pill">
-                                    <span>{nickname || "You"}</span>
-                                    <span className="arena-name-tag-role">You</span>
+                                    <span>{nickname || "you"}</span>
+                                    <span className="arena-name-tag-role">you</span>
                                 </span>
 
                                 {isUserRoundWinner && (
                                     <span className="arena-card-outcome-pill win">
-                                        <Trophy size={12} />
-                                        <span>{gamePhase === "game_over" ? "Match won" : "Round won"}</span>
+                                        <Trophy size={12} strokeWidth={2.5} />
+                                        <span>{gamePhase === "game_over" ? "match won" : "round won"}</span>
                                     </span>
                                 )}
                                 {isUserRoundLoser && (
                                     <span className="arena-card-outcome-pill loss">
-                                        <span>{gamePhase === "game_over" ? "Defeated" : "Round lost"}</span>
+                                        <span>{gamePhase === "game_over" ? "defeated" : "round lost"}</span>
                                     </span>
                                 )}
                             </div>
                         </div>
-                    </article>
+                    </SketchSurface>
 
-                    {/* Center Column (22%): 3D Gesture Clash & Live Match State */}
+                    {/* Center Column (22%): Hand-Drawn 3D Gesture Clash & Live Match State */}
                     <section className="arena-center-duel" aria-label="Duel Center Stage">
                         <DuelClashStage
                             callState={callState}
@@ -1270,7 +1377,12 @@ export function VideoRoom() {
                     </section>
 
                     {/* Right Panel (39%): Remote Opponent (STRANGER) */}
-                    <article
+                    <SketchSurface
+                        as="article"
+                        fill={remoteCardFill}
+                        shadow={6}
+                        radius={20}
+                        seed="remote-video-card"
                         className={`arena-video-card card-remote ${
                             isOpponentRoundWinner
                                 ? "card-round-winner"
@@ -1278,6 +1390,7 @@ export function VideoRoom() {
                                   ? "card-round-loser"
                                   : ""
                         }`}
+                        innerClassName="arena-video-card-inner"
                     >
                         <div className="arena-video-viewport">
                             <video
@@ -1304,12 +1417,12 @@ export function VideoRoom() {
                             {!remoteStream && (
                                 <div className="arena-remote-empty">
                                     <div className="arena-remote-empty-icon">
-                                        <User size={22} />
+                                        <User size={22} strokeWidth={2.4} />
                                     </div>
                                     <p>
                                         {callState === "searching"
-                                            ? "Waiting for a stranger to join..."
-                                            : "Not currently in a match."}
+                                            ? "waiting for a stranger to join..."
+                                            : "not currently in a match."}
                                     </p>
                                 </div>
                             )}
@@ -1320,11 +1433,13 @@ export function VideoRoom() {
 
                             {gamePhase === "blackout" && remoteStream && (
                                 <div className="arena-blackout-curtain" aria-live="assertive">
-                                    <div className="arena-blackout-icon">
-                                        <Lock size={22} />
+                                    <div className="arena-blackout-card">
+                                        <div className="arena-blackout-icon">
+                                            <Lock size={22} strokeWidth={2.5} />
+                                        </div>
+                                        <p className="arena-blackout-title">opponent hidden</p>
+                                        <p className="arena-blackout-sub">lock in your move</p>
                                     </div>
-                                    <p className="arena-blackout-title">Opponent hidden</p>
-                                    <p className="arena-blackout-sub">Lock in your move</p>
                                 </div>
                             )}
 
@@ -1332,88 +1447,111 @@ export function VideoRoom() {
                                 {isConnected ? (
                                     <span className="arena-live-pill">
                                         <span className="arena-live-dot" />
-                                        <span>Live</span>
+                                        <span>live</span>
                                     </span>
                                 ) : (
                                     <span />
                                 )}
 
                                 {isRemoteAudioMuted && isConnected && (
-                                    <button
-                                        type="button"
+                                    <SketchButton
+                                        fill="#FFE566"
+                                        shadow={3}
+                                        radius={999}
+                                        seed="unmute-remote"
                                         onClick={handleUnmuteRemote}
                                         className="arena-unmute-btn"
+                                        faceClassName="arena-unmute-face"
                                         title="Click to unmute opponent"
                                     >
-                                        <Volume2 size={13} />
-                                        <span>Unmute</span>
-                                    </button>
+                                        <Volume2 size={13} strokeWidth={2.4} />
+                                        <span>unmute</span>
+                                    </SketchButton>
                                 )}
                             </div>
 
                             <div className="arena-card-bottom-bar">
                                 <span className="arena-name-pill">
-                                    <span>{isConnected ? opponentNickname || "Opponent" : "Opponent"}</span>
-                                    <span className="arena-name-tag-role">Opponent</span>
+                                    <span>{isConnected ? opponentNickname || "stranger" : "stranger"}</span>
+                                    <span className="arena-name-tag-role">opponent</span>
                                 </span>
 
                                 {isOpponentRoundWinner && (
                                     <span className="arena-card-outcome-pill win">
-                                        <Trophy size={12} />
-                                        <span>{gamePhase === "game_over" ? "Match won" : "Round won"}</span>
+                                        <Trophy size={12} strokeWidth={2.5} />
+                                        <span>{gamePhase === "game_over" ? "match won" : "round won"}</span>
                                     </span>
                                 )}
                                 {isOpponentRoundLoser && (
                                     <span className="arena-card-outcome-pill loss">
-                                        <span>{gamePhase === "game_over" ? "Defeated" : "Round lost"}</span>
+                                        <span>{gamePhase === "game_over" ? "defeated" : "round lost"}</span>
                                     </span>
                                 )}
                             </div>
                         </div>
-                    </article>
+                    </SketchSurface>
                 </section>
             )}
 
-            {/* Bottom Control Dock: Left (Stop / Next) | Center (Empty) | Right (Mic / Camera) */}
+            {/* Bottom Control Dock: Left (Stop / Next) | Center (Empty) | Right (SFX / Mic / Camera) */}
             <footer className="arena-dock">
                 <div className="arena-dock-left">
                     {callState === "stopped" ? (
-                        <button
-                            type="button"
+                        <SketchButton
+                            fill="#4ECDC4"
+                            shadow={4}
+                            radius={12}
+                            seed="dock-start"
                             onClick={handleStartSearching}
                             className="dock-btn dock-btn-start"
+                            faceClassName="dock-btn-face"
                         >
-                            <Play size={15} fill="currentColor" />
-                            <span>Find Partner</span>
-                        </button>
+                            <Play size={15} fill="#111111" strokeWidth={2.2} />
+                            <span>find partner</span>
+                        </SketchButton>
                     ) : (
-                        <button
-                            type="button"
+                        <SketchButton
+                            fill="#E8635A"
+                            shadow={4}
+                            radius={12}
+                            seed="dock-stop"
                             onClick={handleStop}
                             className="dock-btn dock-btn-stop"
+                            faceClassName="dock-btn-face dock-btn-face-darktext"
                             title={isConnected ? "End Call / Stop" : "Stop Searching"}
                         >
-                            <Square size={14} fill="currentColor" />
-                            <span>Stop</span>
-                        </button>
+                            <Square size={14} fill="#FFFFFF" stroke="#FFFFFF" />
+                            <span>stop</span>
+                        </SketchButton>
                     )}
 
-                    <button
-                        type="button"
+                    <SketchButton
+                        fill="#FFE566"
+                        shadow={4}
+                        radius={12}
+                        seed="dock-next"
                         onClick={handleNext}
                         className="dock-btn dock-btn-next"
+                        faceClassName="dock-btn-face"
                         title="Skip to Next Partner"
                     >
-                        <SkipForward size={15} fill="currentColor" />
-                        <span>Next</span>
-                    </button>
+                        <SkipForward size={15} fill="#111111" strokeWidth={2.2} />
+                        <span>next</span>
+                    </SketchButton>
                 </div>
 
                 <div className="arena-dock-center" aria-hidden="true" />
 
                 <div className="arena-dock-right">
                     {/* Sound Effects (SFX) Volume & Mute Controls */}
-                    <div className="dock-sfx-group" title="Sound Effects Volume">
+                    <SketchSurface
+                        fill="#C4B5FD"
+                        shadow={3}
+                        radius={999}
+                        seed="dock-sfx"
+                        className="dock-sfx-group"
+                        innerClassName="dock-sfx-inner"
+                    >
                         <button
                             type="button"
                             onClick={toggleSfxMute}
@@ -1421,8 +1559,8 @@ export function VideoRoom() {
                             aria-label={isSfxMuted ? "Unmute sound effects" : "Mute sound effects"}
                             title={isSfxMuted ? "Unmute sound effects" : "Mute sound effects"}
                         >
-                            {isSfxMuted || sfxVolume === 0 ? <VolumeX size={15} /> : <Volume2 size={15} />}
-                            <span>SFX</span>
+                            {isSfxMuted || sfxVolume === 0 ? <VolumeX size={15} strokeWidth={2.4} /> : <Volume2 size={15} strokeWidth={2.4} />}
+                            <span>sfx</span>
                         </button>
                         <input
                             type="range"
@@ -1438,41 +1576,49 @@ export function VideoRoom() {
                         <span className="dock-sfx-val">
                             {isSfxMuted ? "0%" : `${Math.round(sfxVolume * 100)}%`}
                         </span>
-                    </div>
+                    </SketchSurface>
 
-                    <button
-                        type="button"
+                    <SketchButton
+                        fill={isMicMuted ? "#F9A8B8" : neutralSurfaceFill}
+                        shadow={4}
+                        radius={12}
+                        seed="dock-mic"
                         onClick={toggleMic}
                         disabled={hasMediaPermissions !== true}
                         className={`dock-toggle-pill ${isMicMuted ? "is-off" : ""}`}
+                        faceClassName="dock-toggle-face"
                         aria-pressed={!isMicMuted}
                         aria-label={isMicMuted ? "Unmute microphone" : "Mute microphone"}
                     >
                         <span className="dock-toggle-label">
-                            {isMicMuted ? <MicOff size={15} /> : <Mic size={15} />}
-                            <span>Mic</span>
+                            {isMicMuted ? <MicOff size={15} strokeWidth={2.4} /> : <Mic size={15} strokeWidth={2.4} />}
+                            <span>mic</span>
                         </span>
                         <span className="dock-switch-track" aria-hidden="true">
                             <span className="dock-switch-thumb" />
                         </span>
-                    </button>
+                    </SketchButton>
 
-                    <button
-                        type="button"
+                    <SketchButton
+                        fill={isCameraOff ? "#F9A8B8" : neutralSurfaceFill}
+                        shadow={4}
+                        radius={12}
+                        seed="dock-camera"
                         onClick={toggleCamera}
                         disabled={hasMediaPermissions !== true}
                         className={`dock-toggle-pill ${isCameraOff ? "is-off" : ""}`}
+                        faceClassName="dock-toggle-face"
                         aria-pressed={!isCameraOff}
                         aria-label={isCameraOff ? "Turn camera on" : "Turn camera off"}
                     >
                         <span className="dock-toggle-label">
-                            {isCameraOff ? <VideoOff size={15} /> : <Video size={15} />}
-                            <span>Camera</span>
+                            {isCameraOff ? <VideoOff size={15} strokeWidth={2.4} /> : <Video size={15} strokeWidth={2.4} />}
+                            <span>camera</span>
                         </span>
                         <span className="dock-switch-track" aria-hidden="true">
                             <span className="dock-switch-thumb" />
                         </span>
-                    </button>
+                    </SketchButton>
                 </div>
             </footer>
 
@@ -1487,6 +1633,7 @@ export function VideoRoom() {
                 isOpen={isProfileOpen}
                 onClose={() => setIsProfileOpen(false)}
                 onDeleted={handleLeaveRoom}
+                variant="neobrutal"
             />
         </main>
     );

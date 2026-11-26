@@ -1,6 +1,8 @@
 import React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Lock, Play, RefreshCw, ShieldAlert, Trophy } from "lucide-react";
+import { useTheme } from "../context/ThemeContext";
+import { SketchButton, SketchDivider, SketchSurface } from "./SketchPrimitives";
 
 export type NormalizedMove = "rock" | "paper" | "scissors" | "none";
 
@@ -71,6 +73,10 @@ export interface SculptedHandProps {
     splitHalf?: "top" | "bottom" | "full";
 }
 
+/**
+ * Hand-drawn colorful comic-sketch 3D hand SVG with zero-blur offset ink shadow,
+ * pencil hatching lines, and pastel Neobrutalist fills.
+ */
 export const SculptedHandSVG: React.FC<SculptedHandProps> = ({
     move,
     side,
@@ -78,56 +84,267 @@ export const SculptedHandSVG: React.FC<SculptedHandProps> = ({
     uid,
     splitHalf = "full",
 }) => {
-    const rimColor =
-        role === "winner"
-            ? "#8be9c1"
-            : role === "loser"
-              ? "#ff9a9a"
-              : "#c7ccd4";
-    const bodyTop =
-        role === "winner"
-            ? "#363c3e"
-            : role === "loser"
-              ? "#242124"
-              : "#32353d";
-    const bodyMid =
-        role === "winner"
-            ? "#202427"
-            : role === "loser"
-              ? "#151518"
-              : "#1d2026";
-    const bodyDeep = "#0f1013";
+    const { isDark } = useTheme();
+    const isWin = role === "winner";
+    const isLoss = role === "loser";
 
-    const gradId = `hand-grad-${uid}-${side}-${splitHalf}`;
-    const rimId = `hand-rim-${uid}-${side}-${splitHalf}`;
-    const clipId = `hand-clip-${uid}-${side}-${splitHalf}`;
+    const outerInk = isDark ? "#FFFFFF" : "#111111";
+
+    const cuffFill = isWin ? "#FFE566" : isLoss ? "#E8635A" : "#C4B5FD";
+
+    const rockMain = isWin ? "#4ECDC4" : isLoss ? "#F9A8B8" : "#C4B5FD";
+    const rockBevel = isWin ? "#2FB0A8" : isLoss ? "#E8635A" : "#9E8BF5";
+
+    const paperMain = isWin ? "#FFE566" : isLoss ? "#F9A8B8" : "#FFFFFF";
+    const paperBevel = isWin ? "#F5CF36" : isLoss ? "#E8635A" : "#FAFADF";
+
+    const scissorMain = isWin ? "#4ECDC4" : isLoss ? "#F9A8B8" : "#E8635A";
+    const scissorBlade = isWin ? "#FFE566" : isLoss ? "#FCE7EB" : "#FFE566";
+
+    const clipId = `sketch-hand-clip-${uid}-${side}-${splitHalf}`;
     const mirrorTransform = side === "right" ? "translate(140, 0) scale(-1, 1)" : undefined;
+
+    const renderGeometry = (isShadowPass: boolean) => {
+        const ink = outerInk;
+        const fillCuff = isShadowPass ? ink : cuffFill;
+        const fillRock = isShadowPass ? ink : rockMain;
+        const fillRockBevel = isShadowPass ? ink : rockBevel;
+        const fillPaper = isShadowPass ? ink : paperMain;
+        const fillPaperBevel = isShadowPass ? ink : paperBevel;
+        const fillScissor = isShadowPass ? ink : scissorMain;
+        const fillBlade = isShadowPass ? ink : scissorBlade;
+        const strokeInk = ink;
+        const strokeW = isShadowPass ? 2.4 : 2.8;
+
+        return (
+            <>
+                {move === "rock" && (
+                    <g>
+                        {/* Forearm sleeve cuff */}
+                        <path
+                            d="M 7 45 C 19 42, 29 44, 41 42 L 43 84 C 31 85, 19 86, 7 85 C 5 71, 6 58, 7 45 Z"
+                            fill={fillCuff}
+                            stroke={strokeInk}
+                            strokeWidth={strokeW}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        />
+                        {/* Sculpted chunky 3D stone fist */}
+                        <path
+                            d="M 38 40 C 44 25, 62 21, 78 23 C 89 24, 98 25, 107 27 C 119 28, 125 36, 124 47 L 122 74 C 120 87, 111 94, 97 95 C 82 95, 67 94, 53 94 C 41 93, 36 83, 36 73 C 36 62, 37 51, 38 40 Z"
+                            fill={fillRock}
+                            stroke={strokeInk}
+                            strokeWidth={strokeW}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        />
+                        {!isShadowPass && (
+                            <>
+                                {/* Finger/knuckle facet dividers */}
+                                <path
+                                    d="M 78 25 C 77 37, 77 48, 76 58 M 96 27 C 95 39, 95 49, 94 60 M 112 31 C 111 42, 111 51, 110 62"
+                                    fill="none"
+                                    stroke="#111111"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                />
+                                {/* Clenched thumb bevel */}
+                                <path
+                                    d="M 48 61 C 57 54, 79 54, 96 58 C 103 60, 104 69, 97 74 C 84 78, 61 77, 48 72 C 45 69, 46 64, 48 61 Z"
+                                    fill={fillRockBevel}
+                                    stroke="#111111"
+                                    strokeWidth="2.2"
+                                    strokeLinejoin="round"
+                                />
+                                {/* Pencil cross-hatch & top specular highlight */}
+                                <path
+                                    d="M 52 32 C 68 30, 88 31, 104 33"
+                                    fill="none"
+                                    stroke="#FFFFFF"
+                                    strokeWidth="2.4"
+                                    strokeLinecap="round"
+                                />
+                                <path
+                                    d="M 54 84 L 61 89 M 64 84 L 71 89 M 74 84 L 81 89 M 16 54 L 22 60 M 23 54 L 29 60"
+                                    fill="none"
+                                    stroke="#111111"
+                                    strokeWidth="1.5"
+                                    strokeOpacity="0.65"
+                                    strokeLinecap="round"
+                                />
+                            </>
+                        )}
+                    </g>
+                )}
+
+                {move === "paper" && (
+                    <g>
+                        {/* Forearm cuff */}
+                        <path
+                            d="M 7 49 C 18 47, 27 47, 37 46 L 39 82 C 29 83, 18 84, 7 83 C 5 72, 6 60, 7 49 Z"
+                            fill={fillCuff}
+                            stroke={strokeInk}
+                            strokeWidth={strokeW}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        />
+                        {/* Open sculpted palm & extended hand-drawn fingers */}
+                        <path
+                            d="M 34 45 L 52 24 C 57 18, 66 20, 67 27 L 58 43 L 112 31 C 120 30, 125 37, 121 43 L 82 50 L 125 49 C 132 49, 134 57, 127 60 L 84 62 L 122 66 C 129 67, 129 75, 121 76 L 80 74 L 108 82 C 114 84, 112 92, 104 91 L 52 86 C 40 85, 34 78, 34 68 Z"
+                            fill={fillPaper}
+                            stroke={strokeInk}
+                            strokeWidth={strokeW}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        />
+                        {!isShadowPass && (
+                            <>
+                                {/* Palm shaded facet */}
+                                <path
+                                    d="M 46 68 C 58 72, 70 74, 80 74 L 103 84 L 54 83 C 44 82, 41 75, 46 68 Z"
+                                    fill={fillPaperBevel}
+                                    stroke="none"
+                                />
+                                {/* Inked palm crease & finger sketch lines */}
+                                <path
+                                    d="M 52 52 C 62 56, 68 65, 66 76"
+                                    fill="none"
+                                    stroke="#111111"
+                                    strokeWidth="2.1"
+                                    strokeLinecap="round"
+                                />
+                                <path
+                                    d="M 79 44 C 92 41, 104 39, 115 37 M 83 56 C 97 56, 109 55, 121 55 M 81 68 C 94 69, 106 70, 117 71"
+                                    fill="none"
+                                    stroke="#111111"
+                                    strokeWidth="1.7"
+                                    strokeOpacity="0.65"
+                                    strokeLinecap="round"
+                                />
+                                {/* Jagged tear seam when sliced */}
+                                {splitHalf !== "full" && (
+                                    <path
+                                        d="M 32 65 L 48 61 L 64 64 L 82 59 L 101 62 L 122 57"
+                                        fill="none"
+                                        stroke="#E8635A"
+                                        strokeWidth="2.5"
+                                        strokeLinecap="round"
+                                    />
+                                )}
+                            </>
+                        )}
+                    </g>
+                )}
+
+                {move === "scissors" && (
+                    <g>
+                        {/* Forearm cuff */}
+                        <path
+                            d="M 7 49 C 18 46, 28 47, 39 46 L 41 84 C 30 85, 18 85, 7 85 C 5 73, 6 61, 7 49 Z"
+                            fill={fillCuff}
+                            stroke={strokeInk}
+                            strokeWidth={strokeW}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        />
+                        {/* Upper V-Blade Finger */}
+                        <path
+                            d="M 56 48 L 122 19 C 130 16, 136 24, 129 30 L 76 58 Z"
+                            fill={fillBlade}
+                            stroke={strokeInk}
+                            strokeWidth={strokeW}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        />
+                        {/* Lower V-Blade Finger */}
+                        <path
+                            d="M 62 60 L 126 66 C 135 67, 134 78, 125 78 L 66 76 Z"
+                            fill={fillBlade}
+                            stroke={strokeInk}
+                            strokeWidth={strokeW}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        />
+                        {/* Curled Palm Body */}
+                        <path
+                            d="M 36 44 C 46 37, 62 38, 74 44 C 77 56, 78 69, 77 82 C 73 92, 58 95, 44 91 C 37 88, 35 80, 35 72 Z"
+                            fill={fillScissor}
+                            stroke={strokeInk}
+                            strokeWidth={strokeW}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        />
+                        {!isShadowPass && (
+                            <>
+                                {/* Folded thumb & curled knuckles */}
+                                <path
+                                    d="M 49 62 C 58 58, 72 60, 76 68 C 72 76, 58 78, 48 73 C 45 70, 46 65, 49 62 Z"
+                                    fill="#FFFFFF"
+                                    stroke="#111111"
+                                    strokeWidth="2.1"
+                                />
+                                {/* Blade bevel sheen */}
+                                <path
+                                    d="M 78 44 L 122 25 M 79 68 L 123 72"
+                                    fill="none"
+                                    stroke="#111111"
+                                    strokeWidth="1.7"
+                                    strokeOpacity="0.65"
+                                    strokeLinecap="round"
+                                />
+                                <path
+                                    d="M 46 47 L 52 53 M 54 47 L 60 53"
+                                    fill="none"
+                                    stroke="#111111"
+                                    strokeWidth="1.5"
+                                    strokeLinecap="round"
+                                />
+                            </>
+                        )}
+                    </g>
+                )}
+
+                {move === "none" && (
+                    <g>
+                        <path
+                            d="M 35 30 C 59 27, 86 28, 109 30 C 114 31, 114 55, 112 88 C 87 92, 58 92, 34 89 C 31 66, 32 45, 35 30 Z"
+                            fill={isShadowPass ? ink : isDark ? "#25252C" : "#FAFADF"}
+                            stroke={strokeInk}
+                            strokeWidth={2.5}
+                            strokeDasharray={isShadowPass ? undefined : "7 5"}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        />
+                        {!isShadowPass && (
+                            <path
+                                d="M 55 59 Q 72 56 89 60"
+                                fill="none"
+                                stroke="#E8635A"
+                                strokeWidth="3.2"
+                                strokeLinecap="round"
+                            />
+                        )}
+                    </g>
+                )}
+            </>
+        );
+    };
 
     return (
         <svg
-            viewBox="0 0 140 120"
+            viewBox="0 0 144 126"
             className={`clash-hand-svg side-${side} role-${role}`}
             aria-hidden="true"
         >
             <defs>
-                <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor={bodyTop} />
-                    <stop offset="52%" stopColor={bodyMid} />
-                    <stop offset="100%" stopColor={bodyDeep} />
-                </linearGradient>
-                <linearGradient id={rimId} x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="rgba(255,255,255,0.08)" />
-                    <stop offset="55%" stopColor={rimColor} stopOpacity="0.85" />
-                    <stop offset="100%" stopColor={rimColor} stopOpacity="0.95" />
-                </linearGradient>
                 {splitHalf === "top" && (
                     <clipPath id={clipId}>
-                        <polygon points="0,0 140,0 140,56 0,68" />
+                        <polygon points="0,0 144,0 144,57 96,62 60,64 0,68" />
                     </clipPath>
                 )}
                 {splitHalf === "bottom" && (
                     <clipPath id={clipId}>
-                        <polygon points="0,68 140,56 140,120 0,120" />
+                        <polygon points="0,68 60,64 96,62 144,57 144,126 0,126" />
                     </clipPath>
                 )}
             </defs>
@@ -136,168 +353,22 @@ export const SculptedHandSVG: React.FC<SculptedHandProps> = ({
                 transform={mirrorTransform}
                 clipPath={splitHalf !== "full" ? `url(#${clipId})` : undefined}
             >
-                {move === "rock" && (
-                    <g>
-                        {/* Forearm cuff */}
-                        <path
-                            d="M 6 44 L 40 42 L 42 84 L 6 86 Z"
-                            fill={`url(#${gradId})`}
-                            stroke={`url(#${rimId})`}
-                            strokeWidth="1.6"
-                        />
-                        {/* Sculpted 3D Fist / Stone Mass */}
-                        <path
-                            d="M 38 40 C 44 26 60 22 76 24 L 106 27 C 118 28 124 36 124 46 L 122 74 C 121 86 112 94 98 95 L 54 94 C 42 93 36 84 36 74 Z"
-                            fill={`url(#${gradId})`}
-                            stroke={`url(#${rimId})`}
-                            strokeWidth="2"
-                            strokeLinejoin="round"
-                        />
-                        {/* Knuckle facets for 3D depth */}
-                        <path
-                            d="M 78 26 L 76 58 M 96 27 L 94 60 M 112 31 L 110 62"
-                            stroke="rgba(255,255,255,0.16)"
-                            strokeWidth="1.5"
-                            strokeLinecap="round"
-                        />
-                        {/* Clenched thumb bevel */}
-                        <path
-                            d="M 48 60 C 56 54 78 54 96 58 C 102 60 104 68 98 73 C 86 77 62 77 48 72 Z"
-                            fill="#191b20"
-                            stroke={rimColor}
-                            strokeOpacity="0.55"
-                            strokeWidth="1.5"
-                        />
-                        {/* Specular edge */}
-                        <path
-                            d="M 52 31 L 104 33"
-                            stroke="rgba(255,255,255,0.28)"
-                            strokeWidth="1.4"
-                            strokeLinecap="round"
-                        />
-                    </g>
-                )}
-
-                {move === "paper" && (
-                    <g>
-                        {/* Forearm cuff */}
-                        <path
-                            d="M 6 48 L 36 46 L 38 82 L 6 84 Z"
-                            fill={`url(#${gradId})`}
-                            stroke={`url(#${rimId})`}
-                            strokeWidth="1.6"
-                        />
-                        {/* Open 3D Sculpted Palm & Extended Fingers */}
-                        <path
-                            d="M 34 45 L 52 24 C 57 19 65 20 67 27 L 58 43 L 112 32 C 120 31 124 37 121 43 L 82 50 L 125 49 C 132 49 134 57 127 60 L 84 62 L 122 66 C 129 67 129 75 121 76 L 80 74 L 108 82 C 114 84 112 92 104 91 L 52 86 C 40 85 34 78 34 68 Z"
-                            fill={`url(#${gradId})`}
-                            stroke={`url(#${rimId})`}
-                            strokeWidth="1.9"
-                            strokeLinejoin="round"
-                        />
-                        {/* Palm bevel lines */}
-                        <path
-                            d="M 52 52 C 62 56 68 64 66 76"
-                            fill="none"
-                            stroke="rgba(255,255,255,0.18)"
-                            strokeWidth="1.4"
-                            strokeLinecap="round"
-                        />
-                        <path
-                            d="M 78 44 L 116 37 M 82 56 L 122 55 M 80 68 L 118 71"
-                            stroke="rgba(255,255,255,0.12)"
-                            strokeWidth="1.2"
-                            strokeLinecap="round"
-                        />
-                    </g>
-                )}
-
-                {move === "scissors" && (
-                    <g>
-                        {/* Forearm cuff */}
-                        <path
-                            d="M 6 48 L 38 46 L 40 84 L 6 86 Z"
-                            fill={`url(#${gradId})`}
-                            stroke={`url(#${rimId})`}
-                            strokeWidth="1.6"
-                        />
-                        {/* Upper V-Blade Finger */}
-                        <path
-                            d="M 56 48 L 122 20 C 129 17 135 24 129 30 L 76 58 Z"
-                            fill={`url(#${gradId})`}
-                            stroke={`url(#${rimId})`}
-                            strokeWidth="1.9"
-                            strokeLinejoin="round"
-                        />
-                        {/* Lower V-Blade Finger */}
-                        <path
-                            d="M 62 60 L 126 66 C 134 67 134 77 125 78 L 66 76 Z"
-                            fill={`url(#${gradId})`}
-                            stroke={`url(#${rimId})`}
-                            strokeWidth="1.9"
-                            strokeLinejoin="round"
-                        />
-                        {/* Curled Palm Body */}
-                        <path
-                            d="M 36 44 C 46 38 62 38 74 44 L 78 82 C 74 92 58 95 44 91 C 37 88 35 80 35 72 Z"
-                            fill={`url(#${gradId})`}
-                            stroke={`url(#${rimId})`}
-                            strokeWidth="1.9"
-                        />
-                        {/* Folded knuckles & thumb */}
-                        <path
-                            d="M 50 62 C 58 58 72 60 76 68 C 72 76 58 78 48 73 Z"
-                            fill="#181a1f"
-                            stroke={rimColor}
-                            strokeOpacity="0.5"
-                            strokeWidth="1.4"
-                        />
-                        {/* Metallic blade bevel highlights */}
-                        <path
-                            d="M 76 46 L 122 26 M 78 68 L 124 72"
-                            stroke="rgba(255,255,255,0.25)"
-                            strokeWidth="1.3"
-                            strokeLinecap="round"
-                        />
-                    </g>
-                )}
-
-                {move === "none" && (
-                    <g>
-                        <rect
-                            x="32"
-                            y="28"
-                            width="80"
-                            height="64"
-                            rx="18"
-                            fill="rgba(255,255,255,0.02)"
-                            stroke="rgba(255,255,255,0.2)"
-                            strokeWidth="1.5"
-                            strokeDasharray="5 5"
-                        />
-                        <line
-                            x1="54"
-                            y1="60"
-                            x2="90"
-                            y2="60"
-                            stroke="rgba(255,255,255,0.25)"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                        />
-                    </g>
-                )}
+                {/* Hard zero-blur offset shadow layer */}
+                <g transform="translate(3.5, 4)">{renderGeometry(true)}</g>
+                {/* Foreground colorful inked hand */}
+                <g>{renderGeometry(false)}</g>
             </g>
         </svg>
     );
 };
 
 const SHARD_VECTORS = [
-    { x: 26, y: -34, r: 52, delay: 0.28 },
-    { x: 38, y: -12, r: -38, delay: 0.29 },
-    { x: 22, y: 28, r: 74, delay: 0.3 },
-    { x: -16, y: -26, r: -65, delay: 0.28 },
-    { x: -24, y: 22, r: 44, delay: 0.31 },
-    { x: 42, y: 14, r: -88, delay: 0.3 },
+    { x: 28, y: -36, r: 52, delay: 0.28, color: "#FFE566" },
+    { x: 40, y: -14, r: -38, delay: 0.29, color: "#E8635A" },
+    { x: 24, y: 30, r: 74, delay: 0.3, color: "#4ECDC4" },
+    { x: -18, y: -28, r: -65, delay: 0.28, color: "#F9A8B8" },
+    { x: -24, y: 24, r: 44, delay: 0.31, color: "#C4B5FD" },
+    { x: 42, y: 16, r: -88, delay: 0.3, color: "#FFFFFF" },
 ];
 
 export const DuelClashStage: React.FC<DuelClashStageProps> = ({
@@ -313,46 +384,109 @@ export const DuelClashStage: React.FC<DuelClashStageProps> = ({
     onStartSearching,
     onNextOpponent,
 }) => {
+    const { isDark } = useTheme();
     const isConnected = callState === "connected";
+    const neutralCardFill = isDark ? "#1C1C21" : "#FFFFFF";
+    const ink = isDark ? "#FFFFFF" : "#111111";
 
     // Idle / Searching / Stopped state
     if (!isConnected) {
         return (
-            <div className="duel-stage-inner duel-idle">
+            <SketchSurface
+                fill={neutralCardFill}
+                shadow={5}
+                radius={20}
+                seed="duel-idle"
+                className="duel-sketch-card"
+                innerClassName="duel-stage-inner duel-idle"
+            >
                 <div className="duel-radar-wrap" aria-hidden="true">
                     {callState === "searching" ? (
-                        <>
-                            <span className="duel-ring ring-1" />
-                            <span className="duel-ring ring-2" />
-                            <span className="duel-core-dot pulsing" />
-                        </>
+                        <svg width="72" height="72" viewBox="0 0 72 72" className="sketch-radar-svg">
+                            <circle
+                                cx="36"
+                                cy="36"
+                                r="28"
+                                fill={isDark ? "#25252C" : "#FAFADF"}
+                                stroke={ink}
+                                strokeWidth="2.4"
+                                strokeDasharray="8 6"
+                                className="sketch-spin-radar"
+                            />
+                            <circle
+                                cx="36"
+                                cy="36"
+                                r="18"
+                                fill="#FFE566"
+                                stroke="#111111"
+                                strokeWidth="2.2"
+                            />
+                            <path
+                                d="M36 25 L38 34 L47 36 L38 38 L36 47 L34 38 L25 36 L34 34 Z"
+                                fill="#4ECDC4"
+                                stroke="#111111"
+                                strokeWidth="1.6"
+                                strokeLinejoin="round"
+                            />
+                        </svg>
                     ) : (
-                        <span className="duel-core-dot idle" />
+                        <svg width="64" height="64" viewBox="0 0 64 64" className="sketch-radar-svg">
+                            <path
+                                d="M32 6 C47 5, 58 17, 57 32 C56 48, 45 58, 31 57 C16 56, 6 46, 7 31 C8 16, 19 7, 32 6 Z"
+                                transform="translate(2.5, 2.5)"
+                                fill={ink}
+                            />
+                            <path
+                                d="M32 6 C47 5, 58 17, 57 32 C56 48, 45 58, 31 57 C16 56, 6 46, 7 31 C8 16, 19 7, 32 6 Z"
+                                fill="#F9A8B8"
+                                stroke={ink}
+                                strokeWidth="2.4"
+                            />
+                            <rect x="23" y="22" width="6" height="20" rx="2" fill="#111111" />
+                            <rect x="35" y="22" width="6" height="20" rx="2" fill="#111111" />
+                        </svg>
                     )}
                 </div>
-                <p className="duel-kicker">
-                    {callState === "searching" ? "Finding opponent" : "Paused"}
-                </p>
+
+                <span
+                    className={`duel-phase-chip ${
+                        callState === "searching" ? "chip-yellow" : "chip-pink"
+                    }`}
+                >
+                    {callState === "searching" ? "finding opponent" : "paused"}
+                </span>
+
                 <p className="duel-subcopy">{connectionStatus}</p>
+
                 {callState === "stopped" && (
-                    <button
-                        type="button"
+                    <SketchButton
+                        fill="#4ECDC4"
+                        shadow={4}
+                        radius={12}
+                        seed="duel-start-btn"
                         onClick={onStartSearching}
-                        className="duel-primary-cta"
+                        faceClassName="duel-primary-cta-face"
                     >
-                        <Play size={14} fill="currentColor" />
-                        <span>Find Partner</span>
-                    </button>
+                        <Play size={14} fill="#111111" />
+                        <span>find partner</span>
+                    </SketchButton>
                 )}
-            </div>
+            </SketchSurface>
         );
     }
 
     // Warmup state
     if (gamePhase === "warmup" || gamePhase === "waiting") {
         return (
-            <div className="duel-stage-inner duel-warmup">
-                <span className="duel-phase-chip">Get ready</span>
+            <SketchSurface
+                fill={neutralCardFill}
+                shadow={5}
+                radius={20}
+                seed="duel-warmup"
+                className="duel-sketch-card"
+                innerClassName="duel-stage-inner duel-warmup"
+            >
+                <span className="duel-phase-chip chip-yellow">get ready</span>
                 <motion.div
                     key={`warmup-${timer}`}
                     initial={{ scale: 0.85, opacity: 0.4 }}
@@ -362,59 +496,83 @@ export const DuelClashStage: React.FC<DuelClashStageProps> = ({
                 >
                     {timer > 0 ? timer : "--"}
                 </motion.div>
-                <p className="duel-subcopy">Match starts soon. Position your camera.</p>
-            </div>
+                <SketchDivider orientation="horizontal" length={76} color="#E8635A" />
+                <p className="duel-subcopy">match starts soon. position your camera.</p>
+            </SketchSurface>
         );
     }
 
     // Countdown state (5s ready phase before blackout)
     if (gamePhase === "countdown") {
         return (
-            <div className="duel-stage-inner duel-countdown">
-                <span className="duel-phase-chip accent">Round {Math.min(round || 1, 5)} of 5</span>
+            <SketchSurface
+                fill={neutralCardFill}
+                shadow={5}
+                radius={20}
+                seed="duel-countdown"
+                className="duel-sketch-card"
+                innerClassName="duel-stage-inner duel-countdown"
+            >
+                <span className="duel-phase-chip chip-lavender">
+                    round {Math.min(round || 1, 5)} of 5
+                </span>
                 <motion.div
                     key={`cd-${round}-${timer}`}
-                    initial={{ scale: 1.28, opacity: 0.25, rotateX: 22 }}
-                    animate={{ scale: 1, opacity: 1, rotateX: 0 }}
-                    transition={{ duration: 0.26, ease: "easeOut" }}
+                    initial={{ scale: 1.24, opacity: 0.35 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.22, ease: "easeOut" }}
                     className="duel-big-number countdown-num"
                 >
                     {timer}
                 </motion.div>
-                <p className="duel-subcopy">Show your hand clearly</p>
-            </div>
+                <p className="duel-subcopy">show your hand clearly</p>
+            </SketchSurface>
         );
     }
 
     // Blackout / Scanning state (5s capture window)
     if (gamePhase === "blackout") {
         return (
-            <div className="duel-stage-inner duel-blackout">
+            <SketchSurface
+                fill="#FFE566"
+                shadow={5}
+                radius={20}
+                seed="duel-blackout"
+                className="duel-sketch-card"
+                innerClassName="duel-stage-inner duel-blackout"
+            >
                 <div className="duel-scan-orb" aria-hidden="true">
-                    <Lock size={20} strokeWidth={2} />
+                    <Lock size={22} strokeWidth={2.5} color="#111111" />
                 </div>
-                <span className="duel-phase-chip scanning">Locking move</span>
+                <span className="duel-phase-chip chip-coral">locking move</span>
                 <div className="duel-scan-timer">{timer}s</div>
-                <p className="duel-subcopy">Hold steady while AI reads your hand</p>
-            </div>
+                <p className="duel-subcopy">hold steady while ai reads your hand</p>
+            </SketchSurface>
         );
     }
 
     // Reveal / Evaluating transition state
     if (gamePhase === "reveal") {
         return (
-            <div className="duel-stage-inner duel-reveal">
+            <SketchSurface
+                fill="#C4B5FD"
+                shadow={5}
+                radius={20}
+                seed="duel-reveal"
+                className="duel-sketch-card"
+                innerClassName="duel-stage-inner duel-reveal"
+            >
                 <div className="duel-eval-spinner" aria-hidden="true">
-                    <RefreshCw size={22} className="spin-slow" />
+                    <RefreshCw size={22} strokeWidth={2.5} color="#111111" className="spin-slow" />
                 </div>
-                <span className="duel-phase-chip">Evaluating</span>
+                <span className="duel-phase-chip chip-white">evaluating</span>
                 <p className="duel-subcopy">
                     {connectionStatus.toLowerCase().includes("timed out") ||
                     connectionStatus.toLowerCase().includes("error")
                         ? connectionStatus
-                        : `Resolving Round ${Math.min(lastRoundResult?.round || round || 1, 5)}...`}
+                        : `resolving round ${Math.min(lastRoundResult?.round || round || 1, 5)}...`}
                 </p>
-            </div>
+            </SketchSurface>
         );
     }
 
@@ -422,53 +580,72 @@ export const DuelClashStage: React.FC<DuelClashStageProps> = ({
     if (gamePhase === "game_over") {
         const verdictTitle =
             matchWinner === "user"
-                ? "Victory"
+                ? "victory"
                 : matchWinner === "opponent"
-                  ? "Defeat"
-                  : "Draw";
+                  ? "defeat"
+                  : "draw";
         const verdictClass =
             matchWinner === "user"
                 ? "win"
                 : matchWinner === "opponent"
                   ? "loss"
                   : "draw";
+        const cardFill =
+            matchWinner === "user"
+                ? "#4ECDC4"
+                : matchWinner === "opponent"
+                  ? "#F9A8B8"
+                  : "#FFE566";
 
         return (
             <motion.div
-                initial={{ opacity: 0, scale: 0.92, y: 8 }}
+                initial={{ opacity: 0, scale: 0.94, y: 8 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ duration: 0.35, ease: "easeOut" }}
-                className={`duel-stage-inner duel-gameover verdict-${verdictClass}`}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                className="duel-gameover-motion"
             >
-                <div className={`duel-trophy-badge ${verdictClass}`}>
-                    {matchWinner === "opponent" ? (
-                        <ShieldAlert size={22} />
-                    ) : (
-                        <Trophy size={22} />
-                    )}
-                </div>
-                <span className="duel-phase-chip">Match complete</span>
-                <h2 className={`duel-verdict-title ${verdictClass}`}>{verdictTitle}</h2>
-                <div className="duel-final-score">
-                    <span>{scores.user}</span>
-                    <span className="score-dash">-</span>
-                    <span>{scores.opponent}</span>
-                </div>
-                <p className="duel-subcopy">
-                    vs {opponentNickname || "Stranger"}
-                </p>
-                <button
-                    type="button"
-                    onClick={onNextOpponent}
-                    className="duel-primary-cta"
+                <SketchSurface
+                    fill={cardFill}
+                    shadow={6}
+                    radius={20}
+                    seed="duel-gameover"
+                    className="duel-sketch-card"
+                    innerClassName={`duel-stage-inner duel-gameover verdict-${verdictClass}`}
                 >
-                    <span>Next Opponent</span>
-                </button>
+                    <div className={`duel-trophy-badge ${verdictClass}`}>
+                        {matchWinner === "opponent" ? (
+                            <ShieldAlert size={22} strokeWidth={2.4} color="#111111" />
+                        ) : (
+                            <Trophy size={22} strokeWidth={2.4} color="#111111" />
+                        )}
+                    </div>
+                    <span className="duel-phase-chip chip-white">match complete</span>
+                    <h2 className={`duel-verdict-title ${verdictClass}`}>{verdictTitle}</h2>
+                    <div className="duel-final-score">
+                        <span>{scores.user}</span>
+                        <span className="score-dash">-</span>
+                        <span>{scores.opponent}</span>
+                    </div>
+                    <p className="duel-subcopy">
+                        vs {opponentNickname || "stranger"}
+                    </p>
+                    <SketchButton
+                        fill="#FFFFFF"
+                        onPastel={true}
+                        shadow={4}
+                        radius={12}
+                        seed="duel-next-opp"
+                        onClick={onNextOpponent}
+                        faceClassName="duel-primary-cta-face"
+                    >
+                        <span>next opponent</span>
+                    </SketchButton>
+                </SketchSurface>
             </motion.div>
         );
     }
 
-    // Round Break: 3D Animated Clash Arena
+    // Round Break: Hand-Drawn Colorful 3D Animated Clash Arena
     const userMove = normalizeMove(lastRoundResult?.userMove);
     const oppMove = normalizeMove(lastRoundResult?.opponentMove);
     const winner = lastRoundResult?.winner || "draw";
@@ -491,11 +668,10 @@ export const DuelClashStage: React.FC<DuelClashStageProps> = ({
 
         if (clashType === "draw") {
             return {
-                initial: { x: -dir * 28, scale: 0.88, opacity: 0, rotateY: dir * 24 },
+                initial: { x: -dir * 28, scale: 0.88, opacity: 0 },
                 animate: {
                     x: [-dir * 24, dir * 10, -dir * 4],
                     scale: [0.9, 1.06, 1],
-                    rotateY: [dir * 20, -dir * 10, 0],
                     opacity: 1,
                 },
                 transition: { duration: 0.72, times: [0, 0.42, 1], ease: "easeOut" as const },
@@ -505,11 +681,10 @@ export const DuelClashStage: React.FC<DuelClashStageProps> = ({
         if (isWinner) {
             if (clashType === "rock_breaks_scissors") {
                 return {
-                    initial: { x: -dir * 32, scale: 0.86, opacity: 0, rotateY: dir * 26 },
+                    initial: { x: -dir * 32, scale: 0.86, opacity: 0 },
                     animate: {
                         x: [-dir * 24, -dir * 30, dir * 22, dir * 10],
                         scale: [0.92, 0.96, 1.22, 1.1],
-                        rotateY: [dir * 18, dir * 26, -dir * 20, -dir * 8],
                         rotateZ: [0, -dir * 8, dir * 4, 0],
                         opacity: 1,
                     },
@@ -518,11 +693,10 @@ export const DuelClashStage: React.FC<DuelClashStageProps> = ({
             }
             if (clashType === "paper_wraps_rock") {
                 return {
-                    initial: { x: -dir * 28, scale: 0.88, opacity: 0, rotateY: dir * 22 },
+                    initial: { x: -dir * 28, scale: 0.88, opacity: 0 },
                     animate: {
                         x: [-dir * 20, dir * 20, dir * 10],
                         scale: [0.94, 1.22, 1.1],
-                        rotateY: [dir * 18, -dir * 28, -dir * 10],
                         opacity: 1,
                     },
                     transition: { duration: 0.8, times: [0, 0.46, 1], ease: "easeOut" as const },
@@ -530,12 +704,11 @@ export const DuelClashStage: React.FC<DuelClashStageProps> = ({
             }
             if (clashType === "scissors_cuts_paper") {
                 return {
-                    initial: { x: -dir * 30, scale: 0.88, opacity: 0, rotateY: dir * 22 },
+                    initial: { x: -dir * 30, scale: 0.88, opacity: 0 },
                     animate: {
                         x: [-dir * 22, dir * 22, dir * 10],
                         scale: [0.94, 1.18, 1.08],
                         rotateZ: [0, -dir * 14, dir * 6, 0],
-                        rotateY: [dir * 18, -dir * 18, -dir * 8],
                         opacity: 1,
                     },
                     transition: { duration: 0.82, times: [0, 0.44, 0.72, 1], ease: "easeOut" as const },
@@ -556,8 +729,7 @@ export const DuelClashStage: React.FC<DuelClashStageProps> = ({
                         x: [-dir * 14, -dir * 10, -dir * 28],
                         scale: [0.96, 1.02, 0.78],
                         rotateZ: [0, 0, -dir * 28],
-                        rotateY: [0, 0, -dir * 36],
-                        opacity: [1, 1, 0.34],
+                        opacity: [1, 1, 0.52],
                     },
                     transition: { duration: 0.85, times: [0, 0.34, 1], ease: "easeOut" as const },
                 };
@@ -567,16 +739,15 @@ export const DuelClashStage: React.FC<DuelClashStageProps> = ({
                     initial: { x: -dir * 20, scale: 0.95, opacity: 0 },
                     animate: {
                         x: [-dir * 12, -dir * 10, -dir * 18],
-                        scale: [1, 0.98, 0.68],
-                        rotateY: [0, 0, -dir * 30],
-                        opacity: [1, 1, 0.32],
+                        scale: [1, 0.98, 0.7],
+                        opacity: [1, 1, 0.52],
                     },
                     transition: { duration: 0.85, times: [0, 0.36, 1], ease: "easeOut" as const },
                 };
             }
             return {
                 initial: { x: -dir * 18, scale: 0.92, opacity: 0 },
-                animate: { x: -dir * 14, scale: 0.8, opacity: 0.35 },
+                animate: { x: -dir * 14, scale: 0.82, opacity: 0.55 },
                 transition: { duration: 0.65, ease: "easeOut" as const },
             };
         }
@@ -595,10 +766,10 @@ export const DuelClashStage: React.FC<DuelClashStageProps> = ({
 
     const verdictText =
         winner === "user"
-            ? `Round ${lastRoundResult?.round || round} won`
+            ? `round ${lastRoundResult?.round || round} won`
             : winner === "opponent"
-              ? `Round ${lastRoundResult?.round || round} lost`
-              : `Round ${lastRoundResult?.round || round} tied`;
+              ? `round ${lastRoundResult?.round || round} lost`
+              : `round ${lastRoundResult?.round || round} tied`;
 
     return (
         <AnimatePresence mode="wait">
@@ -607,206 +778,281 @@ export const DuelClashStage: React.FC<DuelClashStageProps> = ({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.25 }}
-                className={`duel-stage-inner duel-clash outcome-${winner}`}
+                transition={{ duration: 0.22 }}
+                className="duel-clash-root"
             >
-                <span className={`duel-verdict-pill outcome-${winner}`}>
-                    {verdictText}
-                </span>
+                <SketchSurface
+                    fill={neutralCardFill}
+                    shadow={5}
+                    radius={20}
+                    seed={`clash-${roundKey}`}
+                    className="duel-sketch-card clash-card-overflow"
+                    innerClassName={`duel-stage-inner duel-clash outcome-${winner}`}
+                >
+                    <span className={`duel-verdict-pill outcome-${winner}`}>
+                        {verdictText}
+                    </span>
 
-                {/* 3D Perspective Clash Arena */}
-                <div className="clash-3d-viewport">
-                    {/* Subtle radial depth floor */}
-                    <div className={`clash-depth-ring outcome-${winner}`} aria-hidden="true" />
-
-                    {/* Impact shockwave on collision */}
-                    <motion.div
-                        className={`clash-shockwave outcome-${winner}`}
-                        initial={{ scale: 0.15, opacity: 0 }}
-                        animate={{ scale: [0.2, 1.35, 1.8], opacity: [0, 0.85, 0] }}
-                        transition={{ duration: 0.65, delay: 0.25, ease: "easeOut" }}
-                        aria-hidden="true"
-                    />
-
-                    {/* Wrap aura for Paper beats Rock */}
-                    {clashType === "paper_wraps_rock" && (
-                        <motion.div
-                            className={`clash-wrap-ring side-${winner === "user" ? "right" : "left"}`}
-                            initial={{ scale: 1.5, opacity: 0 }}
-                            animate={{ scale: [1.5, 0.92, 0.82], opacity: [0, 0.75, 0.25] }}
-                            transition={{ duration: 0.7, delay: 0.26, ease: "easeOut" }}
+                    {/* 3D Hand-Drawn Sketch Clash Arena */}
+                    <div className="clash-3d-viewport">
+                        {/* Hand-drawn oval ground hatch shadow */}
+                        <svg
+                            className="clash-ground-sketch"
+                            width="180"
+                            height="32"
+                            viewBox="0 0 180 32"
                             aria-hidden="true"
-                        />
-                    )}
+                        >
+                            <path
+                                d="M12 18 C45 10, 135 10, 168 18 C142 26, 38 26, 12 18 Z"
+                                fill={
+                                    winner === "user"
+                                        ? "#4ECDC4"
+                                        : winner === "opponent"
+                                          ? "#F9A8B8"
+                                          : "#C4B5FD"
+                                }
+                                fillOpacity="0.45"
+                                stroke={ink}
+                                strokeWidth="1.8"
+                                strokeDasharray="6 5"
+                            />
+                        </svg>
 
-                    {/* Slash streak for Scissors beats Paper */}
-                    {clashType === "scissors_cuts_paper" && (
+                        {/* Spiky comic impact starburst on collision */}
                         <motion.div
-                            className={`clash-slash-beam side-${winner === "user" ? "right" : "left"}`}
-                            initial={{ scaleX: 0, opacity: 0 }}
-                            animate={{ scaleX: [0, 1.2, 0], opacity: [0, 1, 0] }}
-                            transition={{ duration: 0.45, delay: 0.26, ease: "easeOut" }}
+                            className="clash-starburst-wrap"
+                            initial={{ scale: 0.2, opacity: 0, rotate: -15 }}
+                            animate={{
+                                scale: [0.25, 1.25, 1.05],
+                                opacity: [0, 1, 0],
+                                rotate: [-12, 8, 16],
+                            }}
+                            transition={{ duration: 0.65, delay: 0.24, ease: "easeOut" }}
                             aria-hidden="true"
-                        />
-                    )}
+                        >
+                            <svg width="92" height="92" viewBox="0 0 100 100">
+                                <path
+                                    d="M50 6 L61 30 L88 18 L73 43 L96 56 L70 64 L80 90 L54 74 L40 95 L34 69 L8 72 L26 51 L6 35 L33 34 L25 10 Z"
+                                    fill="#FFE566"
+                                    stroke="#111111"
+                                    strokeWidth="2.8"
+                                    strokeLinejoin="round"
+                                />
+                            </svg>
+                        </motion.div>
 
-                    <div className="clash-hands-row">
-                        {/* Left Hand (YOU) */}
-                        <div className="clash-hand-slot slot-left">
-                            {leftIsCutPaper ? (
-                                <div className="split-paper-wrapper">
-                                    <motion.div
-                                        className="split-half"
-                                        initial={{ x: 0, y: 0, rotate: 0, opacity: 1 }}
-                                        animate={{ x: -12, y: -18, rotate: -16, opacity: 0.35 }}
-                                        transition={{ duration: 0.65, delay: 0.28, ease: "easeOut" }}
-                                    >
-                                        <SculptedHandSVG
-                                            move="paper"
-                                            side="left"
-                                            role="loser"
-                                            uid={roundKey}
-                                            splitHalf="top"
-                                        />
-                                    </motion.div>
-                                    <motion.div
-                                        className="split-half"
-                                        initial={{ x: 0, y: 0, rotate: 0, opacity: 1 }}
-                                        animate={{ x: -14, y: 18, rotate: 18, opacity: 0.3 }}
-                                        transition={{ duration: 0.65, delay: 0.28, ease: "easeOut" }}
-                                    >
-                                        <SculptedHandSVG
-                                            move="paper"
-                                            side="left"
-                                            role="loser"
-                                            uid={roundKey}
-                                            splitHalf="bottom"
-                                        />
-                                    </motion.div>
-                                </div>
-                            ) : (
-                                <motion.div
-                                    className="clash-hand-actor"
-                                    {...getHandAnimation("left")}
-                                >
-                                    <SculptedHandSVG
-                                        move={userMove}
-                                        side="left"
-                                        role={userRole}
-                                        uid={roundKey}
+                        {/* Hand-drawn lasso wrap ring for Paper beats Rock */}
+                        {clashType === "paper_wraps_rock" && (
+                            <motion.div
+                                className={`clash-wrap-ring side-${winner === "user" ? "right" : "left"}`}
+                                initial={{ scale: 1.45, opacity: 0 }}
+                                animate={{ scale: [1.45, 0.94, 0.86], opacity: [0, 1, 0.7] }}
+                                transition={{ duration: 0.68, delay: 0.26, ease: "easeOut" }}
+                                aria-hidden="true"
+                            >
+                                <svg width="96" height="96" viewBox="0 0 100 100">
+                                    <path
+                                        d="M52 10 C77 8, 92 28, 90 52 C88 78, 69 91, 46 89 C22 87, 9 69, 11 45 C13 22, 31 12, 52 10 Z"
+                                        fill="none"
+                                        stroke="#4ECDC4"
+                                        strokeWidth="5"
+                                        strokeDasharray="10 6"
+                                        strokeLinecap="round"
                                     />
-                                </motion.div>
-                            )}
-
-                            {showShardsLeft && (
-                                <div className="clash-shards" aria-hidden="true">
-                                    {SHARD_VECTORS.map((s, idx) => (
-                                        <motion.span
-                                            key={idx}
-                                            className="clash-shard"
-                                            initial={{ x: 0, y: 0, rotate: 0, opacity: 0, scale: 0.6 }}
-                                            animate={{
-                                                x: -s.x,
-                                                y: s.y,
-                                                rotate: s.r,
-                                                opacity: [0, 1, 0],
-                                                scale: [0.6, 1.1, 0.3],
-                                            }}
-                                            transition={{ duration: 0.62, delay: s.delay, ease: "easeOut" }}
-                                        />
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Right Hand (STRANGER) */}
-                        <div className="clash-hand-slot slot-right">
-                            {rightIsCutPaper ? (
-                                <div className="split-paper-wrapper">
-                                    <motion.div
-                                        className="split-half"
-                                        initial={{ x: 0, y: 0, rotate: 0, opacity: 1 }}
-                                        animate={{ x: 12, y: -18, rotate: 16, opacity: 0.35 }}
-                                        transition={{ duration: 0.65, delay: 0.28, ease: "easeOut" }}
-                                    >
-                                        <SculptedHandSVG
-                                            move="paper"
-                                            side="right"
-                                            role="loser"
-                                            uid={roundKey}
-                                            splitHalf="top"
-                                        />
-                                    </motion.div>
-                                    <motion.div
-                                        className="split-half"
-                                        initial={{ x: 0, y: 0, rotate: 0, opacity: 1 }}
-                                        animate={{ x: 14, y: 18, rotate: -18, opacity: 0.3 }}
-                                        transition={{ duration: 0.65, delay: 0.28, ease: "easeOut" }}
-                                    >
-                                        <SculptedHandSVG
-                                            move="paper"
-                                            side="right"
-                                            role="loser"
-                                            uid={roundKey}
-                                            splitHalf="bottom"
-                                        />
-                                    </motion.div>
-                                </div>
-                            ) : (
-                                <motion.div
-                                    className="clash-hand-actor"
-                                    {...getHandAnimation("right")}
-                                >
-                                    <SculptedHandSVG
-                                        move={oppMove}
-                                        side="right"
-                                        role={oppRole}
-                                        uid={roundKey}
+                                    <path
+                                        d="M52 10 C77 8, 92 28, 90 52 C88 78, 69 91, 46 89 C22 87, 9 69, 11 45 C13 22, 31 12, 52 10 Z"
+                                        fill="none"
+                                        stroke="#111111"
+                                        strokeWidth="2"
+                                        strokeDasharray="10 6"
+                                        strokeLinecap="round"
                                     />
-                                </motion.div>
-                            )}
+                                </svg>
+                            </motion.div>
+                        )}
 
-                            {showShardsRight && (
-                                <div className="clash-shards" aria-hidden="true">
-                                    {SHARD_VECTORS.map((s, idx) => (
-                                        <motion.span
-                                            key={idx}
-                                            className="clash-shard"
-                                            initial={{ x: 0, y: 0, rotate: 0, opacity: 0, scale: 0.6 }}
-                                            animate={{
-                                                x: s.x,
-                                                y: s.y,
-                                                rotate: s.r,
-                                                opacity: [0, 1, 0],
-                                                scale: [0.6, 1.1, 0.3],
-                                            }}
-                                            transition={{ duration: 0.62, delay: s.delay, ease: "easeOut" }}
+                        {/* Jagged comic slash stroke for Scissors beats Paper */}
+                        {clashType === "scissors_cuts_paper" && (
+                            <motion.div
+                                className={`clash-slash-beam side-${winner === "user" ? "right" : "left"}`}
+                                initial={{ scaleX: 0, opacity: 0 }}
+                                animate={{ scaleX: [0, 1.2, 0.9, 0], opacity: [0, 1, 1, 0] }}
+                                transition={{ duration: 0.55, delay: 0.26, ease: "easeOut" }}
+                                aria-hidden="true"
+                            >
+                                <svg width="116" height="24" viewBox="0 0 120 24">
+                                    <path
+                                        d="M4 16 L36 6 L68 15 L116 4 L72 19 L34 11 Z"
+                                        fill="#FFE566"
+                                        stroke="#111111"
+                                        strokeWidth="2.4"
+                                        strokeLinejoin="round"
+                                    />
+                                </svg>
+                            </motion.div>
+                        )}
+
+                        <div className="clash-hands-row">
+                            {/* Left Hand (YOU) */}
+                            <div className="clash-hand-slot slot-left">
+                                {leftIsCutPaper ? (
+                                    <div className="split-paper-wrapper">
+                                        <motion.div
+                                            className="split-half"
+                                            initial={{ x: 0, y: 0, rotate: 0, opacity: 1 }}
+                                            animate={{ x: -12, y: -18, rotate: -16, opacity: 0.6 }}
+                                            transition={{ duration: 0.65, delay: 0.28, ease: "easeOut" }}
+                                        >
+                                            <SculptedHandSVG
+                                                move="paper"
+                                                side="left"
+                                                role="loser"
+                                                uid={roundKey}
+                                                splitHalf="top"
+                                            />
+                                        </motion.div>
+                                        <motion.div
+                                            className="split-half"
+                                            initial={{ x: 0, y: 0, rotate: 0, opacity: 1 }}
+                                            animate={{ x: -14, y: 18, rotate: 18, opacity: 0.55 }}
+                                            transition={{ duration: 0.65, delay: 0.28, ease: "easeOut" }}
+                                        >
+                                            <SculptedHandSVG
+                                                move="paper"
+                                                side="left"
+                                                role="loser"
+                                                uid={roundKey}
+                                                splitHalf="bottom"
+                                            />
+                                        </motion.div>
+                                    </div>
+                                ) : (
+                                    <motion.div
+                                        className="clash-hand-actor"
+                                        {...getHandAnimation("left")}
+                                    >
+                                        <SculptedHandSVG
+                                            move={userMove}
+                                            side="left"
+                                            role={userRole}
+                                            uid={roundKey}
                                         />
-                                    ))}
-                                </div>
-                            )}
+                                    </motion.div>
+                                )}
+
+                                {showShardsLeft && (
+                                    <div className="clash-shards" aria-hidden="true">
+                                        {SHARD_VECTORS.map((s, idx) => (
+                                            <motion.span
+                                                key={idx}
+                                                className="clash-shard"
+                                                style={{ backgroundColor: s.color }}
+                                                initial={{ x: 0, y: 0, rotate: 0, opacity: 0, scale: 0.6 }}
+                                                animate={{
+                                                    x: -s.x,
+                                                    y: s.y,
+                                                    rotate: s.r,
+                                                    opacity: [0, 1, 0],
+                                                    scale: [0.6, 1.2, 0.4],
+                                                }}
+                                                transition={{ duration: 0.65, delay: s.delay, ease: "easeOut" }}
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Right Hand (STRANGER) */}
+                            <div className="clash-hand-slot slot-right">
+                                {rightIsCutPaper ? (
+                                    <div className="split-paper-wrapper">
+                                        <motion.div
+                                            className="split-half"
+                                            initial={{ x: 0, y: 0, rotate: 0, opacity: 1 }}
+                                            animate={{ x: 12, y: -18, rotate: 16, opacity: 0.6 }}
+                                            transition={{ duration: 0.65, delay: 0.28, ease: "easeOut" }}
+                                        >
+                                            <SculptedHandSVG
+                                                move="paper"
+                                                side="right"
+                                                role="loser"
+                                                uid={roundKey}
+                                                splitHalf="top"
+                                            />
+                                        </motion.div>
+                                        <motion.div
+                                            className="split-half"
+                                            initial={{ x: 0, y: 0, rotate: 0, opacity: 1 }}
+                                            animate={{ x: 14, y: 18, rotate: -18, opacity: 0.55 }}
+                                            transition={{ duration: 0.65, delay: 0.28, ease: "easeOut" }}
+                                        >
+                                            <SculptedHandSVG
+                                                move="paper"
+                                                side="right"
+                                                role="loser"
+                                                uid={roundKey}
+                                                splitHalf="bottom"
+                                            />
+                                        </motion.div>
+                                    </div>
+                                ) : (
+                                    <motion.div
+                                        className="clash-hand-actor"
+                                        {...getHandAnimation("right")}
+                                    >
+                                        <SculptedHandSVG
+                                            move={oppMove}
+                                            side="right"
+                                            role={oppRole}
+                                            uid={roundKey}
+                                        />
+                                    </motion.div>
+                                )}
+
+                                {showShardsRight && (
+                                    <div className="clash-shards" aria-hidden="true">
+                                        {SHARD_VECTORS.map((s, idx) => (
+                                            <motion.span
+                                                key={idx}
+                                                className="clash-shard"
+                                                style={{ backgroundColor: s.color }}
+                                                initial={{ x: 0, y: 0, rotate: 0, opacity: 0, scale: 0.6 }}
+                                                animate={{
+                                                    x: s.x,
+                                                    y: s.y,
+                                                    rotate: s.r,
+                                                    opacity: [0, 1, 0],
+                                                    scale: [0.6, 1.2, 0.4],
+                                                }}
+                                                transition={{ duration: 0.65, delay: s.delay, ease: "easeOut" }}
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                {/* Move Matchup & Reason */}
-                <div className="clash-caption-block">
-                    <div className="clash-move-pair">
-                        <span className={`move-label role-${userRole}`}>
-                            {userMove === "none" ? "NONE" : userMove.toUpperCase()}
-                        </span>
-                        <span className="move-vs">vs</span>
-                        <span className={`move-label role-${oppRole}`}>
-                            {oppMove === "none" ? "NONE" : oppMove.toUpperCase()}
-                        </span>
+                    {/* Move Matchup & Reason */}
+                    <div className="clash-caption-block">
+                        <div className="clash-move-pair">
+                            <span className={`move-label role-${userRole}`}>
+                                {userMove === "none" ? "none" : userMove}
+                            </span>
+                            <span className="move-vs">vs</span>
+                            <span className={`move-label role-${oppRole}`}>
+                                {oppMove === "none" ? "none" : oppMove}
+                            </span>
+                        </div>
+                        {lastRoundResult?.reason && (
+                            <p className="clash-reason">{lastRoundResult.reason}</p>
+                        )}
+                        <div className="clash-next-timer">
+                            next round in <strong>{timer}s</strong>
+                        </div>
                     </div>
-                    {lastRoundResult?.reason && (
-                        <p className="clash-reason">{lastRoundResult.reason}</p>
-                    )}
-                    <div className="clash-next-timer">
-                        Next round in <strong>{timer}s</strong>
-                    </div>
-                </div>
+                </SketchSurface>
             </motion.div>
         </AnimatePresence>
     );
