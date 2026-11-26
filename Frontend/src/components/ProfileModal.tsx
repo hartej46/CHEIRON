@@ -6,12 +6,14 @@ interface ProfileModalProps {
     isOpen: boolean;
     onClose: () => void;
     onDeleted?: () => void;
+    variant?: "default" | "neobrutal";
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({
     isOpen,
     onClose,
     onDeleted,
+    variant = "default",
 }) => {
     if (!isOpen) return null;
 
@@ -19,6 +21,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         <ProfileModalDialog
             onClose={onClose}
             onDeleted={onDeleted}
+            variant={variant}
         />
     );
 };
@@ -26,6 +29,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 const ProfileModalDialog: React.FC<Omit<ProfileModalProps, "isOpen">> = ({
     onClose,
     onDeleted,
+    variant = "default",
 }) => {
     const { userData, nickname, isLoggedIn, updateUsername, deleteUserId } =
         useNickname();
@@ -106,12 +110,12 @@ const ProfileModalDialog: React.FC<Omit<ProfileModalProps, "isOpen">> = ({
 
     return (
         <div
-            className="modal-backdrop"
+            className={`modal-backdrop ${variant === "neobrutal" ? "is-neobrutal" : ""}`}
             onClick={onClose}
             role="presentation"
         >
             <div
-                className="modal-card profile-modal-card"
+                className={`modal-card profile-modal-card ${variant === "neobrutal" ? "is-neobrutal" : ""}`}
                 onClick={(e) => e.stopPropagation()}
                 role="dialog"
                 aria-modal="true"

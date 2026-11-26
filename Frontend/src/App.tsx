@@ -11,6 +11,8 @@ import {
     NicknameContext,
     useNickname,
 } from "./context/NicknameContext";
+import { ThemeProvider } from "./context/ThemeContext";
+import { SketchSurface } from "./components/SketchPrimitives";
 import { LandingPage } from "./pages/LandingPage";
 import { VideoRoom } from "./pages/VideoRoom";
 import {
@@ -25,11 +27,19 @@ function RoomRoute() {
 
     if (isCheckingSession) {
         return (
-            <main className="landing-page">
-                <section className="landing-card" aria-busy="true">
-                    <p className="eyebrow">CHEIRON / VIDEO CHAT</p>
-                    <p className="landing-copy">Checking session...</p>
-                </section>
+            <main className="cheiron-landing cheiron-checking-state">
+                <div className="landing-paper-dots" aria-hidden="true" />
+                <SketchSurface
+                    as="section"
+                    shadow={4}
+                    radius={20}
+                    seed="session-checking-card"
+                    innerClassName="checking-card-inner"
+                    aria-busy="true"
+                >
+                    <p className="checking-eyebrow">cheiron · video duels</p>
+                    <p className="checking-copy">checking your session...</p>
+                </SketchSurface>
             </main>
         );
     }
@@ -165,11 +175,13 @@ function App() {
     );
 
     return (
-        <NicknameContext.Provider value={contextValue}>
-            <BrowserRouter>
-                <AppRoutes />
-            </BrowserRouter>
-        </NicknameContext.Provider>
+        <ThemeProvider>
+            <NicknameContext.Provider value={contextValue}>
+                <BrowserRouter>
+                    <AppRoutes />
+                </BrowserRouter>
+            </NicknameContext.Provider>
+        </ThemeProvider>
     );
 }
 
