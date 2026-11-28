@@ -20,7 +20,8 @@ import {
 } from "lucide-react";
 import { useNickname } from "../context/NicknameContext";
 import { useTheme } from "../context/ThemeContext";
-import { initPlayer, getSessionDetails } from "../service/service";
+import { initPlayer, getSessionDetails, getIceServers } from "../service/service";
+import { config } from "../config/Config";
 import { ProfileModal } from "../components/ProfileModal";
 import { DuelClashStage } from "../components/DuelClashStage";
 import {
@@ -35,17 +36,11 @@ import { getStoredToken } from "../utils/storage";
 import { soundManager } from "../utils/audio";
 import "../styles/arena.css";
 
-const ICE_SERVERS: RTCConfiguration = {
-    iceServers: [
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.l.google.com:19302" },
-        { urls: "stun:stun2.l.google.com:19302" },
-        { urls: "stun:stun3.l.google.com:19302" },
-        { urls: "stun:stun4.l.google.com:19302" },
-        { urls: "stun:stun.services.mozilla.com" },
-    ],
-    iceCandidatePoolSize: 10,
-};
+const FALLBACK_ICE_SERVERS: RTCIceServer[] = [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun.cloudflare.com:3478" },
+];
 
 const HAND_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
     [0, 1], [1, 2], [2, 3], [3, 4],
@@ -75,6 +70,11 @@ export function VideoRoom() {
     const socketRef = useRef<Socket | null>(null);
     const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
     const roomIdRef = useRef<string | null>(null);
+    const iceServersRef = useRef<RTCIceServer[]>(FALLBACK_ICE_SERVERS);
+    const isInitiatorRef = useRef<boolean>(false);
+    const iceRestartAttemptsRef = useRef<number>(0);
+    const nicknameRef = useRef<string>(nickname);
+    nicknameRef.current = nickname;
     const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
     const latestCoordinatesRef = useRef<number[] | null>(null);
     const gamePhaseRef = useRef<"waiting" | "warmup" | "countdown" | "blackout" | "reveal" | "round_break" | "game_over">("waiting");
@@ -496,10 +496,15 @@ export function VideoRoom() {
     const teardownPeerConnection = useCallback(() => {
         if (peerConnectionRef.current) {
             peerConnectionRef.current.onicecandidate = null;
+            peerConnectionRef.current.onicecandidateerror = null;
+            peerConnectionRef.current.oniceconnectionstatechange = null;
+            peerConnectionRef.current.onconnectionstatechange = null;
             peerConnectionRef.current.ontrack = null;
             peerConnectionRef.current.close();
             peerConnectionRef.current = null;
         }
+        isInitiatorRef.current = false;
+        iceRestartAttemptsRef.current = 0;
         pendingCandidatesRef.current = [];
         if (remoteVideoRef.current) {
             remoteVideoRef.current.srcObject = null;
@@ -534,7 +539,10 @@ export function VideoRoom() {
     const setupPeerConnection = useCallback(() => {
         let connection = peerConnectionRef.current;
         if (!connection) {
-            connection = new RTCPeerConnection(ICE_SERVERS);
+            connection = new RTCPeerConnection({
+                iceServers: iceServersRef.current,
+                iceCandidatePoolSize: 10,
+            });
             peerConnectionRef.current = connection;
         }
 
@@ -599,15 +607,51 @@ export function VideoRoom() {
             }
         };
 
+        const attemptIceRestart = async () => {
+            if (
+                !isInitiatorRef.current ||
+                !roomIdRef.current ||
+                !socketRef.current ||
+                iceRestartAttemptsRef.current >= 3
+            ) {
+                return;
+            }
+            iceRestartAttemptsRef.current += 1;
+            try {
+                connection.restartIce();
+                const offer = await connection.createOffer({ iceRestart: true });
+                await connection.setLocalDescription(offer);
+                socketRef.current.emit("webrtc_offer", {
+                    roomId: roomIdRef.current,
+                    sdp: connection.localDescription,
+                });
+            } catch (error) {
+                console.error("ICE restart failed:", error);
+            }
+        };
+
         connection.onconnectionstatechange = () => {
             if (connection.connectionState === "connected") {
+                iceRestartAttemptsRef.current = 0;
                 setConnectionStatus("Connected to opponent.");
                 setCallState("connected");
             } else if (connection.connectionState === "disconnected") {
                 setConnectionStatus("Opponent connection interrupted. Reconnecting...");
             } else if (connection.connectionState === "failed") {
                 setConnectionStatus("WebRTC connection failed. Retrying...");
+                void attemptIceRestart();
             }
+        };
+
+        connection.oniceconnectionstatechange = () => {
+            if (connection.iceConnectionState === "failed") {
+                setConnectionStatus("Network relay retry in progress...");
+                void attemptIceRestart();
+            }
+        };
+
+        connection.onicecandidateerror = (event) => {
+            console.warn("ICE candidate error:", event.errorCode, event.errorText, event.url);
         };
 
         connection.onicecandidate = (event) => {
@@ -669,15 +713,26 @@ export function VideoRoom() {
                     setUserData(sessionRes.profile);
                 }
             } catch {
-                const initRes = await initPlayer(nickname);
+                const initRes = await initPlayer(nicknameRef.current);
                 if (initRes?.profile) {
                     setUserData(initRes.profile);
                 }
             }
-            // Connect Socket.IO
+
+            // Fetch STUN/TURN ICE servers from backend before matchmaking
+            const iceConfig = await getIceServers();
+            if (isCancelled) return;
+            iceServersRef.current = iceConfig.iceServers;
+            if (!iceConfig.hasTurn) {
+                console.warn(
+                    "No TURN server configured; connections on strict/college NATs may fail."
+                );
+            }
+
+            // Connect Socket.IO (use config.apiURL so Vite proxy works on LAN devices too)
             const token = getStoredToken();
 
-            const socket = io(import.meta.env.VITE_BACKEND_URL, {
+            const socket = io(config.apiURL || undefined, {
                 withCredentials: true,
                 auth: {
                     token: token || undefined,
@@ -713,6 +768,8 @@ export function VideoRoom() {
                     opponentNickname?: string;
                 }) => {
                     roomIdRef.current = roomId;
+                    isInitiatorRef.current = initiator;
+                    iceRestartAttemptsRef.current = 0;
                     setOpponentNickname(matchedOpponentNickname || "Stranger");
                     setConnectionStatus("Connecting to opponent...");
 
@@ -982,7 +1039,7 @@ export function VideoRoom() {
             teardownPeerConnection();
             socketRef.current?.disconnect();
         };
-    }, [nickname, initLocalMedia, setupPeerConnection, teardownPeerConnection]);
+    }, [initLocalMedia, setupPeerConnection, teardownPeerConnection]);
 
     // Action: Next Partner
     // Cuts the current call, immediately returns back to original proportions, and searches for a new partner
@@ -1410,7 +1467,16 @@ export function VideoRoom() {
                                 className={`arena-stream-video ${
                                     isOpponentRoundLoser ? "arena-video-dimmed" : ""
                                 }`}
-                                style={remoteStream ? undefined : { display: "none" }}
+                                style={
+                                    remoteStream
+                                        ? undefined
+                                        : {
+                                              position: "absolute",
+                                              inset: 0,
+                                              opacity: 0,
+                                              pointerEvents: "none",
+                                          }
+                                }
                                 aria-label="Opponent video stream"
                             />
 

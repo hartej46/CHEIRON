@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { deletePlayer, getPlayerDetails, initPlayer } from "../controller/user.controller.ts";
+import { getIceServers } from "../controller/ice.controller.ts";
 import { authMiddleware } from "../middleware/auth.middleware.ts";
 import { InitSessionBodySchema } from "../schema/user.schema.ts";
 
@@ -14,6 +15,8 @@ const routes: FastifyPluginAsync = async (fastify) => {
         uptime: process.uptime(),
         timestamp: Date.now(),
     }));
+
+    fastify.get("/ice-servers", getIceServers);
 
     fastify.post(
         "/session/init",
