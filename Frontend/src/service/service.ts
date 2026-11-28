@@ -110,3 +110,36 @@ export const checkBackendHealth = async (): Promise<boolean> => {
         return false;
     }
 };
+
+export interface IceServersResponse {
+    success: boolean;
+    iceServers: RTCIceServer[];
+    hasTurn: boolean;
+}
+
+const DEFAULT_FALLBACK_ICE_SERVERS: RTCIceServer[] = [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun.cloudflare.com:3478" },
+];
+
+/**
+ * Fetches STUN/TURN ICE server configuration from the backend.
+ * Falls back to public STUN servers if the request fails.
+ */
+export const getIceServers = async (): Promise<IceServersResponse> => {
+    try {
+        const response = await apiClient.get<IceServersResponse>("/ice-servers", { timeout: 5000 });
+        if (response.data && Array.isArray(response.data.iceServers) && response.data.iceServers.length > 0) {
+            return response.data;
+        }
+    } catch (error) {
+        console.warn("Failed to fetch ICE servers from backend, falling back to STUN:", error);
+    }
+
+    return {
+        success: false,
+        iceServers: DEFAULT_FALLBACK_ICE_SERVERS,
+        hasTurn: false,
+    };
+};

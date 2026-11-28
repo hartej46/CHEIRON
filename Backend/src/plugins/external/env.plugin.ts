@@ -10,6 +10,13 @@ declare module "fastify" {
             PLAYER_DETAILS_DELETE_TIME: number;
             FRONTEND_URL: string;
             ML_SERVICE_URL: string;
+            CLOUDFLARE_TURN_KEY_ID?: string;
+            CLOUDFLARE_TURN_API_TOKEN?: string;
+            METERED_APP_NAME?: string;
+            METERED_API_KEY?: string;
+            TURN_URLS?: string;
+            TURN_USERNAME?: string;
+            TURN_CREDENTIAL?: string;
         };
     }
 }
@@ -43,6 +50,34 @@ const envSchema = {
         ML_SERVICE_URL: {
             type: "string",
             default: "http://localhost:8000",
+        },
+        CLOUDFLARE_TURN_KEY_ID: {
+            type: "string",
+            default: "",
+        },
+        CLOUDFLARE_TURN_API_TOKEN: {
+            type: "string",
+            default: "",
+        },
+        METERED_APP_NAME: {
+            type: "string",
+            default: "",
+        },
+        METERED_API_KEY: {
+            type: "string",
+            default: "",
+        },
+        TURN_URLS: {
+            type: "string",
+            default: "",
+        },
+        TURN_USERNAME: {
+            type: "string",
+            default: "",
+        },
+        TURN_CREDENTIAL: {
+            type: "string",
+            default: "",
         },
     },
 };
